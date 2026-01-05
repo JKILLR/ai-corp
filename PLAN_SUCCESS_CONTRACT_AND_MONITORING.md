@@ -476,28 +476,187 @@ ai-corp contract amend CTR-XXX          # Modify contract
 
 ### 7. Implementation Order (Revised)
 
+Each phase must satisfy the **Integration Checklist** from WORKFLOW.md - nothing gets stacked on top.
+
+---
+
 **Phase 1: Contract Foundation** (2-3 days)
-- `src/core/contract.py` (SuccessContract, ContractManager)
-- Add contract_id to Molecule
-- Tests
 
-**Phase 2: Discovery** (2-3 days)
-- Add `run_discovery()` to COOAgent
-- Add `_extract_contract()`
-- CLI `--discover` flag
-- Tests
+*Core Implementation:*
+- `src/core/contract.py` (SuccessContract, SuccessCriterion, ContractManager)
+- Add `contract_id` field to Molecule dataclass
+- Initialize `corp/contracts/` directory in templates
 
-**Phase 3: Monitoring** (2-3 days)
-- `src/core/monitor.py` (SystemMonitor)
-- Agent heartbeat integration
-- Tests
+*Integration Points:*
+| Integration | How |
+|-------------|-----|
+| Contracts → Beads | ContractManager.create() records bead entry for audit trail |
+| Contracts → Beads | ContractManager.amend() records bead entry with version history |
+| Contracts → Beads | ContractManager.update_criterion() records bead when criteria marked met |
+| Contracts → Gates | GateKeeper.evaluate_submission() checks contract criteria |
+| Contracts ← Molecules | Molecule.contract_id links to contract |
 
-**Phase 4: Dashboard** (1-2 days)
-- `src/cli/dashboard.py`
-- CLI commands
-- Integration tests
+*CLI Commands:*
+- `ai-corp contract list` - List all contracts
+- `ai-corp contract show CTR-XXX` - View contract details
+- `ai-corp contract create` - Manual contract creation (for testing)
+- `ai-corp contract check CTR-XXX 0` - Mark criterion as met
 
-**Total: ~10 days** (vs original ~4 weeks)
+*Tests:*
+- Unit tests for contract CRUD
+- Integration test: contract creation records bead
+- Integration test: gate validation checks contract criteria
+
+---
+
+**Phase 2: Discovery Conversation** (2-3 days)
+
+*Core Implementation:*
+- Add `run_discovery()` method to COOAgent
+- Add `_extract_contract()` for LLM-based extraction
+- Add `_discovery_turn()` for conversation management
+
+*Integration Points:*
+| Integration | How |
+|-------------|-----|
+| Discovery → Contracts | COO creates contract via ContractManager |
+| Discovery → Molecules | Contract linked to molecule on creation |
+| Discovery → Beads | Discovery completion recorded as bead entry |
+| Discovery ← CEO | Terminal-based conversation (web UI in P2) |
+
+*CLI Commands:*
+- `ai-corp ceo "task" --discover` - Run discovery conversation first
+- `ai-corp ceo "task" --start` - Legacy: skip discovery
+
+*Tests:*
+- Unit tests for discovery turn generation
+- Unit tests for contract extraction
+- Integration test: full discovery → contract → molecule flow
+
+---
+
+**Phase 3: System Monitoring** (2-3 days)
+
+*Core Implementation:*
+- `src/core/monitor.py` (SystemMonitor, SystemMetrics, AgentStatus, HealthAlert)
+- Add heartbeat emission to BaseAgent
+- Initialize `corp/metrics/` directory
+
+*Integration Points:*
+| Integration | How |
+|-------------|-----|
+| Monitor ← Hooks | Reads queue depths from HookManager |
+| Monitor ← Molecules | Reads progress from MoleculeEngine |
+| Monitor ← Agents | Reads heartbeat timestamps |
+| Monitor ← Channels | Reads pending message counts |
+| Monitor → Beads | Critical alerts recorded as bead entries |
+| Monitor → Channels | Critical alerts sent via BROADCAST channel |
+| Monitor → COO | COO can query system health for CEO reports |
+
+*Metrics Collected:*
+- Agent heartbeats (last seen timestamp)
+- Queue depths (items per agent hook)
+- Molecule progress (% complete)
+- Error counts (from beads)
+
+*Alert Flow:*
+```
+Issue Detected → HealthAlert created → Recorded as Bead → Broadcast via Channel → Dashboard displays
+```
+
+*Tests:*
+- Unit tests for metric collection
+- Unit tests for health threshold checks
+- Integration test: alert creates bead entry
+- Integration test: alert broadcasts via channel
+
+---
+
+**Phase 4: Terminal Dashboard** (1-2 days)
+
+*Core Implementation:*
+- `src/cli/dashboard.py` (Dashboard class)
+- Terminal rendering with live refresh option
+
+*Integration Points:*
+| Integration | How |
+|-------------|-----|
+| Dashboard ← Monitor | Reads SystemMetrics and HealthAlerts |
+| Dashboard ← Contracts | Reads contract progress for project display |
+| Dashboard ← Molecules | Reads molecule status |
+| Dashboard → Terminal | Renders to stdout |
+
+*CLI Commands:*
+- `ai-corp dashboard` - One-time render
+- `ai-corp dashboard --live` - Live updating (5s default)
+- `ai-corp dashboard --live --interval 10` - Custom interval
+- `ai-corp status` - Quick health summary (one line)
+
+*Tests:*
+- Unit tests for rendering functions
+- Integration test: dashboard shows contract progress
+- Integration test: dashboard shows alerts
+
+---
+
+**Total: ~10 days**
+
+### 8. Integration Map
+
+```
+                                    ┌─────────────┐
+                                    │   CEO       │
+                                    │  (Human)    │
+                                    └──────┬──────┘
+                                           │ discovery conversation
+                                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                              COO                                      │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐              │
+│  │ Discovery   │───▶│ Contract    │───▶│ Molecule    │              │
+│  │ Conversation│    │ Manager     │    │ Engine      │              │
+│  └─────────────┘    └──────┬──────┘    └──────┬──────┘              │
+└─────────────────────────────┼─────────────────┼─────────────────────┘
+                              │                 │
+         ┌────────────────────┼─────────────────┼────────────────────┐
+         │                    ▼                 ▼                    │
+         │              ┌───────────┐    ┌───────────┐               │
+         │              │  Beads    │◄───│  Hooks    │               │
+         │              │ (Audit)   │    │ (Queues)  │               │
+         │              └─────┬─────┘    └─────┬─────┘               │
+         │                    │                │                     │
+         │         ┌──────────┴────────────────┴──────────┐          │
+         │         │                                      │          │
+         │         ▼                                      ▼          │
+         │   ┌───────────┐    observes all          ┌───────────┐    │
+         │   │  Gates    │◄─────────────────────────│  Monitor  │    │
+         │   │           │                          │           │    │
+         │   └─────┬─────┘                          └─────┬─────┘    │
+         │         │                                      │          │
+         │         │ validates against                    │ alerts   │
+         │         ▼                                      ▼          │
+         │   ┌───────────┐                          ┌───────────┐    │
+         │   │ Contracts │◄─────────────────────────│ Channels  │    │
+         │   │           │    broadcast alerts      │           │    │
+         │   └───────────┘                          └─────┬─────┘    │
+         │                                                │          │
+         └────────────────────────────────────────────────┼──────────┘
+                                                          │
+                                                          ▼
+                                                    ┌───────────┐
+                                                    │ Dashboard │
+                                                    │ (Terminal)│
+                                                    └───────────┘
+```
+
+**Data Flow Summary:**
+1. CEO → Discovery → Contract → Molecule (project initiation)
+2. Molecule → Hooks → Agents (work distribution)
+3. Gates ← Contracts (validation against success criteria)
+4. Monitor ← Everything (observability)
+5. Monitor → Beads (alert audit trail)
+6. Monitor → Channels → Broadcast (alert distribution)
+7. Dashboard ← Monitor, Contracts, Molecules (human visibility)
 
 ---
 
