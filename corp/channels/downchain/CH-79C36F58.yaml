@@ -1,0 +1,124 @@
+id: CH-79C36F58
+channel_type: downchain
+name: coo-001-to-vp_product
+owner_id: coo-001
+participants:
+- coo-001
+- vp_product
+messages:
+- id: MSG-4A8F335A
+  channel_type: downchain
+  sender_id: coo-001
+  sender_role: coo
+  recipient_id: vp_product
+  recipient_role: vp_product
+  subject: 'Delegation: MOL-152D1477'
+  body: '
+
+    Please handle the following task:
+
+
+    Molecule: Build a hello world web app
+
+    Step: Design & Planning
+
+    Description: Create design specifications and plans
+
+
+
+
+    Context:
+
+    Build a hello world web app
+
+    '
+  priority: 2
+  status: pending
+  message_type: delegation
+  molecule_id: MOL-152D1477
+  step_id: step-5e03bc23
+  references: []
+  attachments: {}
+  created_at: '2026-01-05T06:43:42.707620'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+- id: MSG-723095C0
+  channel_type: downchain
+  sender_id: coo-001
+  sender_role: coo
+  recipient_id: vp_product
+  recipient_role: vp_product
+  subject: 'Delegation: MOL-FA99932C'
+  body: '
+
+    Please handle the following task:
+
+
+    Molecule: Build a user dashboard
+
+    Step: Design & Planning
+
+    Description: Create design specifications and plans
+
+
+
+
+    Context:
+
+    Build a user dashboard
+
+    '
+  priority: 2
+  status: pending
+  message_type: delegation
+  molecule_id: MOL-FA99932C
+  step_id: step-11033c59
+  references: []
+  attachments: {}
+  created_at: '2026-01-05T06:45:49.740292'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+- id: MSG-0FF934A4
+  channel_type: downchain
+  sender_id: coo-001
+  sender_role: coo
+  recipient_id: vp_product
+  recipient_role: vp_product
+  subject: 'Delegation: MOL-B3936C6E'
+  body: '
+
+    Please handle the following task:
+
+
+    Molecule: Build a hello world web app
+
+    Step: Design & Planning
+
+    Description: Create design specifications and plans
+
+
+
+
+    Context:
+
+    Build a hello world web app
+
+    '
+  priority: 2
+  status: pending
+  message_type: delegation
+  molecule_id: MOL-B3936C6E
+  step_id: step-5bcd4c05
+  references: []
+  attachments: {}
+  created_at: '2026-01-05T06:48:09.312683'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+created_at: '2026-01-05T06:43:42.706852'
+updated_at: '2026-01-05T06:48:09.312692'
