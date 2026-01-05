@@ -13,7 +13,7 @@ The COO is the primary orchestrator of AI Corp, responsible for:
 import json
 import re
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import TYPE_CHECKING, Optional, List, Dict, Any
 from datetime import datetime
 
 from .base import BaseAgent, AgentIdentity
@@ -24,6 +24,7 @@ from ..core.raci import RACI, create_raci
 from ..core.gate import GateKeeper
 from ..core.contract import ContractManager, SuccessContract
 from ..core.llm import LLMRequest
+from ..core.skills import SkillRegistry
 
 
 class COOAgent(BaseAgent):
@@ -46,7 +47,11 @@ class COOAgent(BaseAgent):
         'operations': 'vp_operations'
     }
 
-    def __init__(self, corp_path: Path):
+    def __init__(
+        self,
+        corp_path: Path,
+        skill_registry: Optional[SkillRegistry] = None
+    ):
         identity = AgentIdentity(
             id="coo-001",
             role_id="coo",
@@ -59,7 +64,7 @@ class COOAgent(BaseAgent):
             capabilities=['orchestration', 'delegation', 'monitoring', 'reporting']
         )
 
-        super().__init__(identity, corp_path)
+        super().__init__(identity, corp_path, skill_registry=skill_registry)
 
         # Initialize gate keeper
         self.gate_keeper = GateKeeper(self.corp_path)

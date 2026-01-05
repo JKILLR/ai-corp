@@ -133,15 +133,93 @@ class BaseAgent(ABC):
         """
         pass
 
+    def on_session_start(self) -> Dict[str, Any]:
+        """
+        Session startup protocol - runs at start of each run cycle.
+
+        Inspired by Anthropic's guidance on long-running agents.
+        Performs environment verification, context loading, and health checks.
+
+        Returns:
+            Session context dict with status and any recovered state
+        """
+        context = {
+            'agent_id': self.identity.id,
+            'role': self.identity.role_name,
+            'session_start': datetime.utcnow().isoformat(),
+            'environment_ok': True,
+            'context_loaded': False,
+            'health_ok': True,
+        }
+
+        # 1. Verify environment
+        if not self.corp_path.exists():
+            logger.error(f"[{self.identity.role_name}] Corp path does not exist: {self.corp_path}")
+            context['environment_ok'] = False
+            return context
+
+        # 2. Load recent context from beads (what happened last session)
+        try:
+            recent_beads = self.bead_ledger.get_entries_by_agent(
+                agent_id=self.identity.id,
+                limit=5
+            )
+            if recent_beads:
+                context['recent_activity'] = [
+                    {'action': b.action, 'message': b.message}
+                    for b in recent_beads
+                ]
+                context['context_loaded'] = True
+                logger.debug(f"[{self.identity.role_name}] Loaded {len(recent_beads)} recent beads")
+        except Exception as e:
+            logger.warning(f"[{self.identity.role_name}] Failed to load bead history: {e}")
+
+        # 3. Check for interrupted work (recovery)
+        if self.current_work is None:
+            # Check for work items that are in_progress status (interrupted from previous session)
+            from ..core.hook import WorkItemStatus
+            queued_items = self.hook.get_queued_items()
+            in_progress = [
+                item for item in queued_items
+                if item.status == WorkItemStatus.IN_PROGRESS
+            ]
+            if in_progress:
+                # Found work that was interrupted - log for potential recovery
+                context['interrupted_work'] = [
+                    {'id': w.id, 'title': w.title}
+                    for w in in_progress[:3]
+                ]
+                logger.info(
+                    f"[{self.identity.role_name}] Found {len(in_progress)} "
+                    f"interrupted work items from previous session"
+                )
+
+        # 4. Verify hook health
+        try:
+            hook_stats = self.hook.get_stats()
+            context['hook_stats'] = hook_stats
+        except Exception as e:
+            logger.warning(f"[{self.identity.role_name}] Failed to get hook stats: {e}")
+            context['health_ok'] = False
+
+        return context
+
     def run(self) -> None:
         """
         Main agent loop.
 
-        1. Emit heartbeat for monitoring
-        2. Process urgent messages first
-        3. Process inbox messages
-        4. Check hook for work and process it
+        1. Run session startup protocol
+        2. Emit heartbeat for monitoring
+        3. Process urgent messages first
+        4. Process inbox messages
+        5. Check hook for work and process it
         """
+        # Run session startup protocol
+        session_context = self.on_session_start()
+        if not session_context.get('environment_ok', False):
+            logger.error(f"[{self.identity.role_name}] Environment check failed, aborting run")
+            return
+
         # Emit heartbeat for system monitoring
         self._emit_heartbeat()
 

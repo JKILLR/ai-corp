@@ -238,7 +238,7 @@ class Molecule:
         )
 
     def get_progress(self) -> Dict[str, int]:
-        """Get progress summary"""
+        """Get progress summary (basic counts)"""
         total = len(self.steps)
         completed = sum(1 for s in self.steps if s.status == StepStatus.COMPLETED)
         in_progress = sum(1 for s in self.steps if s.status == StepStatus.IN_PROGRESS)
@@ -251,6 +251,71 @@ class Molecule:
             'failed': failed,
             'pending': pending,
             'percent_complete': int((completed / total) * 100) if total > 0 else 0
+        }
+
+    def get_progress_summary(self) -> Dict[str, Any]:
+        """
+        Generate rich progress summary for session bridging.
+
+        Inspired by Anthropic's guidance on long-running agents.
+        Provides a comprehensive snapshot useful for:
+        - New sessions to understand current state
+        - Progress tracking dashboards
+        - Decision making about next steps
+
+        Returns:
+            Dict with molecule status, completed steps, blockers, and next steps
+        """
+        progress = self.get_progress()
+
+        # Collect completed steps with brief info
+        completed_steps = [
+            {'id': s.id, 'name': s.name, 'completed_at': s.completed_at}
+            for s in self.steps
+            if s.status == StepStatus.COMPLETED
+        ]
+
+        # Identify blockers (failed steps or missing dependencies)
+        blockers = []
+        for step in self.steps:
+            if step.status == StepStatus.FAILED:
+                blockers.append({
+                    'step_id': step.id,
+                    'step_name': step.name,
+                    'reason': 'failed',
+                    'error': step.error
+                })
+
+        # Get next available steps
+        next_steps = [
+            {'id': s.id, 'name': s.name, 'department': s.department}
+            for s in self.get_next_available_steps()
+        ]
+
+        # Current work in progress
+        current = self.get_current_step()
+        current_step = None
+        if current:
+            current_step = {
+                'id': current.id,
+                'name': current.name,
+                'started_at': current.started_at,
+                'assigned_to': current.assigned_to
+            }
+
+        return {
+            'molecule_id': self.id,
+            'molecule_name': self.name,
+            'status': self.status.value,
+            'progress': f"{progress['completed']}/{progress['total']} steps",
+            'percent_complete': progress['percent_complete'],
+            'last_updated': self.updated_at,
+            'completed_steps': completed_steps,
+            'current_step': current_step,
+            'next_steps': next_steps,
+            'blockers': blockers if blockers else None,
+            'is_blocked': len(blockers) > 0,
+            'is_complete': self.is_complete()
         }
 
     def to_dict(self) -> Dict[str, Any]:
