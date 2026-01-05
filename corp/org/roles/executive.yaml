@@ -1,0 +1,62 @@
+# Executive Role Definitions
+# CEO and COO roles
+
+roles:
+  - id: ceo
+    name: Chief Executive Officer
+    type: executive
+    level: 1
+    description: "Human owner who sets strategic direction and approves major decisions"
+    is_human: true
+    responsibilities:
+      - Set strategic direction and vision
+      - Approve major initiatives
+      - Review high-level reports
+      - Make final decisions on escalations
+    communication:
+      receives_from: [coo]
+      sends_to: [coo]
+    authority:
+      - approve_budget
+      - approve_strategy
+      - approve_hiring
+      - override_decisions
+
+  - id: coo
+    name: Chief Operating Officer
+    type: executive
+    level: 1
+    description: "Primary AI orchestrator managing all operations"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    responsibilities:
+      - Receive and analyze tasks from CEO
+      - Create and assign molecules to VPs
+      - Monitor overall progress and health
+      - Escalate blockers to CEO
+      - Coordinate cross-department initiatives
+      - Report status and results to CEO
+    communication:
+      receives_from: [ceo, vp_engineering, vp_research, vp_product, vp_quality, vp_operations]
+      sends_to: [ceo, vp_engineering, vp_research, vp_product, vp_quality, vp_operations]
+    authority:
+      - create_molecules
+      - assign_tasks_to_vps
+      - approve_vp_requests
+      - escalate_to_ceo
+      - coordinate_departments
+    system_prompt_additions: |
+      You are the COO of AI Corp, the primary orchestrator managing all operations.
+      Your role is to:
+      1. Receive tasks from the CEO and break them into manageable molecules
+      2. Delegate work to appropriate VPs based on the task nature
+      3. Monitor progress across all departments
+      4. Ensure quality gates are respected
+      5. Report status and results back to the CEO
+
+      You should always:
+      - Create clear, well-structured molecules with defined steps
+      - Assign appropriate RACI for each task
+      - Monitor for blockers and escalate when necessary
+      - Ensure cross-department coordination
+      - Maintain visibility into all active work

@@ -1,0 +1,283 @@
+# Worker Role Definitions
+# Individual contributors who execute tasks from hooks
+
+roles:
+  # Engineering Workers
+  - id: frontend_worker
+    name: Frontend Engineer
+    type: worker
+    level: 4
+    department: engineering
+    pool: pool_frontend
+    director: dir_frontend
+    description: "Implements frontend features and components"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: [frontend-design]
+    capabilities:
+      - html
+      - css
+      - javascript
+      - typescript
+      - react
+      - vue
+      - component_development
+      - responsive_design
+    responsibilities:
+      - Implement UI components
+      - Write frontend tests
+      - Fix frontend bugs
+      - Follow design specs
+
+  - id: backend_worker
+    name: Backend Engineer
+    type: worker
+    level: 4
+    department: engineering
+    pool: pool_backend
+    director: dir_backend
+    description: "Implements backend services and APIs"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: []
+    capabilities:
+      - python
+      - nodejs
+      - go
+      - api_design
+      - database
+      - sql
+      - rest
+      - graphql
+    responsibilities:
+      - Implement backend services
+      - Write API endpoints
+      - Design data models
+      - Write backend tests
+
+  - id: devops_worker
+    name: DevOps Engineer
+    type: worker
+    level: 4
+    department: engineering
+    pool: pool_devops
+    director: dir_devops
+    description: "Manages infrastructure and deployments"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: [aws-skills, terraform-skills]
+    capabilities:
+      - docker
+      - kubernetes
+      - terraform
+      - aws
+      - gcp
+      - ci_cd
+      - monitoring
+    responsibilities:
+      - Manage infrastructure
+      - Set up CI/CD
+      - Handle deployments
+      - Monitor systems
+
+  # Research Workers
+  - id: researcher
+    name: Researcher
+    type: worker
+    level: 4
+    department: research
+    pool: pool_researchers
+    director: dir_market_research
+    description: "Conducts research and analysis"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: []
+    capabilities:
+      - web_research
+      - data_analysis
+      - report_writing
+      - competitive_analysis
+    responsibilities:
+      - Conduct research
+      - Analyze data
+      - Write reports
+      - Synthesize findings
+
+  - id: technical_researcher
+    name: Technical Researcher
+    type: worker
+    level: 4
+    department: research
+    pool: pool_technical_researchers
+    director: dir_technical_research
+    description: "Evaluates technologies and builds POCs"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: []
+    capabilities:
+      - poc_development
+      - tech_evaluation
+      - benchmarking
+      - documentation
+    responsibilities:
+      - Build proof of concepts
+      - Evaluate technologies
+      - Run benchmarks
+      - Document findings
+
+  # Product Workers
+  - id: product_manager
+    name: Product Manager
+    type: worker
+    level: 4
+    department: product
+    pool: pool_product_managers
+    director: dir_product
+    description: "Manages product requirements and backlog"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: []
+    capabilities:
+      - requirements_writing
+      - prioritization
+      - stakeholder_management
+      - metrics_tracking
+    responsibilities:
+      - Write requirements
+      - Manage backlog
+      - Define acceptance criteria
+      - Track metrics
+
+  - id: ux_designer
+    name: UX Designer
+    type: worker
+    level: 4
+    department: product
+    pool: pool_designers
+    director: dir_design
+    description: "Creates UX and visual designs"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: [frontend-design]
+    capabilities:
+      - wireframes
+      - mockups
+      - prototypes
+      - user_flows
+      - design_systems
+    responsibilities:
+      - Create wireframes
+      - Design mockups
+      - Build prototypes
+      - Document patterns
+
+  # Quality Workers
+  - id: qa_engineer
+    name: QA Engineer
+    type: worker
+    level: 4
+    department: quality
+    pool: pool_qa_engineers
+    director: dir_qa
+    description: "Tests software and reports bugs"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: [webapp-testing]
+    capabilities:
+      - test_writing
+      - test_automation
+      - bug_reporting
+      - regression_testing
+    responsibilities:
+      - Write tests
+      - Run test suites
+      - Report bugs
+      - Verify fixes
+
+  - id: security_reviewer
+    name: Security Reviewer
+    type: worker
+    level: 4
+    department: quality
+    pool: pool_security_reviewers
+    director: dir_security
+    description: "Reviews code for security issues"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: [security-bluebook-builder]
+    capabilities:
+      - code_review
+      - vulnerability_scanning
+      - security_analysis
+      - compliance_check
+    responsibilities:
+      - Review code for security
+      - Scan for vulnerabilities
+      - Check compliance
+      - Report findings
+
+  - id: code_reviewer
+    name: Code Reviewer
+    type: worker
+    level: 4
+    department: quality
+    pool: pool_code_reviewers
+    director: dir_qa
+    description: "Reviews code for quality and standards"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: []
+    capabilities:
+      - code_review
+      - best_practices
+      - performance_review
+    responsibilities:
+      - Review code quality
+      - Check standards
+      - Suggest improvements
+      - Approve changes
+
+  # Operations Workers
+  - id: project_manager
+    name: Project Manager
+    type: worker
+    level: 4
+    department: operations
+    pool: pool_project_managers
+    director: dir_project
+    description: "Manages project timelines and coordination"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: []
+    capabilities:
+      - scheduling
+      - resource_allocation
+      - risk_management
+      - status_reporting
+    responsibilities:
+      - Create schedules
+      - Track progress
+      - Manage risks
+      - Report status
+
+  - id: technical_writer
+    name: Technical Writer
+    type: worker
+    level: 4
+    department: operations
+    pool: pool_technical_writers
+    director: dir_documentation
+    description: "Creates and maintains documentation"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: [docx, pdf]
+    capabilities:
+      - technical_writing
+      - documentation
+      - knowledge_base
+      - tutorials
+    responsibilities:
+      - Write documentation
+      - Create tutorials
+      - Maintain knowledge base
+      - Update guides

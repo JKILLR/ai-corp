@@ -1,0 +1,84 @@
+# AI Corp Organizational Hierarchy
+# This defines the reporting structure and communication flows
+
+version: "1.0"
+
+levels:
+  - name: executive
+    rank: 1
+    roles: [ceo, coo]
+
+  - name: vice_president
+    rank: 2
+    roles: [vp_engineering, vp_research, vp_product, vp_quality, vp_operations]
+
+  - name: director
+    rank: 3
+    roles: [director]
+
+  - name: worker
+    rank: 4
+    roles: [engineer, researcher, designer, qa_engineer, writer, analyst]
+
+reporting_chains:
+  coo:
+    reports_to: ceo
+    direct_reports: [vp_engineering, vp_research, vp_product, vp_quality, vp_operations]
+
+  vp_engineering:
+    reports_to: coo
+    direct_reports: [dir_architecture, dir_frontend, dir_backend, dir_devops]
+
+  vp_research:
+    reports_to: coo
+    direct_reports: [dir_market_research, dir_technical_research]
+
+  vp_product:
+    reports_to: coo
+    direct_reports: [dir_product, dir_design]
+
+  vp_quality:
+    reports_to: coo
+    direct_reports: [dir_qa, dir_security]
+
+  vp_operations:
+    reports_to: coo
+    direct_reports: [dir_project, dir_documentation]
+
+communication_flows:
+  downchain:
+    description: "Delegation and task assignment flows down"
+    direction: superior -> subordinate
+    required_fields: [task_id, priority, deadline, context]
+
+  upchain:
+    description: "Status reports and escalations flow up"
+    direction: subordinate -> superior
+    required_fields: [task_id, status, summary, blockers]
+
+  peer:
+    description: "Coordination between same-level roles"
+    direction: peer <-> peer
+    required_fields: [topic, context, request_type]
+
+  broadcast:
+    description: "Announcements to all subordinates"
+    direction: superior -> all_subordinates
+    required_fields: [announcement_type, message, urgency]
+
+escalation_policy:
+  # When to escalate to superior
+  triggers:
+    - blocked_for_hours: 2
+    - budget_exceeded_percent: 20
+    - scope_change_detected: true
+    - security_concern: true
+    - quality_gate_failed_attempts: 2
+
+  # Required information for escalation
+  required_info:
+    - original_task
+    - current_status
+    - blocker_description
+    - attempted_solutions
+    - recommended_action

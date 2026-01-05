@@ -1,0 +1,89 @@
+# Feature Development Molecule Template
+# Use this for new feature development
+
+name: Feature Development
+description: Standard feature development workflow
+priority: P2_MEDIUM
+
+steps:
+  - name: Requirements Gathering
+    description: Gather and document requirements
+    department: product
+    required_capabilities: [requirements, analysis]
+
+  - name: Research & Feasibility
+    description: Research technical feasibility and options
+    department: research
+    required_capabilities: [research, tech_evaluation]
+    depends_on: [Requirements Gathering]
+
+  - name: Research Gate
+    description: Review research findings
+    department: research
+    is_gate: true
+    gate_id: research
+    depends_on: [Research & Feasibility]
+
+  - name: Design & Architecture
+    description: Create design specifications and architecture
+    department: product
+    required_capabilities: [design, architecture]
+    depends_on: [Research Gate]
+
+  - name: Design Gate
+    description: Review and approve design
+    department: product
+    is_gate: true
+    gate_id: design
+    depends_on: [Design & Architecture]
+
+  - name: Implementation
+    description: Build the feature
+    department: engineering
+    required_capabilities: [development, coding]
+    depends_on: [Design Gate]
+
+  - name: Code Review
+    description: Review implementation
+    department: quality
+    required_capabilities: [code_review]
+    depends_on: [Implementation]
+
+  - name: Build Gate
+    description: Approve code for testing
+    department: engineering
+    is_gate: true
+    gate_id: build
+    depends_on: [Code Review]
+
+  - name: Testing
+    description: Test the feature
+    department: quality
+    required_capabilities: [testing, qa]
+    depends_on: [Build Gate]
+
+  - name: QA Gate
+    description: Approve quality
+    department: quality
+    is_gate: true
+    gate_id: qa
+    depends_on: [Testing]
+
+  - name: Security Review
+    description: Security assessment
+    department: quality
+    required_capabilities: [security]
+    depends_on: [QA Gate]
+
+  - name: Security Gate
+    description: Final security approval
+    department: quality
+    is_gate: true
+    gate_id: security
+    depends_on: [Security Review]
+
+  - name: Documentation
+    description: Update documentation
+    department: operations
+    required_capabilities: [documentation]
+    depends_on: [Security Gate]
