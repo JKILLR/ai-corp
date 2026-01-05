@@ -128,29 +128,67 @@ Before marking any feature complete, verify:
 
 ## File Organization
 
-### Source Code (`src/`)
+### Critical: Template vs Runtime Separation
+
+**The AI Corp system must remain a clean, reusable template.**
+
+Never commit runtime data (beads, hooks, molecules, etc.) to the template repository.
+See `VISION.md` for full explanation.
+
+### Template Repository (`ai-corp/`)
 
 ```
-src/
-├── core/           # Infrastructure (molecules, hooks, beads, etc.)
-├── agents/         # Agent implementations
-├── cli/            # Command-line interface
-└── utils/          # Shared utilities
+ai-corp/                        # TEMPLATE - Keep clean!
+├── src/                        # System source code
+│   ├── core/                   # Infrastructure (molecules, hooks, beads, etc.)
+│   ├── agents/                 # Agent implementations
+│   ├── cli/                    # Command-line interface
+│   └── utils/                  # Shared utilities
+├── templates/                  # Organization templates
+│   └── software/               # Software company template
+│       ├── org/hierarchy.yaml
+│       ├── org/departments/
+│       └── org/roles/
+├── tests/                      # Test suite
+├── VISION.md                   # Core vision
+├── WORKFLOW.md                 # This file
+├── AI_CORP_ARCHITECTURE.md     # Technical details
+└── STATE.md                    # Current status
 ```
 
-### State Files (`corp/`)
+### Project Directory (per-project, anywhere)
 
 ```
-corp/
-├── org/            # Organizational structure (YAML)
-├── hooks/          # Agent work queues (YAML)
-├── molecules/      # Workflows (YAML)
-├── beads/          # Git-backed ledger
-├── channels/       # Messages (YAML)
-├── gates/          # Quality gates (YAML)
-├── pools/          # Worker pools (YAML)
-└── memory/         # Agent memory (JSON)
+~/projects/my-app/              # User's project directory
+├── .aicorp/                    # Runtime state (DO NOT commit to template)
+│   ├── org/                    # Copied from template on init
+│   ├── beads/                  # Audit trail
+│   ├── hooks/                  # Work queues
+│   ├── molecules/              # Workflows
+│   ├── channels/               # Messages
+│   ├── gates/                  # Quality gates
+│   ├── pools/                  # Worker pools
+│   └── memory/                 # Agent memory
+├── src/                        # Files CREATED by agents
+└── README.md                   # Project readme
 ```
+
+### What Goes Where
+
+| Content | Location | Git Tracked |
+|---------|----------|-------------|
+| System code | `ai-corp/src/` | Yes (template repo) |
+| Org templates | `ai-corp/templates/` | Yes (template repo) |
+| Tests | `ai-corp/tests/` | Yes (template repo) |
+| Runtime state | `project/.aicorp/` | Optional (project repo) |
+| Agent output | `project/*` | Yes (project repo) |
+
+### Rules
+
+1. **Never commit runtime data to the template repo**
+2. **Each project gets its own `.aicorp/` directory**
+3. **Template org structure lives in `templates/`, not `corp/`**
+4. **Tests use temporary directories, not shared state**
 
 ---
 
