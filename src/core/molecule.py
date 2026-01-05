@@ -159,6 +159,7 @@ class Molecule:
     raci: RACI = field(default_factory=RACI)
     parent_molecule_id: Optional[str] = None
     child_molecule_ids: List[str] = field(default_factory=list)
+    contract_id: Optional[str] = None  # Link to Success Contract
     created_at: str = ""
     created_by: str = ""
     updated_at: str = ""
@@ -269,6 +270,7 @@ class Molecule:
             'raci': raci_dict,
             'parent_molecule_id': self.parent_molecule_id,
             'child_molecule_ids': self.child_molecule_ids,
+            'contract_id': self.contract_id,
             'created_at': self.created_at,
             'created_by': self.created_by,
             'updated_at': self.updated_at,

@@ -14,11 +14,21 @@ This document defines the rules and processes for working on the AI Corp project
 - No tight coupling between modules
 - Factory patterns for object creation
 
-### 2. Full Integration
-- New code must integrate with existing systems
-- Don't just "stack on top" - connect properly
-- Update `__init__.py` exports when adding modules
-- Run integration tests after changes
+### 2. Full Integration (Architectural Beauty)
+- **Nothing gets stacked on top** - every component must be meaningfully interconnected
+- New systems must have bidirectional relationships with existing systems
+- Ask: "What does this component give to the system? What does it receive?"
+- The architecture should be beautiful - clean lines of data flow, clear responsibilities
+- If a component feels isolated, it's not done yet
+
+**Integration Checklist for New Components:**
+- [ ] What existing systems does this read FROM?
+- [ ] What existing systems does this write TO?
+- [ ] What existing systems observe/react to this?
+- [ ] How does this appear in the CEO→COO→VP→Director→Worker flow?
+- [ ] How does this integrate with the bead ledger (audit trail)?
+- [ ] Update `__init__.py` exports
+- [ ] Integration tests prove the connections work
 
 ### 3. Documentation Always
 - Update `AI_CORP_ARCHITECTURE.md` for any architectural changes

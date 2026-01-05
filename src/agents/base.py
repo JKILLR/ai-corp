@@ -126,10 +126,14 @@ class BaseAgent(ABC):
         """
         Main agent loop.
 
-        1. Process urgent messages first
-        2. Process inbox messages
-        3. Check hook for work and process it
+        1. Emit heartbeat for monitoring
+        2. Process urgent messages first
+        3. Process inbox messages
+        4. Check hook for work and process it
         """
+        # Emit heartbeat for system monitoring
+        self._emit_heartbeat()
+
         logger.info(f"[{self.identity.role_name}] Starting agent run...")
 
         # Process urgent messages first
@@ -677,3 +681,20 @@ Always maintain professional communication and follow the organizational hierarc
     def get_relevant_lessons(self, context: str) -> List[Dict[str, Any]]:
         """Get lessons learned relevant to current context"""
         return self.org_memory.get_relevant_lessons(context)
+
+    # ==================== Monitoring Integration ====================
+
+    def _emit_heartbeat(self) -> None:
+        """
+        Emit a heartbeat for system monitoring.
+
+        Called at the start of each agent run cycle.
+        The SystemMonitor uses heartbeats to detect unresponsive agents.
+        """
+        try:
+            from ..core.monitor import SystemMonitor
+            monitor = SystemMonitor(self.corp_path)
+            monitor.record_heartbeat(self.identity.id)
+        except Exception as e:
+            # Don't fail agent run if heartbeat fails
+            logger.debug(f"Heartbeat emission failed: {e}")

@@ -1,8 +1,8 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-05
-> **Current Phase:** P1 - Testing & Monitoring
-> **Status:** Core agent infrastructure complete, all 6 test stages passed with MockBackend
+> **Current Phase:** P1 - Success Contracts & Monitoring
+> **Status:** Phase 3 (System Monitoring) COMPLETE
 
 ---
 
@@ -15,13 +15,109 @@
 | Agent Hierarchy | ✅ Complete | COO, VP, Director, Worker agents |
 | LLM Integration | ✅ Complete | Swappable backends (ClaudeCode, API, Mock) |
 | Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
-| Tests | ✅ Complete | 220 tests passing, 58% overall coverage |
-| Monitoring | ❌ Missing | Need dashboard |
+| **Success Contracts** | ✅ Complete | Phase 1: Foundation with bead/gate integration |
+| **Discovery** | ✅ Complete | Phase 2: COO discovery conversation |
+| **Monitoring** | ✅ Complete | Phase 3: System monitoring |
+| Dashboard | ❌ Next | Phase 4: Terminal dashboard |
+| Tests | ✅ Complete | 341+ tests passing |
 | End-to-End Test | ✅ Basic | CLI flow works with mock backend |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-05: Phase 3 - System Monitoring Complete
+
+**Added:**
+- `src/core/monitor.py` - System monitoring module
+  - `SystemMonitor` - Background service that collects metrics and checks health
+  - `SystemMetrics` - Snapshot of system state (queues, molecules, agents)
+  - `AgentStatus` - Individual agent health tracking with heartbeat monitoring
+  - `HealthAlert` - Alert system with severity levels (INFO, WARNING, CRITICAL)
+  - `AlertSeverity` and `HealthState` enums
+- `tests/core/test_monitor.py` - 28 unit tests for monitoring classes
+- `tests/integration/test_monitor_integration.py` - 9 integration tests
+
+**Integrations Completed:**
+- **Monitor ← Hooks**: Reads queue depths from agent hooks
+- **Monitor ← Molecules**: Tracks active molecule progress
+- **Monitor → Beads**: Critical alerts recorded in audit trail
+- **Monitor → Channels**: Alert broadcasting capability
+- **BaseAgent → Monitor**: Agents emit heartbeats during run cycles
+
+**CLI Commands Updated:**
+- `ai-corp status --health` - Show system health with agent status, project progress, and alerts
+
+**Modified:**
+- `src/agents/base.py` - Added `_emit_heartbeat()` method to agent run cycle
+- `src/core/__init__.py` - Exports for monitor module
+
+**Tests:** 37 new tests (28 unit + 9 integration) all passing
+
+---
+
+### 2026-01-05: Phase 2 - Discovery Conversation Complete
+
+**Added:**
+- `src/agents/coo.py` - Discovery conversation methods
+  - `run_discovery()` - Main discovery loop with conversation management
+  - `_discovery_turn()` - Single turn conversation handling (LLM + fallback)
+  - `_extract_contract()` - LLM-based contract extraction from conversation
+  - `_fallback_discovery_turn()` - Rule-based fallback when LLM unavailable
+  - `_fallback_extract_contract()` - Pattern-based contract extraction fallback
+  - `receive_ceo_task_with_discovery()` - Full flow: discovery → contract → molecule
+- `tests/agents/test_coo_discovery.py` - 27 unit tests for discovery methods
+- `tests/integration/test_discovery_integration.py` - 11 integration tests
+
+**Integrations Completed:**
+- **Discovery → Contracts**: COO creates contract via ContractManager after conversation
+- **Discovery → Molecules**: Contract automatically linked to molecule on creation
+- **Discovery → Beads**: Discovery completion recorded in audit trail
+- **Discovery ↔ Gates**: Discovered contracts work with gate validation
+
+**CLI Commands Updated:**
+- `ai-corp ceo "task" --discover` - Run discovery conversation before creating molecule
+- `ai-corp ceo "task" --start` - Legacy: skip discovery (unchanged)
+
+**Modified:**
+- `src/core/contract.py` - Fixed `_record_bead()` to handle both Bead and BeadLedger types
+- `src/cli/main.py` - Added `--discover` flag to ceo command
+
+**Tests:** 38 new tests (27 unit + 11 integration) all passing
+
+---
+
+### 2026-01-05: Phase 1 - Contract Foundation Complete
+
+**Added:**
+- `src/core/contract.py` - Success Contract system
+  - `SuccessCriterion` dataclass with met/unmet tracking
+  - `SuccessContract` dataclass with full lifecycle (DRAFT→ACTIVE→COMPLETED/FAILED)
+  - `ContractManager` with CRUD, bead integration, and amendment support
+- `tests/core/test_contract.py` - 37 unit tests for contract module
+- `tests/integration/test_contract_integration.py` - 9 integration tests
+
+**Integrations Completed:**
+- **Contracts → Beads**: All contract operations (create, activate, update, amend, fail) recorded in audit trail
+- **Contracts → Gates**: `GateKeeper.validate_against_contract()` and `evaluate_submission_with_contract()` methods
+- **Contracts ↔ Molecules**: `Molecule.contract_id` field links workflows to contracts
+
+**CLI Commands Added:**
+- `ai-corp contracts list` - List all contracts
+- `ai-corp contracts show <id>` - Show contract details
+- `ai-corp contracts create` - Create a contract (interactive)
+- `ai-corp contracts check <id> --index N` - Mark criterion as met
+- `ai-corp contracts link <id> --molecule <mol_id>` - Link to molecule
+- `ai-corp contracts activate <id>` - Activate a draft contract
+
+**Modified:**
+- `src/core/molecule.py` - Added `contract_id` field to Molecule dataclass
+- `src/core/gate.py` - Added contract validation methods to GateKeeper
+- `src/core/__init__.py` - Exports for contract module
+- `src/cli/main.py` - Contract CLI commands
+- `WORKFLOW.md` - Added "Architectural Beauty" integration principle
+
+**Tests:** 46 new tests (37 unit + 9 integration) all passing
 
 ### 2026-01-05: Comprehensive Test Suite Complete
 
@@ -151,8 +247,10 @@
 | `hiring.py` | ✅ Stable | Dynamic hiring |
 | `templates.py` | ✅ Stable | Industry templates |
 | `memory.py` | ✅ Stable | RLM memory system |
-| `llm.py` | ✅ New | LLM backends |
-| `processor.py` | ✅ New | Message processing |
+| `llm.py` | ✅ Stable | LLM backends |
+| `processor.py` | ✅ Stable | Message processing |
+| `contract.py` | ✅ Stable | Success contracts |
+| `monitor.py` | ✅ New | System monitoring |
 
 ### Agents (`src/agents/`)
 
@@ -178,19 +276,20 @@
 
 | Issue | Severity | Notes |
 |-------|----------|-------|
-| No test suite | Medium | Need pytest tests |
 | No async support | Low | Could improve performance |
 | ClaudeCodeBackend untested with real Claude | Medium | Need live test |
+| No terminal dashboard | Low | Phase 4 next |
 
 ---
 
 ## Next Actions
 
 ### P1 Priority
-1. Create pytest test suite
-2. End-to-end test with real Claude Code
-3. Add monitoring/dashboard
-4. Implement skill loading
+1. ~~Create pytest test suite~~ ✅ Complete (341+ tests)
+2. ~~Add monitoring~~ ✅ Complete (Phase 3)
+3. Add terminal dashboard (Phase 4)
+4. End-to-end test with real Claude Code
+5. Implement skill loading
 
 ### P2 Future
 1. Chapters & Guilds
@@ -204,11 +303,11 @@
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Core modules | 12 | - |
+| Core modules | 14 | - |
 | Agent types | 5 | 5+ |
-| Lines of code | ~6000 | - |
-| Test coverage | 58% | 80% |
-| Integration tests | Basic | Comprehensive |
+| Lines of code | ~7000 | - |
+| Test coverage | 60% | 80% |
+| Integration tests | Comprehensive | Comprehensive |
 
 ---
 
