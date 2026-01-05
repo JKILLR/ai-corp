@@ -25,6 +25,8 @@ from ..core.monitor import (
 )
 from ..core.contract import ContractManager, ContractStatus
 from ..core.molecule import MoleculeEngine
+from ..core.skills import SkillRegistry, CAPABILITY_SKILL_MAP
+from ..core.scheduler import WorkScheduler
 
 
 class Colors:
@@ -124,6 +126,8 @@ class Dashboard:
         self.monitor = SystemMonitor(self.corp_path)
         self.contract_manager = ContractManager(self.corp_path)
         self.molecule_engine = MoleculeEngine(self.corp_path)
+        self.skill_registry = SkillRegistry(self.corp_path)
+        self.scheduler = WorkScheduler(self.corp_path, self.skill_registry)
 
         # Disable colors if not a TTY
         if not use_colors or not sys.stdout.isatty():
@@ -156,6 +160,9 @@ class Dashboard:
         lines.append("")
 
         lines.extend(self._render_queue_panel(metrics))
+        lines.append("")
+
+        lines.extend(self._render_capability_panel())
         lines.append("")
 
         lines.extend(self._render_alert_panel(alerts))
@@ -397,6 +404,61 @@ class Dashboard:
                 color = Colors.GREEN
 
             lines.append(f"  {agent_id:<25} [{color}{bar}{Colors.RESET}] {depth:>3}")
+
+        lines.append(self._panel_footer())
+        return lines
+
+    def _render_capability_panel(self) -> List[str]:
+        """Render the capability and skill panel"""
+        lines = []
+
+        lines.append(self._panel_header("CAPABILITIES & SKILLS"))
+
+        # Get scheduler report
+        report = self.scheduler.get_scheduling_report()
+        agents = report.get('agents', [])
+
+        if not agents:
+            lines.append(f"  {Colors.DIM}No agents registered with scheduler{Colors.RESET}")
+            lines.append(self._panel_footer())
+            return lines
+
+        # Group agents by capability
+        capability_agents: Dict[str, List[str]] = {}
+        for agent_id in agents:
+            caps = self.scheduler.capability_matcher.get_agent_capabilities(agent_id)
+            for cap in caps:
+                if cap not in capability_agents:
+                    capability_agents[cap] = []
+                capability_agents[cap].append(agent_id)
+
+        # Show capabilities with their agents
+        if capability_agents:
+            lines.append(f"  {Colors.BOLD}By Capability:{Colors.RESET}")
+            for cap in sorted(capability_agents.keys()):
+                agent_list = capability_agents[cap]
+                skills = CAPABILITY_SKILL_MAP.get(cap, [])
+                skill_str = f" ({', '.join(skills)})" if skills else ""
+
+                lines.append(
+                    f"    {Colors.CYAN}{cap}{Colors.RESET}{Colors.DIM}{skill_str}{Colors.RESET}"
+                )
+                agent_names = ", ".join(sorted(agent_list)[:5])
+                if len(agent_list) > 5:
+                    agent_names += f" +{len(agent_list) - 5} more"
+                lines.append(f"      {Colors.DIM}Agents: {agent_names}{Colors.RESET}")
+        else:
+            # Show agents without capabilities
+            lines.append(f"  {Colors.DIM}No capabilities mapped yet{Colors.RESET}")
+
+        # Summary line
+        lines.append("")
+        skill_summary = self.skill_registry.get_skill_summary()
+        lines.append(
+            f"  {Colors.DIM}Total: {len(agents)} agents | "
+            f"{len(capability_agents)} capabilities | "
+            f"{skill_summary.get('total_unique_skills', 0)} unique skills{Colors.RESET}"
+        )
 
         lines.append(self._panel_footer())
         return lines
