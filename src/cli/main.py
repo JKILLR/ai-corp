@@ -73,7 +73,7 @@ def cmd_ceo(args):
 
     if args.start:
         print("\nStarting molecule and delegating work...")
-        coo.molecule_engine.start_molecule(molecule.id)
+        molecule = coo.molecule_engine.start_molecule(molecule.id)
         delegations = coo.delegate_molecule(molecule)
         print(f"Delegated {len(delegations)} steps")
 

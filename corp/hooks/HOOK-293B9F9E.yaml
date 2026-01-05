@@ -1,0 +1,86 @@
+id: HOOK-293B9F9E
+name: vp_product Hook
+owner_type: role
+owner_id: vp_product
+description: ''
+items:
+- id: WI-4D6C93E1
+  hook_id: HOOK-293B9F9E
+  title: Design & Planning
+  description: Create design specifications and plans
+  molecule_id: MOL-152D1477
+  step_id: step-5e03bc23
+  priority: 2
+  status: queued
+  assigned_to: null
+  required_capabilities:
+  - design
+  - planning
+  required_skills: []
+  context:
+    molecule_name: Build a hello world web app
+    molecule_description: Build a hello world web app
+    is_gate: false
+    gate_id: null
+  created_at: '2026-01-05T06:43:42.704897'
+  updated_at: '2026-01-05T06:43:42.704897'
+  claimed_at: null
+  completed_at: null
+  result: null
+  error: null
+  retry_count: 0
+  max_retries: 3
+- id: WI-E0243D36
+  hook_id: HOOK-293B9F9E
+  title: Design & Planning
+  description: Create design specifications and plans
+  molecule_id: MOL-FA99932C
+  step_id: step-11033c59
+  priority: 2
+  status: queued
+  assigned_to: null
+  required_capabilities:
+  - design
+  - planning
+  required_skills: []
+  context:
+    molecule_name: Build a user dashboard
+    molecule_description: Build a user dashboard
+    is_gate: false
+    gate_id: null
+  created_at: '2026-01-05T06:45:49.735955'
+  updated_at: '2026-01-05T06:45:49.735955'
+  claimed_at: null
+  completed_at: null
+  result: null
+  error: null
+  retry_count: 0
+  max_retries: 3
+- id: WI-647793A2
+  hook_id: HOOK-293B9F9E
+  title: Design & Planning
+  description: Create design specifications and plans
+  molecule_id: MOL-B3936C6E
+  step_id: step-5bcd4c05
+  priority: 2
+  status: queued
+  assigned_to: null
+  required_capabilities:
+  - design
+  - planning
+  required_skills: []
+  context:
+    molecule_name: Build a hello world web app
+    molecule_description: Build a hello world web app
+    is_gate: false
+    gate_id: null
+  created_at: '2026-01-05T06:48:09.306119'
+  updated_at: '2026-01-05T06:48:09.306119'
+  claimed_at: null
+  completed_at: null
+  result: null
+  error: null
+  retry_count: 0
+  max_retries: 3
+created_at: '2026-01-05T06:43:42.704114'
+updated_at: '2026-01-05T06:48:09.306174'

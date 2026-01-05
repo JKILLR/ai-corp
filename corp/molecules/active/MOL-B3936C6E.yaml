@@ -1,0 +1,91 @@
+id: MOL-B3936C6E
+name: Build a hello world web app
+description: Build a hello world web app
+status: active
+priority: P2_MEDIUM
+steps:
+- id: step-5bcd4c05
+  name: Design & Planning
+  description: Create design specifications and plans
+  status: pending
+  assigned_to: vp_product
+  department: product
+  required_capabilities:
+  - design
+  - planning
+  depends_on: []
+  is_gate: false
+  gate_id: null
+  checkpoints: []
+  result: null
+  started_at: null
+  completed_at: null
+  error: null
+- id: step-c651c92f
+  name: Design Gate
+  description: Review design before implementation
+  status: pending
+  assigned_to: null
+  department: product
+  required_capabilities: []
+  depends_on:
+  - step-5bcd4c05
+  is_gate: true
+  gate_id: design
+  checkpoints: []
+  result: null
+  started_at: null
+  completed_at: null
+  error: null
+- id: step-c660acaf
+  name: Implementation
+  description: Build and implement the solution
+  status: pending
+  assigned_to: null
+  department: engineering
+  required_capabilities:
+  - development
+  - coding
+  depends_on:
+  - step-c651c92f
+  is_gate: false
+  gate_id: null
+  checkpoints: []
+  result: null
+  started_at: null
+  completed_at: null
+  error: null
+- id: step-e2eea2e1
+  name: Build Gate
+  description: Review implementation before testing
+  status: pending
+  assigned_to: null
+  department: engineering
+  required_capabilities: []
+  depends_on:
+  - step-c660acaf
+  is_gate: true
+  gate_id: build
+  checkpoints: []
+  result: null
+  started_at: null
+  completed_at: null
+  error: null
+raci:
+  responsible:
+  - vp_product
+  - vp_engineering
+  - vp_operations
+  accountable: coo
+  consulted: []
+  informed:
+  - ceo
+parent_molecule_id: null
+child_molecule_ids: []
+created_at: '2026-01-05T06:48:09.278040'
+created_by: coo-001
+updated_at: '2026-01-05T06:48:09.296167'
+started_at: '2026-01-05T06:48:09.296161'
+completed_at: null
+metadata: {}
+tags: []

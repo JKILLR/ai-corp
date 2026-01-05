@@ -14,10 +14,25 @@ import json
 import subprocess
 import uuid
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field, asdict
 import yaml
+
+
+def _sanitize_for_yaml(obj: Any) -> Any:
+    """Recursively convert enums and other non-YAML-safe types to safe values."""
+    if isinstance(obj, Enum):
+        return obj.value
+    elif isinstance(obj, dict):
+        return {k: _sanitize_for_yaml(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_for_yaml(item) for item in obj]
+    elif hasattr(obj, 'to_dict'):
+        return _sanitize_for_yaml(obj.to_dict())
+    else:
+        return obj
 
 
 @dataclass
@@ -114,12 +129,15 @@ class BeadLedger:
         parent_entry_id: Optional[str] = None
     ) -> BeadEntry:
         """Record a new entry in the ledger"""
+        # Sanitize data to ensure YAML-safe serialization (convert enums, etc.)
+        safe_data = _sanitize_for_yaml(data)
+
         entry = BeadEntry.create(
             agent_id=agent_id,
             action=action,
             entity_type=entity_type,
             entity_id=entity_id,
-            data=data,
+            data=safe_data,
             message=message,
             parent_entry_id=parent_entry_id
         )

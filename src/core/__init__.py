@@ -10,6 +10,8 @@ This module provides the core infrastructure for the AI Corporation:
 - Hiring: Dynamic agent onboarding
 - Templates: Industry-specific configurations
 - Memory: RLM-inspired context management (arXiv:2512.24601)
+- LLM: Swappable LLM backend interface
+- Processor: Inter-agent message processing
 """
 
 from .molecule import Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine
@@ -27,6 +29,14 @@ from .memory import (
     OrganizationalMemory, SubAgentCall,
     create_agent_memory, load_molecule_to_memory, load_bead_history_to_memory
 )
+from .llm import (
+    LLMBackend, LLMRequest, LLMResponse, LLMBackendFactory,
+    ClaudeCodeBackend, ClaudeAPIBackend, MockBackend,
+    AgentLLMInterface, AgentThought, get_llm_interface
+)
+from .processor import (
+    MessageProcessor, MessageHandler, ProcessingResult, MessageAction
+)
 
 __all__ = [
     'Molecule', 'MoleculeStep', 'MoleculeStatus', 'MoleculeEngine',
@@ -43,4 +53,10 @@ __all__ = [
     'ContextEnvironment', 'RecursiveMemoryManager', 'ContextCompressor',
     'OrganizationalMemory', 'SubAgentCall',
     'create_agent_memory', 'load_molecule_to_memory', 'load_bead_history_to_memory',
+    # LLM backend interface
+    'LLMBackend', 'LLMRequest', 'LLMResponse', 'LLMBackendFactory',
+    'ClaudeCodeBackend', 'ClaudeAPIBackend', 'MockBackend',
+    'AgentLLMInterface', 'AgentThought', 'get_llm_interface',
+    # Message processing
+    'MessageProcessor', 'MessageHandler', 'ProcessingResult', 'MessageAction',
 ]

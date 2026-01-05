@@ -1,0 +1,48 @@
+id: CH-A1BF0B31
+channel_type: downchain
+name: coo-001-to-vp_quality
+owner_id: coo-001
+participants:
+- coo-001
+- vp_quality
+messages:
+- id: MSG-AFAE1332
+  channel_type: downchain
+  sender_id: coo-001
+  sender_role: coo
+  recipient_id: vp_quality
+  recipient_role: vp_quality
+  subject: 'Delegation: MOL-D4EE7D13'
+  body: '
+
+    Please handle the following task:
+
+
+    Molecule: Test task
+
+    Step: Quality Assurance
+
+    Description: Test and validate the solution
+
+
+
+
+    Context:
+
+    Test description
+
+    '
+  priority: 2
+  status: pending
+  message_type: delegation
+  molecule_id: MOL-D4EE7D13
+  step_id: step-2858222c
+  references: []
+  attachments: {}
+  created_at: '2026-01-05T06:47:14.317765'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+created_at: '2026-01-05T06:47:14.316974'
+updated_at: '2026-01-05T06:47:14.317773'

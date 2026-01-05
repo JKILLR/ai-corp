@@ -1,0 +1,28 @@
+id: GATE-AF245AD1
+name: Research Gate
+description: Review research findings before proceeding to design
+owner_role: vp_research
+pipeline_stage: research
+criteria:
+- id: CRIT-095D7F
+  name: Research Complete
+  description: All research tasks completed
+  required: true
+  auto_check: false
+  check_command: null
+- id: CRIT-6D6CE3
+  name: Findings Documented
+  description: Findings are documented
+  required: true
+  auto_check: false
+  check_command: null
+- id: CRIT-E63013
+  name: Recommendations Made
+  description: Clear recommendations provided
+  required: true
+  auto_check: false
+  check_command: null
+status: open
+submissions: []
+created_at: '2026-01-05T06:33:52.713324'
+updated_at: '2026-01-05T06:33:52.713324'

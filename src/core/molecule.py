@@ -253,6 +253,12 @@ class Molecule:
         }
 
     def to_dict(self) -> Dict[str, Any]:
+        # Handle RACI serialization - use to_dict() if available, else asdict()
+        if hasattr(self.raci, 'to_dict'):
+            raci_dict = self.raci.to_dict()
+        else:
+            raci_dict = asdict(self.raci)
+
         return {
             'id': self.id,
             'name': self.name,
@@ -260,7 +266,7 @@ class Molecule:
             'status': self.status.value,
             'priority': self.priority,
             'steps': [step.to_dict() for step in self.steps],
-            'raci': asdict(self.raci),
+            'raci': raci_dict,
             'parent_molecule_id': self.parent_molecule_id,
             'child_molecule_ids': self.child_molecule_ids,
             'created_at': self.created_at,
@@ -369,13 +375,13 @@ class MoleculeEngine:
         return molecules
 
     def start_molecule(self, molecule_id: str) -> Molecule:
-        """Start a molecule (transition from PENDING to ACTIVE)"""
+        """Start a molecule (transition from DRAFT/PENDING to ACTIVE)"""
         molecule = self.get_molecule(molecule_id)
         if not molecule:
             raise ValueError(f"Molecule {molecule_id} not found")
 
-        if molecule.status != MoleculeStatus.PENDING:
-            raise ValueError(f"Molecule must be PENDING to start, got {molecule.status}")
+        if molecule.status not in (MoleculeStatus.DRAFT, MoleculeStatus.PENDING):
+            raise ValueError(f"Molecule must be DRAFT or PENDING to start, got {molecule.status}")
 
         molecule.status = MoleculeStatus.ACTIVE
         molecule.started_at = datetime.utcnow().isoformat()

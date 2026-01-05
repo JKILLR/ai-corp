@@ -12,33 +12,38 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| Organizational Structure | Done | Hierarchy, departments, roles defined in YAML |
-| Molecule Engine | Done | Persistent workflows with steps, dependencies, checkpoints |
-| Hook System | Done | Pull-based work queues for agents |
-| Bead Ledger | Done | Git-backed state persistence and audit trail |
-| Communication Channels | Done | DOWNCHAIN, UPCHAIN, PEER, BROADCAST messaging |
-| Quality Gates | Done | 5 pipeline gates with criteria and submissions |
-| RACI Model | Done | Accountability assignments for every task |
-| Worker Pools | Done | Dynamic worker scaling with capability matching |
-| Industry Templates | Done | 6 industry templates (software, construction, research, business, manufacturing, creative) |
-| Dynamic Hiring | Done | Hire VPs, Directors, Workers at runtime |
-| **Memory System (NEW)** | Done | RLM-inspired context management for large context handling |
-| CLI Interface | Done | Full command-line interface for all operations |
-| COO Agent | Done | Primary orchestrator with task analysis and delegation |
-| Base Agent | Done | Foundation class with memory, messaging, checkpoints |
+| Organizational Structure | ✅ Done | Hierarchy, departments, roles defined in YAML |
+| Molecule Engine | ✅ Done | Persistent workflows with steps, dependencies, checkpoints |
+| Hook System | ✅ Done | Pull-based work queues for agents |
+| Bead Ledger | ✅ Done | Git-backed state persistence and audit trail |
+| Communication Channels | ✅ Done | DOWNCHAIN, UPCHAIN, PEER, BROADCAST messaging |
+| Quality Gates | ✅ Done | 5 pipeline gates with criteria and submissions |
+| RACI Model | ✅ Done | Accountability assignments for every task |
+| Worker Pools | ✅ Done | Dynamic worker scaling with capability matching |
+| Industry Templates | ✅ Done | 6 industry templates (software, construction, research, business, manufacturing, creative) |
+| Dynamic Hiring | ✅ Done | Hire VPs, Directors, Workers at runtime |
+| Memory System | ✅ Done | RLM-inspired context management for large context handling |
+| CLI Interface | ✅ Done | Full command-line interface for all operations |
+| COO Agent | ✅ Done | Primary orchestrator with task analysis and delegation |
+| Base Agent | ✅ Done | Foundation class with memory, messaging, checkpoints |
+| **LLM Abstraction** | ✅ Done | Swappable LLM backends (ClaudeCode, API, Mock) |
+| **Message Processor** | ✅ Done | Handler-pattern message processing for all agent types |
+| **VP Agent Class** | ✅ Done | Department leaders with delegation and gate management |
+| **Director Agent Class** | ✅ Done | Team managers with worker pool integration |
+| **Worker Agent Class** | ✅ Done | Task executors with full Claude Code capabilities |
+| **Agent Executor** | ✅ Done | Parallel/sequential/pool execution modes |
 
 ### Gaps Requiring Implementation
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
-| VP Agent Classes | HIGH | VP agents that process delegated work |
-| Director Agent Classes | HIGH | Directors that manage worker pools |
-| Worker Agent Classes | HIGH | Workers that execute actual tasks |
-| LLM Integration | HIGH | Connect agents to Claude for actual reasoning |
-| Parallel Agent Execution | MEDIUM | Run multiple agents concurrently |
-| Real-time Monitoring | MEDIUM | Dashboard for observing agent activity |
-| Skill Loading | MEDIUM | Load Claude Code skills for agents |
-| Inter-agent Message Processing | HIGH | Agents reading and acting on messages |
+| Real-time Monitoring | P1 | Dashboard for observing agent activity |
+| Pytest Test Suite | P1 | Comprehensive test coverage |
+| Skill Loading | P1 | Load Claude Code skills for agents |
+| Async Gate Approvals | P1 | Auto-approve when criteria met |
+| Chapters & Guilds | P2 | Cross-team skill groups and communities |
+| Fitness Functions | P2 | Per-team success metrics |
+| Cross-dept Task Claiming | P2 | Workers claim work across departments |
 
 ---
 
@@ -335,11 +340,15 @@ class BaseAgent:
     channel_manager: ChannelManager
     bead_ledger: BeadLedger
 
-    # Memory System (NEW)
+    # Memory System
     memory: ContextEnvironment
     recursive_manager: RecursiveMemoryManager
     compressor: ContextCompressor
     org_memory: OrganizationalMemory
+
+    # LLM Interface (swappable backends)
+    llm: AgentLLMInterface
+    message_processor: MessageProcessor
 
     # Work Management
     def claim_work() -> WorkItem
@@ -348,7 +357,13 @@ class BaseAgent:
     def fail_work(error)
     def delegate_to(recipient, molecule, step, instructions)
 
-    # Memory Operations (NEW)
+    # LLM Execution
+    def get_system_prompt() -> str
+    def think(task, context) -> AgentThought
+    def execute_with_llm(task, working_directory) -> LLMResponse
+    def analyze_work_item(work_item) -> Dict
+
+    # Memory Operations
     def store_context(name, content, type, summary)
     def peek_context(name, start, length)
     def grep_context(name, pattern)
@@ -357,15 +372,55 @@ class BaseAgent:
     def spawn_subagent(query, context_vars)
     def spawn_parallel_subagents(queries)
 
-    # Organizational Memory (NEW)
+    # Organizational Memory
     def record_decision(...)
     def search_past_decisions(query, tags)
     def record_lesson_learned(...)
     def get_relevant_lessons(context)
 ```
 
-### COOAgent (`src/agents/coo.py`)
+### LLM Backend System (`src/core/llm.py`)
 
+Swappable LLM backends for flexible execution:
+
+```python
+# Backend Types
+ClaudeCodeBackend   # Spawns actual Claude Code instances
+ClaudeAPIBackend    # Uses Anthropic API directly
+MockBackend         # For testing without LLM calls
+
+# Factory Pattern
+LLMBackendFactory.get_best_available()  # Auto-selects best backend
+LLMBackendFactory.create('claude_code')  # Explicit selection
+
+# Agent Interface
+AgentLLMInterface.think(role, task, context) -> AgentThought
+AgentLLMInterface.execute_task(role, system_prompt, task) -> LLMResponse
+AgentLLMInterface.analyze_work_item(role, work_item) -> Dict
+AgentLLMInterface.summarize_results(role, task, output) -> Dict
+```
+
+### Message Processor (`src/core/processor.py`)
+
+Handler-pattern message processing:
+
+```python
+# Handler Types
+DelegationHandler    # Work assignments from superiors
+StatusUpdateHandler  # Progress reports from subordinates
+EscalationHandler    # Blockers escalated up the chain
+PeerRequestHandler   # Lateral coordination requests
+BroadcastHandler     # Organization-wide announcements
+
+# Processing
+processor.process_inbox(max_messages=10) -> List[ProcessingResult]
+processor.has_urgent_messages() -> bool
+processor.get_pending_count() -> int
+```
+
+### Agent Hierarchy
+
+#### COOAgent (`src/agents/coo.py`)
 The primary orchestrator that:
 1. Receives tasks from CEO
 2. Analyzes scope and determines departments
@@ -373,6 +428,53 @@ The primary orchestrator that:
 4. Delegates to VPs
 5. Monitors progress
 6. Reports to CEO
+
+#### VPAgent (`src/agents/vp.py`)
+Department heads that:
+1. Receive delegations from COO
+2. Analyze and break down work into director-level tasks
+3. Delegate to directors
+4. Manage quality gates for department
+5. Handle escalations from directors
+6. Report status upchain
+
+#### DirectorAgent (`src/agents/director.py`)
+Team managers that:
+1. Receive work from VPs
+2. Manage worker pools
+3. Delegate to workers or handle directly
+4. Review worker output
+5. Handle worker escalations
+6. Coordinate with peer directors
+
+#### WorkerAgent (`src/agents/worker.py`)
+Task executors that:
+1. Claim work from pools/directors
+2. Execute tasks using full Claude Code capabilities
+3. Create checkpoints for crash recovery
+4. Report results to directors
+5. Escalate blockers when stuck
+
+### Execution Framework (`src/agents/executor.py`)
+
+```python
+# Execution Modes
+ExecutionMode.SEQUENTIAL  # One agent at a time
+ExecutionMode.PARALLEL    # Multiple concurrent agents
+ExecutionMode.POOL        # Worker pool style
+
+# Agent Executor (for any agent group)
+executor = AgentExecutor(corp_path, mode=ExecutionMode.PARALLEL)
+executor.register_agents([vp, director, worker])
+executor.run_once()           # Single iteration
+executor.run_continuous()     # Continuous with interval
+
+# Corporation Executor (full hierarchy)
+corp = CorporationExecutor(corp_path)
+corp.initialize(departments=['engineering', 'product'])
+corp.run_cycle()              # COO -> VPs -> Directors -> Workers
+corp.run_continuous()         # Continuous corporation operation
+```
 
 ---
 
@@ -394,29 +496,38 @@ ai-corp/
 │   ├── channels/                   # Communication
 │   ├── gates/                      # Quality gates
 │   ├── pools/                      # Worker pools
-│   └── memory/                     # Agent memory state (NEW)
+│   └── memory/                     # Agent memory state
 │       └── organizational/         # Decisions, lessons, patterns
 ├── projects/                       # Project documentation
 ├── src/                            # Source code
 │   ├── core/                       # Core infrastructure
-│   │   ├── molecule.py
-│   │   ├── hook.py
-│   │   ├── bead.py
-│   │   ├── channel.py
-│   │   ├── gate.py
-│   │   ├── pool.py
-│   │   ├── raci.py
-│   │   ├── hiring.py
-│   │   ├── templates.py
-│   │   └── memory.py               # NEW - RLM-inspired memory
+│   │   ├── molecule.py             # Persistent workflows
+│   │   ├── hook.py                 # Work queues
+│   │   ├── bead.py                 # Git-backed ledger
+│   │   ├── channel.py              # Inter-agent messaging
+│   │   ├── gate.py                 # Quality gates
+│   │   ├── pool.py                 # Worker pools
+│   │   ├── raci.py                 # Accountability model
+│   │   ├── hiring.py               # Dynamic agent hiring
+│   │   ├── templates.py            # Industry templates
+│   │   ├── memory.py               # RLM-inspired memory
+│   │   ├── llm.py                  # Swappable LLM backends
+│   │   └── processor.py            # Message processing
 │   ├── agents/
-│   │   ├── base.py                 # Base agent with memory integration
+│   │   ├── base.py                 # Base agent (all capabilities)
 │   │   ├── coo.py                  # COO agent
-│   │   └── runtime.py              # Agent execution runtime
+│   │   ├── vp.py                   # VP agents
+│   │   ├── director.py             # Director agents
+│   │   ├── worker.py               # Worker agents
+│   │   ├── executor.py             # Parallel execution
+│   │   └── runtime.py              # Agent runtime
 │   ├── cli/
 │   │   └── main.py                 # CLI entry point
 │   └── utils/
-└── tests/
+├── tests/
+├── AI_CORP_ARCHITECTURE.md         # This document
+├── WORKFLOW.md                     # Development rules
+└── STATE.md                        # Current project state
 ```
 
 ---
@@ -603,25 +714,27 @@ ai-corp gates show GATE-XXXXXXXX
 
 ## Next Steps
 
-### Immediate (P0)
-1. Implement VP agent classes with LLM integration
-2. Implement Director agent classes
-3. Implement Worker agent classes
-4. Connect agents to actual Claude Code execution
-5. Enable parallel agent execution
+### ✅ Completed (P0)
+1. ~~Implement VP agent classes with LLM integration~~ ✅
+2. ~~Implement Director agent classes~~ ✅
+3. ~~Implement Worker agent classes~~ ✅
+4. ~~Connect agents to actual Claude Code execution~~ ✅
+5. ~~Enable parallel agent execution~~ ✅
 
-### Short-term (P1)
-1. Add pytest test suite
+### Current Priority (P1)
+1. Add pytest test suite with comprehensive coverage
 2. Add real-time monitoring dashboard
 3. Implement skill loading for agents
 4. Add async gate approvals where criteria are met
+5. End-to-end integration test with real Claude Code
 
-### Medium-term (P2)
+### Future (P2)
 1. Add Chapters (skill-based cross-team groups)
 2. Add Guilds (communities of interest)
 3. Implement fitness functions per team
 4. Enable cross-department task claiming
 5. Add learning from completed molecules
+6. Performance optimization for large agent swarms
 
 ---
 
