@@ -3,9 +3,13 @@
 AI Corp CLI - Main Entry Point
 
 Usage:
+    ai-corp init <industry>         Initialize AI Corp for an industry
     ai-corp ceo <task>              Submit a task as CEO
     ai-corp coo                     Start the COO orchestrator
     ai-corp status                  View system status
+    ai-corp org                     View organization structure
+    ai-corp hire <type> <args>      Hire new agents
+    ai-corp templates               List industry templates
     ai-corp molecules [list|show]   Manage molecules
     ai-corp hooks [list|show]       Manage hooks
     ai-corp gates [list|show]       Manage quality gates
@@ -24,6 +28,8 @@ from src.core.molecule import MoleculeEngine
 from src.core.hook import HookManager
 from src.core.gate import GateKeeper
 from src.core.bead import BeadLedger
+from src.core.hiring import HiringManager
+from src.core.templates import IndustryTemplateManager, init_corp, INDUSTRY_TEMPLATES
 
 
 def get_corp_path() -> Path:
@@ -251,12 +257,183 @@ def cmd_gates(args):
             print(f"  {sub.id}: {sub.summary[:50]}...")
 
 
+def cmd_init(args):
+    """Initialize AI Corp for an industry"""
+    corp_path = get_corp_path()
+
+    print(f"Initializing AI Corp for: {args.industry}")
+    print(f"Corp path: {corp_path}")
+    print()
+
+    result = init_corp(corp_path, args.industry)
+
+    print(f"\nAI Corp initialized successfully!")
+    print(f"  Industry: {result['industry']}")
+    print(f"  Departments: {len(result['departments'])}")
+    print(f"  VPs: {len(result['vps'])}")
+    print(f"  Directors: {len(result['directors'])}")
+    print(f"  Workers: {len(result['workers'])}")
+
+
+def cmd_templates(args):
+    """List or show industry templates"""
+    if args.action == 'list':
+        print("Available Industry Templates:")
+        print("-" * 60)
+        for name, template in INDUSTRY_TEMPLATES.items():
+            print(f"  {name}")
+            print(f"    {template['description']}")
+            print(f"    Departments: {len(template['departments'])}")
+            print()
+
+    elif args.action == 'show':
+        if not args.template_name:
+            print("Error: template name required")
+            return
+
+        template = INDUSTRY_TEMPLATES.get(args.template_name)
+        if not template:
+            print(f"Template '{args.template_name}' not found")
+            return
+
+        print(f"Template: {template['name']}")
+        print(f"Description: {template['description']}")
+        print()
+        print("Departments:")
+        for dept in template['departments']:
+            print(f"  - {dept['name']} (VP: {dept['vp']})")
+            print(f"    Directors: {len(dept['directors'])}")
+            print(f"    Worker types: {len(dept.get('worker_types', []))}")
+        print()
+        print(f"Quality Gates: {', '.join(template['quality_gates'])}")
+
+
+def cmd_org(args):
+    """View organization structure"""
+    corp_path = get_corp_path()
+    hiring = HiringManager(corp_path)
+
+    if args.chart:
+        print(hiring.get_org_chart())
+    else:
+        roles = hiring.list_all_roles()
+        print("AI Corp Organization")
+        print("=" * 60)
+
+        print(f"\nExecutives ({len(roles['executives'])}):")
+        for role in roles['executives']:
+            print(f"  - {role['name']} ({role['id']})")
+
+        print(f"\nVice Presidents ({len(roles['vps'])}):")
+        for role in roles['vps']:
+            print(f"  - {role['name']} ({role['id']}) - {role.get('department', 'N/A')}")
+
+        print(f"\nDirectors ({len(roles['directors'])}):")
+        for role in roles['directors']:
+            print(f"  - {role['name']} ({role['id']}) -> {role.get('reports_to', 'N/A')}")
+
+        print(f"\nWorkers ({len(roles['workers'])}):")
+        for role in roles['workers']:
+            print(f"  - {role['name']} ({role['id']}) @ {role.get('pool', 'N/A')}")
+
+
+def cmd_hire(args):
+    """Hire new agents"""
+    corp_path = get_corp_path()
+    hiring = HiringManager(corp_path)
+
+    if args.role_type == 'vp':
+        if not all([args.role_id, args.name, args.department]):
+            print("Error: VP requires --role-id, --name, --department")
+            return
+
+        role = hiring.hire_vp(
+            role_id=args.role_id,
+            name=args.name,
+            department=args.department,
+            responsibilities=args.responsibilities.split(',') if args.responsibilities else ['Lead department'],
+            skills=args.skills.split(',') if args.skills else []
+        )
+        print(f"Hired VP: {role['name']}")
+
+    elif args.role_type == 'director':
+        if not all([args.role_id, args.name, args.department, args.reports_to]):
+            print("Error: Director requires --role-id, --name, --department, --reports-to")
+            return
+
+        role = hiring.hire_director(
+            role_id=args.role_id,
+            name=args.name,
+            department=args.department,
+            reports_to=args.reports_to,
+            focus=args.focus or args.name,
+            responsibilities=args.responsibilities.split(',') if args.responsibilities else ['Lead team'],
+            skills=args.skills.split(',') if args.skills else []
+        )
+        print(f"Hired Director: {role['name']}")
+
+    elif args.role_type == 'worker':
+        if not all([args.role_id, args.name, args.department, args.pool, args.director]):
+            print("Error: Worker requires --role-id, --name, --department, --pool, --director")
+            return
+
+        role = hiring.hire_worker(
+            role_id=args.role_id,
+            name=args.name,
+            department=args.department,
+            pool=args.pool,
+            director=args.director,
+            description=args.description or args.name,
+            capabilities=args.capabilities.split(',') if args.capabilities else [],
+            responsibilities=args.responsibilities.split(',') if args.responsibilities else ['Execute tasks'],
+            skills=args.skills.split(',') if args.skills else []
+        )
+        print(f"Hired Worker: {role['name']}")
+
+    else:
+        print(f"Unknown role type: {args.role_type}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='AI Corp - Autonomous AI Corporation',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     subparsers = parser.add_subparsers(dest='command', help='Commands')
+
+    # Init command
+    init_parser = subparsers.add_parser('init', help='Initialize AI Corp for an industry')
+    init_parser.add_argument('industry', choices=list(INDUSTRY_TEMPLATES.keys()),
+                            help='Industry template to use')
+    init_parser.set_defaults(func=cmd_init)
+
+    # Templates command
+    templates_parser = subparsers.add_parser('templates', help='List industry templates')
+    templates_parser.add_argument('action', choices=['list', 'show'], default='list', nargs='?')
+    templates_parser.add_argument('template_name', nargs='?', help='Template name for show')
+    templates_parser.set_defaults(func=cmd_templates)
+
+    # Org command
+    org_parser = subparsers.add_parser('org', help='View organization structure')
+    org_parser.add_argument('-c', '--chart', action='store_true', help='Show org chart')
+    org_parser.set_defaults(func=cmd_org)
+
+    # Hire command
+    hire_parser = subparsers.add_parser('hire', help='Hire new agents')
+    hire_parser.add_argument('role_type', choices=['vp', 'director', 'worker'],
+                            help='Type of role to hire')
+    hire_parser.add_argument('--role-id', help='Unique role ID')
+    hire_parser.add_argument('--name', help='Display name')
+    hire_parser.add_argument('--department', help='Department')
+    hire_parser.add_argument('--reports-to', help='Manager role ID (for directors)')
+    hire_parser.add_argument('--pool', help='Worker pool (for workers)')
+    hire_parser.add_argument('--director', help='Director role ID (for workers)')
+    hire_parser.add_argument('--focus', help='Role focus area')
+    hire_parser.add_argument('--description', help='Role description')
+    hire_parser.add_argument('--capabilities', help='Comma-separated capabilities')
+    hire_parser.add_argument('--responsibilities', help='Comma-separated responsibilities')
+    hire_parser.add_argument('--skills', help='Comma-separated Claude Code skills')
+    hire_parser.set_defaults(func=cmd_hire)
 
     # CEO command
     ceo_parser = subparsers.add_parser('ceo', help='Submit a task as CEO')

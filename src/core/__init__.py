@@ -7,6 +7,8 @@ This module provides the core infrastructure for the AI Corporation:
 - Beads: Git-backed ledger for state persistence
 - Channels: Communication between agents
 - Gates: Quality checkpoints
+- Hiring: Dynamic agent onboarding
+- Templates: Industry-specific configurations
 """
 
 from .molecule import Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine
@@ -16,6 +18,8 @@ from .channel import Channel, ChannelType, ChannelManager
 from .gate import Gate, GateStatus, GateKeeper
 from .pool import WorkerPool, PoolManager
 from .raci import RACI, RACIRole
+from .hiring import HiringManager, quick_hire
+from .templates import IndustryTemplateManager, init_corp, INDUSTRY_TEMPLATES
 
 __all__ = [
     'Molecule', 'MoleculeStep', 'MoleculeStatus', 'MoleculeEngine',
@@ -25,4 +29,6 @@ __all__ = [
     'Gate', 'GateStatus', 'GateKeeper',
     'WorkerPool', 'PoolManager',
     'RACI', 'RACIRole',
+    'HiringManager', 'quick_hire',
+    'IndustryTemplateManager', 'init_corp', 'INDUSTRY_TEMPLATES',
 ]
