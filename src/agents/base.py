@@ -6,6 +6,8 @@ All agents in AI Corp inherit from BaseAgent, which provides:
 - Message handling
 - Checkpoint management
 - Status reporting
+- RLM-inspired memory management (context as environment)
+- Recursive sub-agent spawning
 """
 
 import uuid
@@ -20,6 +22,11 @@ from ..core.hook import HookManager, Hook, WorkItem
 from ..core.channel import ChannelManager, ChannelType, Message, MessagePriority
 from ..core.bead import BeadLedger, Bead
 from ..core.raci import RACI
+from ..core.memory import (
+    ContextEnvironment, ContextType, ContextVariable, MemoryBuffer,
+    RecursiveMemoryManager, ContextCompressor, OrganizationalMemory,
+    create_agent_memory, load_molecule_to_memory, load_bead_history_to_memory
+)
 
 
 @dataclass
@@ -65,6 +72,12 @@ class BaseAgent(ABC):
 
         # Create bead wrapper for this agent
         self.bead = Bead(self.bead_ledger, self.identity.id)
+
+        # Initialize RLM-inspired memory system
+        self.memory = create_agent_memory(self.corp_path, self.identity.id)
+        self.recursive_manager = RecursiveMemoryManager(self.corp_path)
+        self.compressor = ContextCompressor(self.memory)
+        self.org_memory = OrganizationalMemory(self.corp_path)
 
         # Get or create hook for this agent
         self.hook = self.hook_manager.get_or_create_hook(
@@ -336,5 +349,204 @@ class BaseAgent(ABC):
             'department': self.identity.department,
             'working_on': self.current_work.title if self.current_work else None,
             'hook_stats': self.hook.get_stats(),
-            'messages_pending': len(self.channel_manager.get_inbox(self.identity.id))
+            'messages_pending': len(self.channel_manager.get_inbox(self.identity.id)),
+            'memory_summary': self.memory.get_context_summary()
         }
+
+    # ==================== RLM-Inspired Memory Operations ====================
+
+    def store_context(
+        self,
+        name: str,
+        content: Any,
+        context_type: ContextType,
+        summary: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> ContextVariable:
+        """
+        Store content in the memory environment for later retrieval.
+        Content is persisted to disk and can be queried without loading fully.
+        """
+        return self.memory.store(
+            name=name,
+            content=content,
+            context_type=context_type,
+            summary=summary,
+            metadata=metadata
+        )
+
+    def peek_context(self, name: str, start: int = 0, length: int = 500) -> Optional[str]:
+        """
+        Peek at a portion of stored context without loading everything.
+        Like RLM's ability to inspect context segments.
+        """
+        var = self.memory.get(name)
+        if var:
+            return var.peek(start, length)
+        return None
+
+    def grep_context(self, name: str, pattern: str, max_matches: int = 10) -> List[Dict[str, Any]]:
+        """
+        Search stored context using regex pattern.
+        Returns matches with line numbers and surrounding context.
+        """
+        var = self.memory.get(name)
+        if var:
+            return var.grep(pattern, max_matches)
+        return []
+
+    def search_all_context(self, pattern: str) -> Dict[str, List[Dict[str, Any]]]:
+        """Search across all stored context variables"""
+        return self.memory.search_all(pattern)
+
+    def list_context(self, context_type: Optional[ContextType] = None) -> List[Dict[str, Any]]:
+        """List available context variables with summaries"""
+        return self.memory.list_variables(context_type)
+
+    def create_answer_buffer(self, name: str, purpose: str) -> MemoryBuffer:
+        """
+        Create a buffer to accumulate answer components.
+        Like RLM's answer dictionary that builds up across turns.
+        """
+        return self.memory.create_buffer(name, purpose)
+
+    def get_buffer(self, name: str) -> Optional[MemoryBuffer]:
+        """Get a memory buffer by name"""
+        return self.memory.get_buffer(name)
+
+    def compress_context(
+        self,
+        var_names: List[str],
+        summary_name: str,
+        compression_level: str = "moderate"
+    ) -> ContextVariable:
+        """
+        Create a navigable summary of multiple context variables.
+        Unlike lossy summarization, this preserves access to full content.
+        """
+        return self.compressor.create_navigable_summary(
+            var_names=var_names,
+            summary_name=summary_name,
+            compression_level=compression_level
+        )
+
+    def load_molecule_context(self, molecule_id: str) -> Optional[ContextVariable]:
+        """Load a molecule into memory environment for querying"""
+        return load_molecule_to_memory(
+            env=self.memory,
+            molecule_id=molecule_id,
+            molecule_engine=self.molecule_engine
+        )
+
+    def load_bead_context(self, entity_type: str, entity_id: str) -> ContextVariable:
+        """Load bead history into memory environment"""
+        return load_bead_history_to_memory(
+            env=self.memory,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            ledger=self.bead_ledger
+        )
+
+    # ==================== Recursive Sub-Agent Operations ====================
+
+    def spawn_subagent(
+        self,
+        query: str,
+        context_vars: List[str],
+        depth: int = 1
+    ) -> 'SubAgentCall':
+        """
+        Request a sub-agent to handle a focused sub-task.
+        Like RLM's recursive LM calls with focused context.
+        """
+        from ..core.memory import SubAgentCall
+        return self.recursive_manager.request_subcall(
+            parent_agent_id=self.identity.id,
+            query=query,
+            context_vars=context_vars,
+            depth=depth
+        )
+
+    def spawn_parallel_subagents(
+        self,
+        queries: List[Dict[str, Any]],
+        depth: int = 1
+    ) -> List['SubAgentCall']:
+        """
+        Spawn multiple sub-agents in parallel.
+        Like RLM's llm_batch() for parallel processing.
+
+        queries: List of {'query': str, 'context_vars': List[str]}
+        """
+        return self.recursive_manager.batch_subcalls(
+            parent_agent_id=self.identity.id,
+            queries=queries,
+            depth=depth
+        )
+
+    def get_subagent_results(self, call_ids: List[str]) -> Dict[str, Any]:
+        """Get results from completed sub-agent calls"""
+        return self.recursive_manager.get_results(call_ids)
+
+    # ==================== Organizational Memory Operations ====================
+
+    def record_decision(
+        self,
+        decision_id: str,
+        title: str,
+        context: str,
+        options_considered: List[Dict[str, str]],
+        chosen_option: str,
+        rationale: str
+    ) -> Dict[str, Any]:
+        """Record an organizational decision for future reference"""
+        return self.org_memory.record_decision(
+            decision_id=decision_id,
+            title=title,
+            context=context,
+            options_considered=options_considered,
+            chosen_option=chosen_option,
+            rationale=rationale,
+            made_by=self.identity.id,
+            department=self.identity.department
+        )
+
+    def search_past_decisions(
+        self,
+        query: Optional[str] = None,
+        tags: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """Search past organizational decisions"""
+        return self.org_memory.search_decisions(
+            query=query,
+            department=self.identity.department,
+            tags=tags
+        )
+
+    def record_lesson_learned(
+        self,
+        lesson_id: str,
+        title: str,
+        situation: str,
+        action_taken: str,
+        outcome: str,
+        lesson: str,
+        recommendations: List[str],
+        severity: str = "info"
+    ) -> Dict[str, Any]:
+        """Record a lesson learned for organizational improvement"""
+        return self.org_memory.record_lesson(
+            lesson_id=lesson_id,
+            title=title,
+            situation=situation,
+            action_taken=action_taken,
+            outcome=outcome,
+            lesson=lesson,
+            recommendations=recommendations,
+            recorded_by=self.identity.id,
+            severity=severity
+        )
+
+    def get_relevant_lessons(self, context: str) -> List[Dict[str, Any]]:
+        """Get lessons learned relevant to current context"""
+        return self.org_memory.get_relevant_lessons(context)
