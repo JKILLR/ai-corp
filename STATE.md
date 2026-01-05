@@ -17,11 +17,24 @@
 | Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
 | Tests | ❌ Missing | Need pytest suite |
 | Monitoring | ❌ Missing | Need dashboard |
-| End-to-End Test | ⏳ Pending | With real Claude Code |
+| End-to-End Test | ✅ Basic | CLI flow works with mock backend |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-05: Bug Fixes for End-to-End Testing
+
+**Fixed:**
+- YAML serialization of RACIRole enums (was creating Python object tags)
+- Molecule status regression in CLI (delegate_molecule was overwriting ACTIVE→DRAFT)
+- start_molecule now accepts DRAFT status (was only PENDING)
+
+**Verified Working:**
+- `ai-corp ceo "task" --start` - Creates molecule, starts, delegates to VPs
+- Molecules track status correctly (active)
+- Hooks receive work items for VPs
+- Channels store delegation messages
 
 ### 2026-01-05: P0 Agent Execution Infrastructure
 
