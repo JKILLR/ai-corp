@@ -10,6 +10,7 @@ Complete command reference for the AI Corp command-line interface.
 | `ai-corp ceo <task>` | Submit a task as CEO |
 | `ai-corp coo` | Start the COO orchestrator |
 | `ai-corp status` | View system status |
+| `ai-corp dashboard` | View terminal dashboard |
 | `ai-corp org` | View organization structure |
 | `ai-corp hire` | Hire new agents |
 | `ai-corp templates` | List industry templates |
@@ -119,6 +120,50 @@ ai-corp status --report
 # Health monitoring (shows agents, alerts, metrics)
 ai-corp status --health
 ```
+
+### `ai-corp dashboard`
+
+View a rich terminal dashboard with real-time system information.
+
+```bash
+ai-corp dashboard [options]
+```
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| `-l, --live` | Run in live mode with auto-refresh |
+| `-i, --interval` | Refresh interval in seconds (default: 5) |
+| `-c, --compact` | Show compact single-line output |
+| `--status-line` | Output plain status line (for scripts/prompts) |
+
+**Examples:**
+```bash
+# View dashboard once
+ai-corp dashboard
+
+# Live updating dashboard
+ai-corp dashboard --live
+
+# Live with custom refresh interval
+ai-corp dashboard --live --interval 2
+
+# Compact single-line status
+ai-corp dashboard --compact
+
+# Plain status for scripts
+ai-corp dashboard --status-line
+```
+
+**Dashboard Panels:**
+
+| Panel | Description |
+|-------|-------------|
+| Header | Overall system status, timestamp, quick stats |
+| Agent Status | Agent health, current work, queue depths |
+| Project Progress | Active molecules with progress bars, contract status |
+| Work Queues | Visual representation of queue depths |
+| Active Alerts | Critical/warning alerts with suggested actions |
 
 ### `ai-corp org`
 

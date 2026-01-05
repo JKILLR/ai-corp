@@ -9,6 +9,8 @@ Usage:
     ai-corp coo                     Start the COO orchestrator
     ai-corp status                  View system status
     ai-corp status --health         View health monitoring with alerts
+    ai-corp dashboard               View terminal dashboard
+    ai-corp dashboard --live        Live-updating dashboard
     ai-corp org                     View organization structure
     ai-corp hire <type> <args>      Hire new agents
     ai-corp templates               List industry templates
@@ -37,6 +39,7 @@ from src.core.templates import IndustryTemplateManager, init_corp, INDUSTRY_TEMP
 from src.core.contract import ContractManager, SuccessContract, ContractStatus
 from src.core.knowledge import KnowledgeBase, KnowledgeScope, KnowledgeType
 from src.core.ingest import DocumentProcessor, ingest_file
+from src.cli.dashboard import Dashboard, run_dashboard, get_status_line
 
 
 def get_corp_path() -> Path:
@@ -832,6 +835,23 @@ def cmd_knowledge(args):
         print(f"Unknown action: {args.action}")
 
 
+def cmd_dashboard(args):
+    """Show the terminal dashboard"""
+    corp_path = get_corp_path()
+
+    if args.status_line:
+        # Just print a single-line status
+        print(get_status_line(corp_path))
+        return
+
+    run_dashboard(
+        corp_path=corp_path,
+        live=args.live,
+        refresh_interval=args.interval,
+        compact=args.compact
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='AI Corp - Autonomous AI Corporation',
@@ -959,6 +979,18 @@ def main():
     knowledge_parser.add_argument('--uploaded-by', help='Uploader identifier')
     knowledge_parser.add_argument('--query', '-q', help='Search query (for search)')
     knowledge_parser.set_defaults(func=cmd_knowledge)
+
+    # Dashboard command
+    dashboard_parser = subparsers.add_parser('dashboard', help='View terminal dashboard')
+    dashboard_parser.add_argument('-l', '--live', action='store_true',
+                                   help='Run in live mode with auto-refresh')
+    dashboard_parser.add_argument('-i', '--interval', type=float, default=5.0,
+                                   help='Refresh interval in seconds (default: 5)')
+    dashboard_parser.add_argument('-c', '--compact', action='store_true',
+                                   help='Show compact single-line output')
+    dashboard_parser.add_argument('--status-line', action='store_true',
+                                   help='Output plain status line (for scripts/prompts)')
+    dashboard_parser.set_defaults(func=cmd_dashboard)
 
     args = parser.parse_args()
 
