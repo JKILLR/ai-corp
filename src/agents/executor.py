@@ -6,6 +6,7 @@ This module provides execution infrastructure for running multiple agents:
 - Parallel execution for independent agents
 - Agent lifecycle management
 - Monitoring and status reporting
+- Intelligent work scheduling via WorkScheduler
 
 Execution modes:
 - SEQUENTIAL: Run agents one after another
@@ -31,6 +32,8 @@ from .vp import VPAgent, create_vp_agent
 from .director import DirectorAgent, create_director_agent
 from .worker import WorkerAgent, create_worker_agent
 from ..core.llm import LLMBackend, LLMBackendFactory
+from ..core.skills import SkillRegistry
+from ..core.scheduler import WorkScheduler
 
 logger = logging.getLogger(__name__)
 
@@ -313,21 +316,35 @@ class CorporationExecutor:
     High-level executor for running the entire corporation.
 
     Manages the lifecycle of all agents from COO down to workers.
+
+    Integrates:
+    - SkillRegistry: Role-based skill discovery for agents
+    - WorkScheduler: Intelligent task assignment with capability matching
     """
 
     def __init__(
         self,
         corp_path: Path,
-        llm_backend: Optional[LLMBackend] = None
+        llm_backend: Optional[LLMBackend] = None,
+        skill_registry: Optional[SkillRegistry] = None
     ):
         self.corp_path = Path(corp_path)
         self.llm_backend = llm_backend or LLMBackendFactory.get_best_available()
 
-        # Agent instances
+        # Initialize skill registry for role-based skills
+        self.skill_registry = skill_registry or SkillRegistry(corp_path)
+
+        # Initialize work scheduler with skill registry
+        self.scheduler = WorkScheduler(corp_path, self.skill_registry)
+
+        # Agent instances (also registered with scheduler)
         self.coo: Optional[COOAgent] = None
         self.vps: Dict[str, VPAgent] = {}
         self.directors: Dict[str, DirectorAgent] = {}
         self.workers: Dict[str, WorkerAgent] = {}
+
+        # All agents by role_id (for scheduler lookup)
+        self.agents: Dict[str, BaseAgent] = {}
 
         # Executors for different tiers
         self.executive_executor: Optional[AgentExecutor] = None
@@ -339,6 +356,11 @@ class CorporationExecutor:
         """
         Initialize the corporation with all agents.
 
+        Sets up:
+        - Agent instances with skill_registry attached
+        - Scheduler registration for capability-based work assignment
+        - Tier-based executors for hierarchical processing
+
         Args:
             departments: List of departments to initialize (None for all)
         """
@@ -348,14 +370,17 @@ class CorporationExecutor:
 
         logger.info(f"Initializing corporation with departments: {departments}")
 
-        # Create COO
-        self.coo = COOAgent(self.corp_path)
+        # Create COO with skill registry
+        self.coo = COOAgent(self.corp_path, skill_registry=self.skill_registry)
+        self._register_agent(self.coo, 'executive')
         logger.info("Created COO agent")
 
-        # Create VPs
+        # Create VPs with skill registry
         for dept in departments:
             vp = create_vp_agent(dept, self.corp_path)
+            vp.set_skill_registry(self.skill_registry)
             self.vps[vp.identity.role_id] = vp
+            self._register_agent(vp, 'vp')
             logger.info(f"Created VP: {vp.identity.role_name}")
 
         # Create Directors (sample - would normally read from config)
@@ -371,7 +396,9 @@ class CorporationExecutor:
                 director = create_director_agent(
                     role_id, name, dept, focus, reports_to, self.corp_path
                 )
+                director.set_skill_registry(self.skill_registry)
                 self.directors[director.identity.role_id] = director
+                self._register_agent(director, 'director')
                 logger.info(f"Created Director: {director.identity.role_name}")
 
         # Create Workers (sample)
@@ -386,7 +413,9 @@ class CorporationExecutor:
                 worker = create_worker_agent(
                     worker_type, dept, reports_to, self.corp_path
                 )
+                worker.set_skill_registry(self.skill_registry)
                 self.workers[worker.identity.role_id] = worker
+                self._register_agent(worker, 'worker')
                 logger.info(f"Created Worker: {worker.identity.role_name}")
 
         # Create executors for each tier
@@ -480,13 +509,38 @@ class CorporationExecutor:
             logger.info("Corporation execution interrupted")
 
     def get_status(self) -> Dict[str, Any]:
-        """Get corporation status"""
+        """Get corporation status including scheduler metrics"""
         return {
             'coo': self.coo.get_status() if self.coo else None,
             'vps': {vid: vp.get_status() for vid, vp in self.vps.items()},
             'directors': {did: d.get_status() for did, d in self.directors.items()},
             'workers': {wid: w.get_status() for wid, w in self.workers.items()},
+            'scheduler': self.scheduler.get_scheduling_report(),
         }
+
+    def _register_agent(self, agent: BaseAgent, level: str) -> None:
+        """
+        Register an agent with both the agents dict and the scheduler.
+
+        This enables:
+        - Lookup by role_id for scheduled work execution
+        - Capability matching for intelligent work assignment
+        - Load balancing across agents at the same level
+
+        Args:
+            agent: The agent to register
+            level: Agent level (executive, vp, director, worker)
+        """
+        # Store in agents dict for lookup
+        self.agents[agent.identity.role_id] = agent
+
+        # Register with scheduler for capability matching
+        self.scheduler.register_agent(
+            role_id=agent.identity.role_id,
+            department=agent.identity.department,
+            level=level,
+            capabilities=agent.identity.capabilities
+        )
 
 
 # Convenience function
@@ -494,7 +548,8 @@ def run_corporation(
     corp_path: Path,
     departments: Optional[List[str]] = None,
     cycles: int = 1,
-    interval: float = 10.0
+    interval: float = 10.0,
+    skill_registry: Optional[SkillRegistry] = None
 ) -> Dict[str, Any]:
     """
     Run the corporation for a specified number of cycles.
@@ -504,11 +559,12 @@ def run_corporation(
         departments: Departments to include (None for all)
         cycles: Number of cycles to run
         interval: Sleep between cycles
+        skill_registry: Optional pre-configured SkillRegistry
 
     Returns:
-        Final status of all agents
+        Final status of all agents including scheduler metrics
     """
-    executor = CorporationExecutor(corp_path)
+    executor = CorporationExecutor(corp_path, skill_registry=skill_registry)
     executor.initialize(departments)
 
     if cycles == 1:
