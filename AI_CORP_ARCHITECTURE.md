@@ -26,24 +26,34 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 | CLI Interface | ✅ Done | Full command-line interface for all operations |
 | COO Agent | ✅ Done | Primary orchestrator with task analysis and delegation |
 | Base Agent | ✅ Done | Foundation class with memory, messaging, checkpoints |
-| **LLM Abstraction** | ✅ Done | Swappable LLM backends (ClaudeCode, API, Mock) |
-| **Message Processor** | ✅ Done | Handler-pattern message processing for all agent types |
-| **VP Agent Class** | ✅ Done | Department leaders with delegation and gate management |
-| **Director Agent Class** | ✅ Done | Team managers with worker pool integration |
-| **Worker Agent Class** | ✅ Done | Task executors with full Claude Code capabilities |
-| **Agent Executor** | ✅ Done | Parallel/sequential/pool execution modes |
+| LLM Abstraction | ✅ Done | Swappable LLM backends (ClaudeCode, API, Mock) |
+| Message Processor | ✅ Done | Handler-pattern message processing for all agent types |
+| VP Agent Class | ✅ Done | Department leaders with delegation and gate management |
+| Director Agent Class | ✅ Done | Team managers with worker pool integration |
+| Worker Agent Class | ✅ Done | Task executors with full Claude Code capabilities |
+| Agent Executor | ✅ Done | Parallel/sequential/pool execution modes |
+| Test Suite | ✅ Done | 273 tests, 65% coverage (CLI 94%, LLM 75%) |
 
-### Gaps Requiring Implementation
+### Planned Components (P1)
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
-| Real-time Monitoring | P1 | Dashboard for observing agent activity |
-| Pytest Test Suite | P1 | Comprehensive test coverage |
+| **Success Contract System** | P1 | Measurable success criteria defined before work begins |
+| **Discovery Conversation** | P1 | COO gathers requirements through natural conversation |
+| **System Monitor** | P1 | Lightweight service for metrics, health checks, alerts |
+| **Terminal Dashboard** | P1 | Real-time visibility into system state |
 | Skill Loading | P1 | Load Claude Code skills for agents |
 | Async Gate Approvals | P1 | Auto-approve when criteria met |
+
+### Future Components (P2)
+
+| Component | Priority | Description |
+|-----------|----------|-------------|
+| Web UI | P2 | Browser-based dashboard and discovery chat |
 | Chapters & Guilds | P2 | Cross-team skill groups and communities |
 | Fitness Functions | P2 | Per-team success metrics |
 | Cross-dept Task Claiming | P2 | Workers claim work across departments |
+| Auto-remediation | P2 | Automatic issue resolution with human approval |
 
 ---
 
@@ -324,6 +334,107 @@ Based on [Recursive Language Models (arXiv:2512.24601)](https://arxiv.org/abs/25
 - `ContextCompressor` - Create navigable summaries
 - `OrganizationalMemory` - Long-term decisions and lessons
 
+### 9. Success Contracts (P1)
+
+Every project begins with a **Success Contract** - a formal agreement defining measurable success criteria before work begins.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     SUCCESS CONTRACT                         │
+├─────────────────────────────────────────────────────────────┤
+│  Project: User Authentication System                         │
+│  Contract ID: CTR-20250105-001                              │
+│  Molecule: MOL-XXXXXXXX                                      │
+│  Status: ACTIVE                                              │
+├─────────────────────────────────────────────────────────────┤
+│  OBJECTIVE                                                   │
+│  Enable users to securely access the application             │
+│                                                              │
+│  SUCCESS CRITERIA                                            │
+│  ☐ Users can register with email/password                   │
+│  ☐ Users can log in and receive session token               │
+│  ☐ Email verification implemented                            │
+│  ☐ Password reset flow working                               │
+│  ☐ Test coverage >= 90%                                      │
+│                                                              │
+│  IN SCOPE                                                    │
+│  • Registration, login, logout                               │
+│  • Email verification                                        │
+│  • Password reset                                            │
+│                                                              │
+│  OUT OF SCOPE                                                │
+│  • Social login (Phase 2)                                    │
+│  • 2FA (Phase 2)                                             │
+│                                                              │
+│  CONSTRAINTS                                                 │
+│  • Use existing PostgreSQL database                          │
+│  • JWT tokens with 24h expiry                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Discovery Conversation:** The COO conducts a natural conversation with the CEO to gather requirements. No state machine - just intelligent follow-up questions until requirements are clear.
+
+```python
+# COO asks focused questions, probes vague answers
+COO: "What problem is this solving? Who needs to authenticate?"
+CEO: "Users need to log into our web app..."
+COO: "Got it. How will you know this is successful?"
+CEO: "Users can register, log in, reset passwords..."
+COO: "Any specific metrics? Test coverage, performance?"
+# ... conversation continues until requirements are clear
+
+# Then extracts structured contract
+contract = coo._extract_contract(conversation)
+```
+
+**Implementation:** `src/core/contract.py`
+- `SuccessContract` - Contract with criteria, scope, constraints
+- `SuccessCriterion` - Single measurable criterion (boolean checklist)
+- `ContractManager` - CRUD operations for contracts
+
+### 10. System Monitoring (P1)
+
+A lightweight **SystemMonitor** service provides visibility into system health without adding organizational overhead.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  MONITORING ARCHITECTURE                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  SystemMonitor (background service)                          │
+│  ├── Collects metrics (simple key-value YAML)               │
+│  │   • Agent heartbeats                                     │
+│  │   • Queue depths                                         │
+│  │   • Molecule progress                                    │
+│  │   • Error counts                                         │
+│  ├── Checks health thresholds                               │
+│  ├── Plans remediation when issues found                    │
+│  └── Alerts for human approval                              │
+│                                                             │
+│  Dashboard (terminal)                                        │
+│  └── Real-time display of metrics and alerts                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Health Alerts:**
+
+| Severity | Condition | Suggested Action |
+|----------|-----------|------------------|
+| Warning | Agent heartbeat > 60s | Check agent status |
+| Critical | Agent heartbeat > 300s | Restart agent |
+| Warning | Queue depth > 10 | Scale workers |
+| Critical | Queue depth > 50 | Investigate bottleneck |
+
+**Implementation:** `src/core/monitor.py`
+- `SystemMonitor` - Metrics collection and health checks
+- `SystemMetrics` - Current system state snapshot
+- `AgentStatus` - Individual agent health status
+- `HealthAlert` - Alert with severity and suggested action
+
+**Implementation:** `src/cli/dashboard.py`
+- `Dashboard` - Terminal rendering of system status
+
 ---
 
 ## Agent Architecture
@@ -496,6 +607,10 @@ ai-corp/
 │   ├── channels/                   # Communication
 │   ├── gates/                      # Quality gates
 │   ├── pools/                      # Worker pools
+│   ├── contracts/                  # [P1] Success contracts
+│   ├── metrics/                    # [P1] System metrics
+│   │   ├── current.yaml            # Current metric values
+│   │   └── alerts.yaml             # Active alerts
 │   └── memory/                     # Agent memory state
 │       └── organizational/         # Decisions, lessons, patterns
 ├── projects/                       # Project documentation
@@ -512,20 +627,24 @@ ai-corp/
 │   │   ├── templates.py            # Industry templates
 │   │   ├── memory.py               # RLM-inspired memory
 │   │   ├── llm.py                  # Swappable LLM backends
-│   │   └── processor.py            # Message processing
+│   │   ├── processor.py            # Message processing
+│   │   ├── contract.py             # [P1] Success contracts
+│   │   └── monitor.py              # [P1] System monitoring
 │   ├── agents/
 │   │   ├── base.py                 # Base agent (all capabilities)
-│   │   ├── coo.py                  # COO agent
+│   │   ├── coo.py                  # COO agent (+ discovery)
 │   │   ├── vp.py                   # VP agents
 │   │   ├── director.py             # Director agents
 │   │   ├── worker.py               # Worker agents
 │   │   ├── executor.py             # Parallel execution
 │   │   └── runtime.py              # Agent runtime
 │   ├── cli/
-│   │   └── main.py                 # CLI entry point
+│   │   ├── main.py                 # CLI entry point
+│   │   └── dashboard.py            # [P1] Terminal dashboard
 │   └── utils/
 ├── tests/
 ├── AI_CORP_ARCHITECTURE.md         # This document
+├── PLAN_SUCCESS_CONTRACT_AND_MONITORING.md  # Detailed design document
 ├── WORKFLOW.md                     # Development rules
 └── STATE.md                        # Current project state
 ```
@@ -629,41 +748,56 @@ From [Deloitte 2025 Trends](https://www.deloitte.com/global/en/services/consulti
 
 ```
 1. CEO (You): "Build a user dashboard"
-   └─▶ Creates molecule MOL-001 in INBOX stage
+   └─▶ COO initiates discovery conversation
 
-2. COO receives molecule
+2. COO Discovery Conversation (NEW)
+   └─▶ COO: "What problem does this solve? Who uses it?"
+   └─▶ CEO: "Internal teams need to view analytics..."
+   └─▶ COO: "How will you know this is successful?"
+   └─▶ CEO: "Teams can filter by date, export to CSV..."
+   └─▶ COO: "What's NOT in scope for this phase?"
+   └─▶ CEO: "No real-time updates yet, that's phase 2"
+   └─▶ COO: "[FINALIZE] Creating Success Contract CTR-XXX..."
+   └─▶ Creates Success Contract with measurable criteria
+   └─▶ Creates Molecule MOL-001 linked to contract
+
+3. COO delegates to VP Engineering
    └─▶ Analyzes scope using memory (checks past decisions, lessons)
    └─▶ Delegates to VP Engineering (Accountable)
    └─▶ Notifies VP Product (Consulted), VP Research (Informed)
 
-3. VP Engineering
+4. VP Engineering
    └─▶ Creates sub-molecules for research, design, build, test
    └─▶ Stores context in memory environment
    └─▶ Assigns Research Director to MOL-001-A (research)
 
-4. Research Director
+5. Research Director
    └─▶ Assigns researchers from pool
    └─▶ Researchers use peek/grep to navigate large contexts
    └─▶ Can spawn sub-agents for parallel research
    └─▶ Accumulate findings in MemoryBuffer
    └─▶ GATE 1 passed → molecule advances
 
-5. Design Director
+6. Design Director
    └─▶ Receives MOL-001-B (unblocked by Gate 1)
    └─▶ Loads research context from memory
    └─▶ UX designers create specs
    └─▶ GATE 2 passed
 
-6. Frontend Director
+7. Frontend Director
    └─▶ Claims workers from frontend_pool
    └─▶ Workers use compressed context summaries
    └─▶ Progress checkpointed to molecule and beads
    └─▶ (If worker crashes, another resumes from checkpoint)
 
-7. QA Director → GATE 3
-8. Security Director → GATE 4
-9. VP Engineering reports UP-CHAIN to COO
-10. COO reports to CEO with lessons learned recorded
+8. QA Director → GATE 3
+9. Security Director → GATE 4
+10. VP Engineering reports UP-CHAIN to COO
+11. COO verifies contract criteria met
+    └─▶ ☑ Filter by date range
+    └─▶ ☑ Export to CSV
+    └─▶ ☑ Test coverage >= 90%
+12. COO reports to CEO with lessons learned recorded
 ```
 
 ---
@@ -674,8 +808,9 @@ From [Deloitte 2025 Trends](https://www.deloitte.com/global/en/services/consulti
 # Initialize for an industry
 ai-corp init software
 
-# Submit task as CEO
-ai-corp ceo "Build user dashboard" --start
+# Submit task as CEO (with discovery conversation)
+ai-corp ceo "Build user dashboard" --discover   # [P1] Runs discovery conversation
+ai-corp ceo "Build user dashboard" --start      # Legacy: skip discovery
 
 # View organization
 ai-corp org --chart
@@ -695,6 +830,18 @@ ai-corp molecules show MOL-XXXXXXXX
 # Manage gates
 ai-corp gates list
 ai-corp gates show GATE-XXXXXXXX
+
+# [P1] Contract management
+ai-corp contract list                           # List all contracts
+ai-corp contract show CTR-XXXXXXXX              # View contract details
+ai-corp contract check CTR-XXX 0                # Mark criterion 0 as met
+ai-corp contract amend CTR-XXXXXXXX             # Modify contract
+
+# [P1] Monitoring dashboard
+ai-corp dashboard                               # One-time render
+ai-corp dashboard --live                        # Live updating (5s refresh)
+ai-corp dashboard --live --interval 10          # Custom refresh interval
+ai-corp status                                  # Quick health check summary
 ```
 
 ---
@@ -720,21 +867,46 @@ ai-corp gates show GATE-XXXXXXXX
 3. ~~Implement Worker agent classes~~ ✅
 4. ~~Connect agents to actual Claude Code execution~~ ✅
 5. ~~Enable parallel agent execution~~ ✅
+6. ~~Add pytest test suite (273 tests, 65% coverage)~~ ✅
+7. ~~Fix Claude Code CLI integration~~ ✅
 
-### Current Priority (P1)
-1. Add pytest test suite with comprehensive coverage
-2. Add real-time monitoring dashboard
-3. Implement skill loading for agents
-4. Add async gate approvals where criteria are met
-5. End-to-end integration test with real Claude Code
+### Current Priority (P1) - Phased Implementation
+
+**Phase 1: Contract Foundation (~2-3 days)**
+- [ ] Create `src/core/contract.py` (SuccessContract, ContractManager)
+- [ ] Add `contract_id` field to Molecule dataclass
+- [ ] Add unit tests for contract module
+- [ ] Add `corp/contracts/` directory initialization
+
+**Phase 2: Discovery Conversation (~2-3 days)**
+- [ ] Add `run_discovery()` method to COOAgent
+- [ ] Add `_extract_contract()` for structured extraction
+- [ ] Add CLI `--discover` flag to `ceo` command
+- [ ] Add integration tests for discovery flow
+
+**Phase 3: System Monitoring (~2-3 days)**
+- [ ] Create `src/core/monitor.py` (SystemMonitor, HealthAlert)
+- [ ] Add agent heartbeat integration to BaseAgent
+- [ ] Add `corp/metrics/` directory initialization
+- [ ] Add unit tests for monitoring module
+
+**Phase 4: Terminal Dashboard (~1-2 days)**
+- [ ] Create `src/cli/dashboard.py`
+- [ ] Add `dashboard` and `status` CLI commands
+- [ ] Add `contract` CLI commands
+- [ ] Add integration tests for dashboard
+
+**Total: ~10 days of implementation**
 
 ### Future (P2)
-1. Add Chapters (skill-based cross-team groups)
-2. Add Guilds (communities of interest)
-3. Implement fitness functions per team
-4. Enable cross-department task claiming
-5. Add learning from completed molecules
-6. Performance optimization for large agent swarms
+1. Web UI with discovery onboarding chat
+2. Add Chapters (skill-based cross-team groups)
+3. Add Guilds (communities of interest)
+4. Implement fitness functions per team
+5. Enable cross-department task claiming
+6. Auto-remediation execution (with human approval)
+7. Add learning from completed molecules
+8. Performance optimization for large agent swarms
 
 ---
 
