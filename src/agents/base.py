@@ -3,14 +3,16 @@ Base Agent - Foundation for all AI Corp agents
 
 All agents in AI Corp inherit from BaseAgent, which provides:
 - Hook checking and work claiming
-- Message handling
+- Message handling via MessageProcessor
 - Checkpoint management
 - Status reporting
 - RLM-inspired memory management (context as environment)
 - Recursive sub-agent spawning
+- LLM execution via swappable backends
 """
 
 import uuid
+import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -27,6 +29,14 @@ from ..core.memory import (
     RecursiveMemoryManager, ContextCompressor, OrganizationalMemory,
     create_agent_memory, load_molecule_to_memory, load_bead_history_to_memory
 )
+from ..core.llm import (
+    LLMBackend, LLMBackendFactory, AgentLLMInterface, LLMRequest, LLMResponse,
+    get_llm_interface
+)
+from ..core.processor import MessageProcessor, ProcessingResult
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -58,7 +68,8 @@ class BaseAgent(ABC):
         self,
         identity: AgentIdentity,
         corp_path: Path,
-        auto_claim: bool = True
+        auto_claim: bool = True,
+        llm_backend: Optional[LLMBackend] = None
     ):
         self.identity = identity
         self.corp_path = Path(corp_path)
@@ -78,6 +89,12 @@ class BaseAgent(ABC):
         self.recursive_manager = RecursiveMemoryManager(self.corp_path)
         self.compressor = ContextCompressor(self.memory)
         self.org_memory = OrganizationalMemory(self.corp_path)
+
+        # Initialize LLM interface (swappable backend)
+        self.llm = AgentLLMInterface(llm_backend or LLMBackendFactory.get_best_available())
+
+        # Initialize message processor
+        self.message_processor = MessageProcessor(self)
 
         # Get or create hook for this agent
         self.hook = self.hook_manager.get_or_create_hook(
@@ -109,16 +126,31 @@ class BaseAgent(ABC):
         """
         Main agent loop.
 
-        Checks hook for work and processes it.
+        1. Process urgent messages first
+        2. Process inbox messages
+        3. Check hook for work and process it
         """
-        print(f"[{self.identity.role_name}] Starting agent...")
+        logger.info(f"[{self.identity.role_name}] Starting agent run...")
 
-        # Check for messages first
-        self._check_messages()
+        # Process urgent messages first
+        if self.message_processor.has_urgent_messages():
+            logger.info(f"[{self.identity.role_name}] Processing urgent messages...")
+            results = self.message_processor.process_inbox(max_messages=5)
+            for result in results:
+                logger.debug(f"Message {result.message_id}: {result.action_taken.value}")
+
+        # Process regular messages
+        pending_count = self.message_processor.get_pending_count()
+        if pending_count > 0:
+            logger.info(f"[{self.identity.role_name}] {pending_count} messages in inbox")
+            results = self.message_processor.process_inbox()
+            for result in results:
+                if not result.success:
+                    logger.warning(f"Failed to process message {result.message_id}: {result.error}")
 
         # Check hook for work
         if self.hook.has_work():
-            print(f"[{self.identity.role_name}] Found work in hook")
+            logger.info(f"[{self.identity.role_name}] Found work in hook")
 
             if self.auto_claim:
                 work_item = self.claim_work()
@@ -127,9 +159,10 @@ class BaseAgent(ABC):
                         result = self.process_work(work_item)
                         self.complete_work(result)
                     except Exception as e:
+                        logger.error(f"Work failed: {e}")
                         self.fail_work(str(e))
         else:
-            print(f"[{self.identity.role_name}] No work in hook")
+            logger.debug(f"[{self.identity.role_name}] No work in hook")
 
     def claim_work(self) -> Optional[WorkItem]:
         """Claim the next available work item from hook"""
@@ -157,9 +190,103 @@ class BaseAgent(ABC):
                 message=f"Claimed work item: {work_item.title}"
             )
 
-            print(f"[{self.identity.role_name}] Claimed: {work_item.title}")
+            logger.info(f"[{self.identity.role_name}] Claimed: {work_item.title}")
 
         return work_item
+
+    def get_system_prompt(self) -> str:
+        """Generate the system prompt for this agent"""
+        prompt = f"""You are {self.identity.role_name} in AI Corp, an autonomous AI corporation.
+
+Role: {self.identity.role_id}
+Department: {self.identity.department}
+Level: {self.identity.level} ({'Executive' if self.identity.level == 1 else 'VP' if self.identity.level == 2 else 'Director' if self.identity.level == 3 else 'Worker'})
+"""
+        if self.identity.reports_to:
+            prompt += f"Reports to: {self.identity.reports_to}\n"
+
+        if self.identity.direct_reports:
+            prompt += f"Direct reports: {', '.join(self.identity.direct_reports)}\n"
+
+        if self.identity.capabilities:
+            prompt += f"Capabilities: {', '.join(self.identity.capabilities)}\n"
+
+        if self.identity.skills:
+            prompt += f"Skills: {', '.join(self.identity.skills)}\n"
+
+        prompt += """
+Your responsibilities:
+1. Check your hook for work items and process them
+2. Use your capabilities to complete assigned tasks
+3. Create checkpoints for crash recovery
+4. Report status to your superior
+5. Delegate to subordinates when appropriate
+6. Escalate blockers to your superior
+
+Always maintain professional communication and follow the organizational hierarchy.
+"""
+        return prompt
+
+    def think(self, task: str, context: Optional[Dict[str, Any]] = None) -> 'AgentThought':
+        """
+        Use LLM to think about a task and decide on action.
+
+        Returns structured thought process.
+        """
+        from ..core.llm import AgentThought
+        return self.llm.think(
+            role=self.identity.role_name,
+            task=task,
+            context=context or {},
+            constraints=[f"Reports to: {self.identity.reports_to}"] if self.identity.reports_to else []
+        )
+
+    def execute_with_llm(
+        self,
+        task: str,
+        working_directory: Optional[Path] = None
+    ) -> LLMResponse:
+        """
+        Execute a task using the LLM backend.
+
+        This is the main method for agents to use LLM capabilities.
+        """
+        return self.llm.execute_task(
+            role=self.identity.role_name,
+            system_prompt=self.get_system_prompt(),
+            task=task,
+            working_directory=working_directory or self.corp_path,
+            skills=self.identity.skills,
+            context={
+                'agent_id': self.identity.id,
+                'molecule_id': self.current_molecule.id if self.current_molecule else None,
+                'step_id': self.current_step.id if self.current_step else None
+            }
+        )
+
+    def analyze_work_item(self, work_item: WorkItem) -> Dict[str, Any]:
+        """
+        Use LLM to analyze a work item and determine approach.
+        """
+        molecule_dict = self.current_molecule.to_dict() if self.current_molecule else None
+
+        # Get relevant memory context
+        memory_context = None
+        if self.current_molecule:
+            lessons = self.get_relevant_lessons(
+                f"{work_item.title} {work_item.description}"
+            )
+            if lessons:
+                memory_context = f"Relevant lessons:\n" + "\n".join(
+                    f"- {l['title']}: {l['lesson']}" for l in lessons[:3]
+                )
+
+        return self.llm.analyze_work_item(
+            role=self.identity.role_name,
+            work_item=work_item.to_dict(),
+            molecule=molecule_dict,
+            memory_context=memory_context
+        )
 
     def checkpoint(self, description: str, data: Dict[str, Any]) -> None:
         """Create a checkpoint for crash recovery"""
