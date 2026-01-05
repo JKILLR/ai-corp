@@ -16,6 +16,7 @@ Usage:
     ai-corp hooks [list|show]       Manage hooks
     ai-corp gates [list|show]       Manage quality gates
     ai-corp contracts [list|show|create|check|link|activate]  Manage success contracts
+    ai-corp knowledge [list|show|add|search|stats|remove]     Manage knowledge base
 """
 
 import argparse
@@ -34,6 +35,8 @@ from src.core.bead import BeadLedger
 from src.core.hiring import HiringManager
 from src.core.templates import IndustryTemplateManager, init_corp, INDUSTRY_TEMPLATES
 from src.core.contract import ContractManager, SuccessContract, ContractStatus
+from src.core.knowledge import KnowledgeBase, KnowledgeScope, KnowledgeType
+from src.core.ingest import DocumentProcessor, ingest_file
 
 
 def get_corp_path() -> Path:
@@ -627,6 +630,208 @@ def cmd_hire(args):
         print(f"Unknown role type: {args.role_type}")
 
 
+def cmd_knowledge(args):
+    """Manage knowledge base"""
+    corp_path = get_corp_path()
+    kb = KnowledgeBase(corp_path)
+
+    if args.action == 'list':
+        # Parse scope filter
+        scope = None
+        if args.scope:
+            scope = KnowledgeScope(args.scope)
+
+        entries = kb.list_entries(scope=scope)
+
+        if not entries:
+            print("No knowledge entries found.")
+            return
+
+        print(f"Knowledge Entries ({len(entries)}):")
+        print("-" * 70)
+
+        for entry in entries:
+            scope_str = f"[{entry.scope.value}]"
+            if entry.scope_id:
+                scope_str += f" ({entry.scope_id[:12]}...)"
+
+            type_str = entry.knowledge_type.value
+            print(f"  {entry.id}: {entry.name}")
+            print(f"    {scope_str} | Type: {type_str}")
+            if entry.tags:
+                print(f"    Tags: {', '.join(entry.tags)}")
+            print()
+
+    elif args.action == 'show':
+        if not args.entry_id:
+            print("Error: Entry ID required for show")
+            return
+
+        entry = kb.get_entry(args.entry_id)
+        if not entry:
+            print(f"Entry not found: {args.entry_id}")
+            return
+
+        print(f"Knowledge Entry: {entry.name}")
+        print("=" * 60)
+        print(f"ID:          {entry.id}")
+        print(f"Scope:       {entry.scope.value}")
+        if entry.scope_id:
+            print(f"Scope ID:    {entry.scope_id}")
+        print(f"Type:        {entry.knowledge_type.value}")
+        print(f"Description: {entry.description[:200]}...")
+        print()
+        if entry.source_file:
+            print(f"Source File: {entry.source_file}")
+        if entry.source_url:
+            print(f"Source URL:  {entry.source_url}")
+        print(f"Uploaded By: {entry.uploaded_by}")
+        print(f"Uploaded At: {entry.uploaded_at}")
+        if entry.tags:
+            print(f"Tags:        {', '.join(entry.tags)}")
+        if entry.metadata:
+            print(f"\nMetadata:")
+            for key, value in entry.metadata.items():
+                if key not in ['chunks', 'all_facts']:  # Skip large fields
+                    print(f"  {key}: {value}")
+
+    elif args.action == 'add':
+        # Determine scope
+        if args.foundation:
+            scope = KnowledgeScope.FOUNDATION
+            scope_id = None
+        elif args.project:
+            scope = KnowledgeScope.PROJECT
+            scope_id = args.project
+        elif args.task:
+            scope = KnowledgeScope.TASK
+            scope_id = args.task
+        else:
+            scope = KnowledgeScope.FOUNDATION
+            scope_id = None
+
+        # Parse tags
+        tags = args.tags.split(',') if args.tags else None
+
+        if args.file:
+            # Add file
+            file_path = Path(args.file)
+            if not file_path.exists():
+                print(f"Error: File not found: {args.file}")
+                return
+
+            print(f"Processing: {file_path.name}...")
+
+            result = ingest_file(
+                corp_path=corp_path,
+                file_path=file_path,
+                scope=scope,
+                scope_id=scope_id,
+                name=args.name,
+                description=args.description,
+                tags=tags,
+                uploaded_by=args.uploaded_by or "cli"
+            )
+
+            if result.success:
+                print(f"Added: {result.entry.id}")
+                print(f"  Name: {result.entry.name}")
+                print(f"  Type: {result.entry.knowledge_type.value}")
+                if result.chunks_processed > 0:
+                    print(f"  Chunks: {result.chunks_processed}")
+                if result.facts_extracted > 0:
+                    print(f"  Facts extracted: {result.facts_extracted}")
+            else:
+                print(f"Error: {result.error}")
+
+        elif args.url:
+            # Add URL reference
+            processor = DocumentProcessor(kb)
+            result = processor.process_url(
+                url=args.url,
+                scope=scope,
+                scope_id=scope_id,
+                name=args.name or args.url,
+                description=args.description,
+                tags=tags,
+                uploaded_by=args.uploaded_by or "cli"
+            )
+
+            if result.success:
+                print(f"Added URL reference: {result.entry.id}")
+            else:
+                print(f"Error: {result.error}")
+
+        elif args.note:
+            # Add text note
+            processor = DocumentProcessor(kb)
+            result = processor.process_note(
+                content=args.note,
+                scope=scope,
+                scope_id=scope_id,
+                name=args.name or "Note",
+                description=args.description,
+                tags=tags,
+                uploaded_by=args.uploaded_by or "cli"
+            )
+
+            if result.success:
+                print(f"Added note: {result.entry.id}")
+            else:
+                print(f"Error: {result.error}")
+
+        else:
+            print("Error: Must specify --file, --url, or --note")
+
+    elif args.action == 'search':
+        if not args.query:
+            print("Error: Search query required")
+            return
+
+        results = kb.search(args.query)
+
+        if not results:
+            print(f"No results found for: {args.query}")
+            return
+
+        print(f"Search Results for '{args.query}' ({len(results)}):")
+        print("-" * 60)
+
+        for entry in results:
+            print(f"  {entry.id}: {entry.name}")
+            print(f"    [{entry.scope.value}] {entry.description[:80]}...")
+            print()
+
+    elif args.action == 'stats':
+        stats = kb.get_stats()
+
+        print("Knowledge Base Statistics")
+        print("=" * 40)
+        print(f"Total Entries: {stats['total_entries']}")
+        print()
+        print(f"Foundation: {stats['foundation']['count']} entries")
+        print(f"  Size: {stats['foundation']['size']:,} bytes")
+        print()
+        print(f"Projects:   {stats['projects']['count']} entries")
+        print(f"  Size: {stats['projects']['size']:,} bytes")
+        print()
+        print(f"Tasks:      {stats['tasks']['count']} entries")
+        print(f"  Size: {stats['tasks']['size']:,} bytes")
+
+    elif args.action == 'remove':
+        if not args.entry_id:
+            print("Error: Entry ID required for remove")
+            return
+
+        if kb.remove_entry(args.entry_id):
+            print(f"Removed: {args.entry_id}")
+        else:
+            print(f"Entry not found: {args.entry_id}")
+
+    else:
+        print(f"Unknown action: {args.action}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='AI Corp - Autonomous AI Corporation',
@@ -731,6 +936,29 @@ def main():
     contracts_parser.add_argument('--verifier', help='Verifier ID (for check)')
     contracts_parser.add_argument('--molecule', dest='molecule_id', help='Molecule ID (for link)')
     contracts_parser.set_defaults(func=cmd_contracts)
+
+    # Knowledge command
+    knowledge_parser = subparsers.add_parser('knowledge', help='Manage knowledge base')
+    knowledge_parser.add_argument('action', choices=['list', 'show', 'add', 'search', 'stats', 'remove'],
+                                   default='list', nargs='?')
+    knowledge_parser.add_argument('entry_id', nargs='?', help='Entry ID (for show/remove)')
+    knowledge_parser.add_argument('--scope', choices=['foundation', 'project', 'task'],
+                                   help='Filter by scope (for list)')
+    knowledge_parser.add_argument('--foundation', action='store_true',
+                                   help='Add to foundation scope')
+    knowledge_parser.add_argument('--project', metavar='MOLECULE_ID',
+                                   help='Add to project scope with molecule ID')
+    knowledge_parser.add_argument('--task', metavar='WORK_ITEM_ID',
+                                   help='Add to task scope with work item ID')
+    knowledge_parser.add_argument('--file', help='File to add')
+    knowledge_parser.add_argument('--url', help='URL to add as reference')
+    knowledge_parser.add_argument('--note', help='Text note to add')
+    knowledge_parser.add_argument('--name', help='Display name for entry')
+    knowledge_parser.add_argument('--description', help='Description for entry')
+    knowledge_parser.add_argument('--tags', help='Comma-separated tags')
+    knowledge_parser.add_argument('--uploaded-by', help='Uploader identifier')
+    knowledge_parser.add_argument('--query', '-q', help='Search query (for search)')
+    knowledge_parser.set_defaults(func=cmd_knowledge)
 
     args = parser.parse_args()
 

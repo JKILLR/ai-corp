@@ -18,13 +18,49 @@
 | **Success Contracts** | ✅ Complete | Phase 1: Foundation with bead/gate integration |
 | **Discovery** | ✅ Complete | Phase 2: COO discovery conversation |
 | **Monitoring** | ✅ Complete | Phase 3: System monitoring |
+| **Knowledge Base** | ✅ Complete | Scoped document management + ingestion |
 | Dashboard | ❌ Next | Phase 4: Terminal dashboard |
-| Tests | ✅ Complete | 341+ tests passing |
+| Tests | ✅ Complete | 403+ tests passing |
 | End-to-End Test | ✅ Basic | CLI flow works with mock backend |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-05: Knowledge Base System Complete
+
+**Added:**
+- `src/core/knowledge.py` - Knowledge base with scoped storage
+  - `KnowledgeBase` - Central knowledge management across three scopes
+  - `KnowledgeEntry` - Individual knowledge entries with metadata
+  - `KnowledgeScope` - Foundation/Project/Task scope levels
+  - `ScopedKnowledgeStore` - Per-scope persistent storage
+- `src/core/ingest.py` - RLM-inspired document processing pipeline
+  - `DocumentProcessor` - Main processing pipeline
+  - `ContentExtractor` - Extracts content from various file types
+  - `DocumentChunker` - Chunks large documents with overlap
+  - `FactExtractor` - Extracts facts and entities
+- `tests/core/test_knowledge.py` - 25 unit tests for knowledge base
+- `tests/core/test_ingest.py` - 37 unit tests for ingestion pipeline
+
+**Three-Layer Architecture:**
+- **Foundation (Layer 1)**: Corp-wide knowledge available to all agents
+- **Project (Layer 2)**: Molecule-scoped knowledge for specific projects
+- **Task (Layer 3)**: Work item-scoped attachments
+
+**CLI Commands Added:**
+- `ai-corp knowledge list [--scope <scope>]` - List knowledge entries
+- `ai-corp knowledge show <id>` - Show entry details
+- `ai-corp knowledge add --file <path> [--foundation|--project <id>|--task <id>]` - Add file
+- `ai-corp knowledge add --url <url>` - Add URL reference
+- `ai-corp knowledge add --note <text>` - Add text note
+- `ai-corp knowledge search -q <query>` - Search knowledge base
+- `ai-corp knowledge stats` - Show statistics
+- `ai-corp knowledge remove <id>` - Remove entry
+
+**Tests:** 62 new tests (25 knowledge + 37 ingest) all passing
+
+---
 
 ### 2026-01-05: Phase 3 - System Monitoring Complete
 
@@ -250,7 +286,9 @@
 | `llm.py` | ✅ Stable | LLM backends |
 | `processor.py` | ✅ Stable | Message processing |
 | `contract.py` | ✅ Stable | Success contracts |
-| `monitor.py` | ✅ New | System monitoring |
+| `monitor.py` | ✅ Stable | System monitoring |
+| `knowledge.py` | ✅ New | Scoped knowledge base |
+| `ingest.py` | ✅ New | Document ingestion pipeline |
 
 ### Agents (`src/agents/`)
 
@@ -303,10 +341,10 @@
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Core modules | 14 | - |
+| Core modules | 16 | - |
 | Agent types | 5 | 5+ |
-| Lines of code | ~7000 | - |
-| Test coverage | 60% | 80% |
+| Lines of code | ~8500 | - |
+| Test coverage | 62% | 80% |
 | Integration tests | Comprehensive | Comprehensive |
 
 ---

@@ -13,6 +13,8 @@ This module provides the core infrastructure for the AI Corporation:
 - Memory: RLM-inspired context management (arXiv:2512.24601)
 - LLM: Swappable LLM backend interface
 - Processor: Inter-agent message processing
+- Knowledge: Scoped document and context management
+- Ingest: RLM-inspired document processing pipeline
 """
 
 from .molecule import Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine
@@ -45,6 +47,15 @@ from .monitor import (
     SystemMonitor, SystemMetrics, AgentStatus, HealthAlert,
     AlertSeverity, HealthState
 )
+from .knowledge import (
+    KnowledgeBase, KnowledgeEntry, KnowledgeScope, KnowledgeType,
+    ScopedKnowledgeStore, get_knowledge_base, add_foundation_knowledge
+)
+from .ingest import (
+    DocumentProcessor, ContentExtractor, DocumentChunker, FactExtractor,
+    IngestResult, ProcessedChunk, ExtractionMethod,
+    ingest_file, ingest_foundation, ingest_project, ingest_task
+)
 
 __all__ = [
     'Molecule', 'MoleculeStep', 'MoleculeStatus', 'MoleculeEngine',
@@ -72,4 +83,11 @@ __all__ = [
     # System Monitoring
     'SystemMonitor', 'SystemMetrics', 'AgentStatus', 'HealthAlert',
     'AlertSeverity', 'HealthState',
+    # Knowledge Base
+    'KnowledgeBase', 'KnowledgeEntry', 'KnowledgeScope', 'KnowledgeType',
+    'ScopedKnowledgeStore', 'get_knowledge_base', 'add_foundation_knowledge',
+    # Document Ingestion
+    'DocumentProcessor', 'ContentExtractor', 'DocumentChunker', 'FactExtractor',
+    'IngestResult', 'ProcessedChunk', 'ExtractionMethod',
+    'ingest_file', 'ingest_foundation', 'ingest_project', 'ingest_task',
 ]
