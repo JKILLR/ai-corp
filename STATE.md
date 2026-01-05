@@ -15,13 +15,28 @@
 | Agent Hierarchy | ✅ Complete | COO, VP, Director, Worker agents |
 | LLM Integration | ✅ Complete | Swappable backends (ClaudeCode, API, Mock) |
 | Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
-| Tests | ❌ Missing | Need pytest suite |
+| Tests | ⚠️ In Progress | Test infrastructure created, 23% coverage, API alignment needed |
 | Monitoring | ❌ Missing | Need dashboard |
 | End-to-End Test | ✅ Basic | CLI flow works with mock backend |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-05: Pytest Test Suite Infrastructure
+
+**Added:**
+- `tests/conftest.py` - Shared fixtures for testing
+- `tests/core/test_molecule.py` - Molecule engine tests (partial)
+- `tests/core/test_hook.py` - Hook/work queue tests (partial)
+- `tests/core/test_bead.py` - Bead ledger tests (partial)
+- `tests/agents/test_vp.py` - VP agent tests
+- `tests/integration/test_full_flow.py` - Integration tests
+
+**Status:** Infrastructure in place, but tests need alignment with actual API
+- Many tests assume methods that don't exist
+- Need to audit actual module APIs and update tests
+- Current coverage: 23%
 
 ### 2026-01-05: VISION.md Created
 
