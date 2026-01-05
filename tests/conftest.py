@@ -37,9 +37,8 @@ def molecule_engine(temp_corp_path):
     """Create a MoleculeEngine instance."""
     from src.core.molecule import MoleculeEngine
 
-    molecules_path = os.path.join(temp_corp_path, 'molecules')
-    os.makedirs(molecules_path, exist_ok=True)
-    return MoleculeEngine(molecules_path)
+    # MoleculeEngine takes base_path and creates molecules/ subdirectory internally
+    return MoleculeEngine(temp_corp_path)
 
 
 @pytest.fixture

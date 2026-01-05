@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 from src.agents.vp import VPAgent, create_vp_agent
-from src.core.hook import HookManager, WorkItemStatus
+from src.core.hook import HookManager, WorkItemStatus, WorkItemPriority
 
 
 class TestCreateVPAgent:
@@ -104,25 +104,22 @@ class TestVPProcessWork:
         )
 
         # Ensure VP has a hook
-        hooks = vp.hook_manager.get_hooks_by_owner('role', 'vp_product')
-        if not hooks:
+        hook = vp.hook_manager.get_hook_for_owner('role', 'vp_product')
+        if not hook:
             hook = vp.hook_manager.create_hook(
                 name='VP Product Hook',
                 owner_type='role',
                 owner_id='vp_product'
             )
-        else:
-            hook = hooks[0]
 
-        # Add work item
-        vp.hook_manager.add_work_item(
+        # Add work item (no required_capabilities to allow any agent to claim)
+        vp.hook_manager.add_work_to_hook(
             hook_id=hook.id,
             title='Design Task',
             description='Create design specs',
             molecule_id='MOL-TEST',
             step_id='step-1',
-            priority=1,
-            required_capabilities=['design'],
+            priority=WorkItemPriority.P1_HIGH,
             context={'molecule_name': 'Test Project'}
         )
 
@@ -132,7 +129,9 @@ class TestVPProcessWork:
         """Test VP can check hook for work."""
         vp, hook = vp_with_work
 
-        queued = vp.hook_manager.get_queued_items(hook.id)
+        # Get the hook to access its queued items
+        retrieved_hook = vp.hook_manager.get_hook(hook.id)
+        queued = retrieved_hook.get_queued_items()
 
         assert len(queued) >= 1
 
@@ -140,15 +139,13 @@ class TestVPProcessWork:
         """Test VP can claim work from hook."""
         vp, hook = vp_with_work
 
-        queued = vp.hook_manager.get_queued_items(hook.id)
-        item = queued[0]
-
-        claimed = vp.hook_manager.claim_work_item(
+        # Claim work (gets next available item)
+        claimed = vp.hook_manager.claim_work(
             hook_id=hook.id,
-            item_id=item.id,
             agent_id=vp.identity.id
         )
 
+        assert claimed is not None
         assert claimed.status == WorkItemStatus.CLAIMED
         assert claimed.assigned_to == vp.identity.id
 
@@ -176,12 +173,11 @@ class TestVPEdgeCases:
             corp_path=Path(initialized_corp)
         )
 
-        # Ensure empty hook
-        hooks = vp.hook_manager.get_hooks_by_owner('role', 'vp_engineering')
-        if hooks:
-            hook = hooks[0]
-            queued = vp.hook_manager.get_queued_items(hook.id)
-            # May or may not have work
+        # Get VP's hook if it exists
+        hook = vp.hook_manager.get_hook_for_owner('role', 'vp_engineering')
+        if hook:
+            queued = hook.get_queued_items()
+            # May or may not have work, but should be a list
             assert isinstance(queued, list)
 
     def test_custom_directors(self, initialized_corp):

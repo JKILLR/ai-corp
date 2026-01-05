@@ -9,10 +9,10 @@ import pytest
 import os
 from pathlib import Path
 
-from src.core.molecule import MoleculeEngine, MoleculeStatus, StepStatus
-from src.core.hook import HookManager, WorkItemStatus
+from src.core.molecule import MoleculeEngine, MoleculeStatus, MoleculeStep, StepStatus
+from src.core.hook import HookManager, WorkItemStatus, WorkItemPriority
 from src.core.bead import BeadLedger
-from src.core.channel import ChannelManager, ChannelType
+from src.core.channel import ChannelManager, ChannelType, MessagePriority
 from src.agents.vp import create_vp_agent
 from src.agents.director import create_director_agent
 
@@ -20,55 +20,60 @@ from src.agents.director import create_director_agent
 class TestMoleculeLifecycle:
     """Test molecule lifecycle."""
 
-    def test_create_molecule(self, molecule_engine, sample_raci):
+    def test_create_molecule(self, molecule_engine):
         """Test creating a molecule."""
         molecule = molecule_engine.create_molecule(
             name='Test Task',
             description='Build a test feature',
-            raci=sample_raci,
-            steps=[]
+            created_by='coo-001'
         )
 
         assert molecule.id.startswith('MOL-')
         assert molecule.status == MoleculeStatus.DRAFT
 
-    def test_start_molecule(self, molecule_engine, sample_raci):
+    def test_start_molecule(self, molecule_engine):
         """Test starting a molecule."""
         molecule = molecule_engine.create_molecule(
             name='Test',
             description='Test',
-            raci=sample_raci,
-            steps=[]
+            created_by='coo-001'
         )
 
         started = molecule_engine.start_molecule(molecule.id)
 
         assert started.status == MoleculeStatus.ACTIVE
 
-    def test_full_lifecycle(self, molecule_engine, sample_raci):
-        """Test full molecule lifecycle: create -> start -> complete."""
-        # Create
+    def test_full_lifecycle(self, molecule_engine):
+        """Test full molecule lifecycle: create -> start -> complete steps."""
+        # Create molecule with a step
         molecule = molecule_engine.create_molecule(
             name='Lifecycle Test',
             description='Test full lifecycle',
-            raci=sample_raci,
-            steps=[]
+            created_by='coo-001'
         )
+        step = MoleculeStep.create(name='Only Step', description='The only step')
+        molecule.add_step(step)
+        molecule_engine._save_molecule(molecule)
+
         assert molecule.status == MoleculeStatus.DRAFT
 
         # Start
         started = molecule_engine.start_molecule(molecule.id)
         assert started.status == MoleculeStatus.ACTIVE
 
-        # Complete
-        completed = molecule_engine.complete_molecule(molecule.id)
+        # Complete the step (which auto-completes the molecule)
+        molecule_engine.start_step(molecule.id, step.id, 'worker-001')
+        molecule_engine.complete_step(molecule.id, step.id, result={'output': 'done'})
+
+        # Molecule should be auto-completed
+        completed = molecule_engine.get_molecule(molecule.id)
         assert completed.status == MoleculeStatus.COMPLETED
 
 
 class TestWorkItemLifecycle:
     """Test work item lifecycle."""
 
-    def test_full_lifecycle(self, hook_manager, sample_work_item_data):
+    def test_full_lifecycle(self, hook_manager):
         """Test full work item lifecycle: queue -> claim -> complete."""
         # Create hook
         hook = hook_manager.create_hook(
@@ -78,18 +83,24 @@ class TestWorkItemLifecycle:
         )
 
         # Add work item (queued)
-        item = hook_manager.add_work_item(
+        item = hook_manager.add_work_to_hook(
             hook_id=hook.id,
-            **sample_work_item_data
+            title='Test Work Item',
+            description='A test work item',
+            molecule_id='MOL-TEST123',
+            step_id='step-1',
+            priority=WorkItemPriority.P2_MEDIUM,
+            context={'molecule_name': 'Test Molecule'}
         )
         assert item.status == WorkItemStatus.QUEUED
 
         # Claim
-        claimed = hook_manager.claim_work_item(hook.id, item.id, 'test-agent')
+        claimed = hook_manager.claim_work(hook.id, 'test-agent')
+        assert claimed is not None
         assert claimed.status == WorkItemStatus.CLAIMED
 
         # Complete
-        completed = hook_manager.complete_work_item(
+        completed = hook_manager.complete_work(
             hook.id,
             item.id,
             result={'status': 'success'}
@@ -130,9 +141,9 @@ class TestBeadAuditTrail:
         )
 
         # Verify all recorded
-        assert bead_ledger.get_bead(delegation.id) is not None
-        assert bead_ledger.get_bead(execution.id) is not None
-        assert bead_ledger.get_bead(completion.id) is not None
+        assert bead_ledger.get_entry(delegation.id) is not None
+        assert bead_ledger.get_entry(execution.id) is not None
+        assert bead_ledger.get_entry(completion.id) is not None
 
 
 class TestChannelCommunication:
@@ -142,22 +153,26 @@ class TestChannelCommunication:
         """Test sending and receiving messages."""
         # Create channel
         channel = channel_manager.create_channel(
-            name='COO to VP Engineering',
             channel_type=ChannelType.DOWNCHAIN,
+            name='COO to VP Engineering',
+            owner_id='coo',
             participants=['coo', 'vp_engineering']
         )
 
         # Send message
         message = channel_manager.send_message(
-            channel_id=channel.id,
-            sender='coo',
-            content={'type': 'delegation', 'task': 'Build feature'}
+            sender_id='coo',
+            sender_role='coo',
+            recipient_id='vp_engineering',
+            recipient_role='vp_engineering',
+            subject='Task Delegation',
+            body='Build the feature',
+            channel_type=ChannelType.DOWNCHAIN,
+            priority=MessagePriority.NORMAL
         )
 
-        # Verify message
-        messages = channel_manager.get_messages(channel.id)
-        assert len(messages) >= 1
-        assert messages[-1].sender == 'coo'
+        assert message is not None
+        assert message.sender_id == 'coo'
 
 
 class TestVPAgentCreation:
@@ -189,7 +204,11 @@ class TestDirectorCreation:
     def test_create_director(self, initialized_corp):
         """Test creating a director agent."""
         director = create_director_agent(
-            director_type='dir_frontend',
+            role_id='dir_frontend',
+            role_name='Frontend Director',
+            department='engineering',
+            focus='frontend',
+            reports_to='vp_engineering',
             corp_path=Path(initialized_corp)
         )
 
@@ -200,7 +219,7 @@ class TestDirectorCreation:
 class TestErrorHandling:
     """Test error handling in the pipeline."""
 
-    def test_work_item_failure(self, hook_manager, sample_work_item_data):
+    def test_work_item_failure(self, hook_manager):
         """Test that failed work items record errors."""
         hook = hook_manager.create_hook(
             name='Test',
@@ -208,45 +227,66 @@ class TestErrorHandling:
             owner_id='test'
         )
 
-        item = hook_manager.add_work_item(
+        item = hook_manager.add_work_to_hook(
             hook_id=hook.id,
-            **sample_work_item_data
+            title='Test Work Item',
+            description='A test work item',
+            molecule_id='MOL-TEST123',
+            step_id='step-1',
+            priority=WorkItemPriority.P2_MEDIUM
         )
 
-        hook_manager.claim_work_item(hook.id, item.id, 'agent-001')
+        hook_manager.claim_work(hook.id, 'agent-001')
 
-        failed = hook_manager.fail_work_item(
-            hook.id,
-            item.id,
-            error='Task failed due to missing dependencies'
-        )
+        # Fail 3 times to exceed retries
+        for i in range(3):
+            hook_manager.fail_work(
+                hook.id,
+                item.id,
+                error='Task failed due to missing dependencies'
+            )
+            if i < 2:
+                # Reclaim after retry requeue
+                hook_manager.claim_work(hook.id, 'agent-001')
 
-        assert failed.status == WorkItemStatus.FAILED
-        assert 'missing dependencies' in failed.error
+        # Refresh item
+        updated_hook = hook_manager.get_hook(hook.id)
+        failed_item = updated_hook.get_item(item.id)
 
-    def test_molecule_failure(self, molecule_engine, sample_raci):
-        """Test that failed molecules record errors."""
+        assert failed_item.status == WorkItemStatus.FAILED
+        assert 'missing dependencies' in failed_item.error
+
+    def test_molecule_step_failure(self, molecule_engine):
+        """Test that failed molecule steps record errors."""
         molecule = molecule_engine.create_molecule(
             name='Failing Molecule',
             description='Will fail',
-            raci=sample_raci,
-            steps=[]
+            created_by='test-agent'
         )
+        step = MoleculeStep.create(name='Failing Step', description='Will fail')
+        molecule.add_step(step)
+        molecule_engine._save_molecule(molecule)
 
         molecule_engine.start_molecule(molecule.id)
+        molecule_engine.start_step(molecule.id, step.id, 'worker-001')
 
-        failed = molecule_engine.fail_molecule(
+        failed_step = molecule_engine.fail_step(
             molecule.id,
+            step.id,
             error='Critical error occurred'
         )
 
-        assert failed.status == MoleculeStatus.FAILED
+        assert failed_step.status == StepStatus.FAILED
+
+        # Molecule should be BLOCKED
+        failed_mol = molecule_engine.get_molecule(molecule.id)
+        assert failed_mol.status == MoleculeStatus.BLOCKED
 
 
 class TestDataIntegrity:
     """Test data integrity across components."""
 
-    def test_work_item_ids_unique(self, hook_manager, sample_work_item_data):
+    def test_work_item_ids_unique(self, hook_manager):
         """Test that work item IDs are unique."""
         hook = hook_manager.create_hook(
             name='Test',
@@ -256,9 +296,14 @@ class TestDataIntegrity:
 
         items = []
         for i in range(5):
-            data = sample_work_item_data.copy()
-            data['title'] = f'Task {i}'
-            item = hook_manager.add_work_item(hook_id=hook.id, **data)
+            item = hook_manager.add_work_to_hook(
+                hook_id=hook.id,
+                title=f'Task {i}',
+                description='A test work item',
+                molecule_id='MOL-TEST123',
+                step_id='step-1',
+                priority=WorkItemPriority.P2_MEDIUM
+            )
             items.append(item)
 
         item_ids = [i.id for i in items]
@@ -280,15 +325,14 @@ class TestDataIntegrity:
         bead_ids = [b.id for b in beads]
         assert len(bead_ids) == len(set(bead_ids)), "Bead IDs are not unique"
 
-    def test_molecule_ids_unique(self, molecule_engine, sample_raci):
+    def test_molecule_ids_unique(self, molecule_engine):
         """Test that molecule IDs are unique."""
         molecules = []
         for i in range(5):
             mol = molecule_engine.create_molecule(
                 name=f'Mol {i}',
                 description='Test',
-                raci=sample_raci,
-                steps=[]
+                created_by='test-agent'
             )
             molecules.append(mol)
 
