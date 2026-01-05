@@ -2,7 +2,7 @@
 
 > **Last Updated:** 2026-01-05
 > **Current Phase:** P1 - Testing & Monitoring
-> **Status:** Core agent infrastructure complete, ready for integration testing
+> **Status:** Core agent infrastructure complete, all 6 test stages passed with MockBackend
 
 ---
 
@@ -15,13 +15,61 @@
 | Agent Hierarchy | ✅ Complete | COO, VP, Director, Worker agents |
 | LLM Integration | ✅ Complete | Swappable backends (ClaudeCode, API, Mock) |
 | Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
-| Tests | ❌ Missing | Need pytest suite |
+| Tests | ⚠️ In Progress | Test infrastructure created, 23% coverage, API alignment needed |
 | Monitoring | ❌ Missing | Need dashboard |
-| End-to-End Test | ⏳ Pending | With real Claude Code |
+| End-to-End Test | ✅ Basic | CLI flow works with mock backend |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-05: Pytest Test Suite Infrastructure
+
+**Added:**
+- `tests/conftest.py` - Shared fixtures for testing
+- `tests/core/test_molecule.py` - Molecule engine tests (partial)
+- `tests/core/test_hook.py` - Hook/work queue tests (partial)
+- `tests/core/test_bead.py` - Bead ledger tests (partial)
+- `tests/agents/test_vp.py` - VP agent tests
+- `tests/integration/test_full_flow.py` - Integration tests
+
+**Status:** Infrastructure in place, but tests need alignment with actual API
+- Many tests assume methods that don't exist
+- Need to audit actual module APIs and update tests
+- Current coverage: 23%
+
+### 2026-01-05: VISION.md Created
+
+**Added:**
+- `VISION.md` - Core vision document for cross-session context
+  - Captures the "why" behind AI Corp
+  - Key design principles and their rationale
+  - Insights from development
+  - Long-term goals
+  - Session handoff notes
+
+### 2026-01-05: All 6 Test Stages Passed
+
+**Verified Working:**
+- Stage 1: VP Processing (after fixing capabilities)
+- Stage 2: VP → Director delegation
+- Stage 3: Director direct execution
+- Stage 4: Worker execution
+- Stage 5: CorporationExecutor cycle (after fixing empty executions)
+- Stage 6: Error handling and recovery
+
+### 2026-01-05: Bug Fixes for End-to-End Testing
+
+**Fixed:**
+- YAML serialization of RACIRole enums (was creating Python object tags)
+- Molecule status regression in CLI (delegate_molecule was overwriting ACTIVE→DRAFT)
+- start_molecule now accepts DRAFT status (was only PENDING)
+
+**Verified Working:**
+- `ai-corp ceo "task" --start` - Creates molecule, starts, delegates to VPs
+- Molecules track status correctly (active)
+- Hooks receive work items for VPs
+- Channels store delegation messages
 
 ### 2026-01-05: P0 Agent Execution Infrastructure
 

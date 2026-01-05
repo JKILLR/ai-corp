@@ -136,6 +136,17 @@ class AgentExecutor:
         """
         start_time = time.time()
 
+        # Handle empty executions
+        if not self.executions:
+            return ExecutionResult(
+                total_agents=0,
+                completed=0,
+                failed=0,
+                stopped=0,
+                duration_seconds=0.0,
+                agent_results={}
+            )
+
         if self.mode == ExecutionMode.SEQUENTIAL:
             results = self._run_sequential()
         else:

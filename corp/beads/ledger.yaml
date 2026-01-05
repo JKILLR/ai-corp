@@ -100,5 +100,414 @@ entries:
   message: 'Created molecule for CEO task: Build a hello world web app'
   parent_entry_id: null
   timestamp: '2026-01-05T06:48:09.282974'
-updated_at: '2026-01-05T06:48:09.283792'
+- action: create
+  agent_id: coo-001
+  data:
+    child_molecule_ids: []
+    completed_at: null
+    created_at: '2026-01-05T07:03:28.514810'
+    created_by: coo-001
+    description: Build a user authentication system
+    id: MOL-7B996222
+    metadata: {}
+    name: Build a user authentication system
+    parent_molecule_id: null
+    priority: P2_MEDIUM
+    raci:
+      accountable: coo
+      consulted: []
+      informed:
+      - ceo
+      responsible:
+      - vp_product
+      - vp_engineering
+      - vp_operations
+    started_at: null
+    status: draft
+    steps:
+    - assigned_to: null
+      checkpoints: []
+      completed_at: null
+      department: product
+      depends_on: []
+      description: Create design specifications and plans
+      error: null
+      gate_id: null
+      id: step-6da89889
+      is_gate: false
+      name: Design & Planning
+      required_capabilities:
+      - design
+      - planning
+      result: null
+      started_at: null
+      status: pending
+    - assigned_to: null
+      checkpoints: []
+      completed_at: null
+      department: product
+      depends_on:
+      - step-6da89889
+      description: Review design before implementation
+      error: null
+      gate_id: design
+      id: step-87e55af1
+      is_gate: true
+      name: Design Gate
+      required_capabilities: []
+      result: null
+      started_at: null
+      status: pending
+    - assigned_to: null
+      checkpoints: []
+      completed_at: null
+      department: engineering
+      depends_on:
+      - step-87e55af1
+      description: Build and implement the solution
+      error: null
+      gate_id: null
+      id: step-97ed5cfa
+      is_gate: false
+      name: Implementation
+      required_capabilities:
+      - development
+      - coding
+      result: null
+      started_at: null
+      status: pending
+    - assigned_to: null
+      checkpoints: []
+      completed_at: null
+      department: engineering
+      depends_on:
+      - step-97ed5cfa
+      description: Review implementation before testing
+      error: null
+      gate_id: build
+      id: step-712ed751
+      is_gate: true
+      name: Build Gate
+      required_capabilities: []
+      result: null
+      started_at: null
+      status: pending
+    tags: []
+    updated_at: '2026-01-05T07:03:28.516640'
+  entity_id: MOL-7B996222
+  entity_type: molecule
+  id: BEAD-964673CBBA69
+  message: 'Created molecule for CEO task: Build a user authentication system'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:03:28.520726'
+- action: claim_work
+  agent_id: vp_product-001
+  data:
+    molecule_id: MOL-152D1477
+    step_id: step-5e03bc23
+  entity_id: WI-4D6C93E1
+  entity_type: work_item
+  id: BEAD-E68A35BD84C2
+  message: 'Claimed work item: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:06:01.027649'
+- action: claim_work
+  agent_id: vp_product-001
+  data:
+    molecule_id: MOL-FA99932C
+    step_id: step-11033c59
+  entity_id: WI-E0243D36
+  entity_type: work_item
+  id: BEAD-A5E73D10F29B
+  message: 'Claimed work item: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:06:25.223007'
+- action: claim_work
+  agent_id: dir_product-001
+  data:
+    molecule_id: MOL-152D1477
+    step_id: step-5e03bc23
+  entity_id: WI-029F1169
+  entity_type: work_item
+  id: BEAD-203649771DA1
+  message: 'Claimed work item: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:07:52.308286'
+- action: completed_work
+  agent_id: dir_product-001
+  data:
+    output_length: 122
+    summary:
+      status: completed
+      summary: 'Mock response for: You are Product Director. Summarize the results
+        of this task execution.
+
+
+        TASK: Design & Planning
+
+
+        EX...'
+  entity_id: WI-029F1169
+  entity_type: work_item
+  id: BEAD-69F1C4543576
+  message: 'Completed: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:07:52.332702'
+- action: claim_work
+  agent_id: worker_product_01-001
+  data:
+    molecule_id: MOL-TEST-001
+    step_id: step-test-001
+  entity_id: WI-1C27ABF7
+  entity_type: work_item
+  id: BEAD-EC4DE53B19D4
+  message: 'Claimed work item: Create login page mockup'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:09:36.956288'
+- action: completed_execution
+  agent_id: worker_product_01-001
+  data:
+    artifacts: []
+    summary: 'Mock response for: You are Product Worker 1. Summarize the results of
+      this task execution.
+
+
+      TASK: Create login page moc...'
+  entity_id: WI-1C27ABF7
+  entity_type: work_item
+  id: BEAD-3041D7B95840
+  message: 'Completed: Create login page mockup'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:09:36.981704'
+- action: claim_work
+  agent_id: vp_product-001
+  data:
+    molecule_id: MOL-B3936C6E
+    step_id: step-5bcd4c05
+  entity_id: WI-647793A2
+  entity_type: work_item
+  id: BEAD-C6B194385513
+  message: 'Claimed work item: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:10:38.166842'
+- action: checkpoint
+  agent_id: vp_product-001
+  data:
+    checkpoint_data:
+      delegations:
+      - director: dir_product
+        subtask: Design & Planning
+        work_item_id: WI-49E8DE20
+    work_item:
+      assigned_to: vp_product-001
+      claimed_at: '2026-01-05T07:10:38.157695'
+      completed_at: null
+      context:
+        gate_id: null
+        is_gate: false
+        molecule_description: Build a hello world web app
+        molecule_name: Build a hello world web app
+      created_at: '2026-01-05T06:48:09.306119'
+      description: Create design specifications and plans
+      error: null
+      hook_id: HOOK-293B9F9E
+      id: WI-647793A2
+      max_retries: 3
+      molecule_id: MOL-B3936C6E
+      priority: 2
+      required_capabilities:
+      - design
+      - planning
+      required_skills: []
+      result: null
+      retry_count: 0
+      status: in_progress
+      step_id: step-5bcd4c05
+      title: Design & Planning
+      updated_at: '2026-01-05T07:10:38.161780'
+  entity_id: WI-647793A2
+  entity_type: work_item
+  id: BEAD-9B71A7DCBB6C
+  message: Delegated to directors
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:10:38.222787'
+- action: complete
+  agent_id: vp_product-001
+  data:
+    result:
+      delegations:
+      - director: dir_product
+        subtask: Design & Planning
+        work_item_id: WI-49E8DE20
+      status: delegated
+      target_director: dir_product
+  entity_id: WI-647793A2
+  entity_type: work_item
+  id: BEAD-6CAD8889FA75
+  message: 'Completed: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:10:38.264301'
+- action: claim_work
+  agent_id: dir_product-001
+  data:
+    molecule_id: MOL-FA99932C
+    step_id: step-11033c59
+  entity_id: WI-16E4E016
+  entity_type: work_item
+  id: BEAD-13AD1BDBC9AE
+  message: 'Claimed work item: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:10:38.330153'
+- action: completed_work
+  agent_id: dir_product-001
+  data:
+    output_length: 122
+    summary:
+      status: completed
+      summary: 'Mock response for: You are Product Director. Summarize the results
+        of this task execution.
+
+
+        TASK: Design & Planning
+
+
+        EX...'
+  entity_id: WI-16E4E016
+  entity_type: work_item
+  id: BEAD-D46E30D408F0
+  message: 'Completed: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:10:38.362724'
+- action: complete
+  agent_id: dir_product-001
+  data:
+    result:
+      output: "Mock response for: \nYou are executing this task as Product Director\
+        \ (focus: Product Management).\n\nTask: Design & Planni..."
+      status: completed
+      summary:
+        status: completed
+        summary: 'Mock response for: You are Product Director. Summarize the results
+          of this task execution.
+
+
+          TASK: Design & Planning
+
+
+          EX...'
+  entity_id: WI-16E4E016
+  entity_type: work_item
+  id: BEAD-EC81CC0C3096
+  message: 'Completed: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:10:38.397162'
+- action: claim_work
+  agent_id: vp_product-001
+  data:
+    molecule_id: MOL-7B996222
+    step_id: step-6da89889
+  entity_id: WI-43E1CFFA
+  entity_type: work_item
+  id: BEAD-E5654678D1CA
+  message: 'Claimed work item: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:11:28.896230'
+- action: checkpoint
+  agent_id: vp_product-001
+  data:
+    checkpoint_data:
+      delegations:
+      - director: dir_product
+        subtask: Design & Planning
+        work_item_id: WI-81971D8A
+    work_item:
+      assigned_to: vp_product-001
+      claimed_at: '2026-01-05T07:11:28.886988'
+      completed_at: null
+      context:
+        gate_id: null
+        is_gate: false
+        molecule_description: Build a user authentication system
+        molecule_name: Build a user authentication system
+      created_at: '2026-01-05T07:03:28.551764'
+      description: Create design specifications and plans
+      error: null
+      hook_id: HOOK-293B9F9E
+      id: WI-43E1CFFA
+      max_retries: 3
+      molecule_id: MOL-7B996222
+      priority: 2
+      required_capabilities:
+      - design
+      - planning
+      required_skills: []
+      result: null
+      retry_count: 0
+      status: in_progress
+      step_id: step-6da89889
+      title: Design & Planning
+      updated_at: '2026-01-05T07:11:28.891492'
+  entity_id: WI-43E1CFFA
+  entity_type: work_item
+  id: BEAD-04D5412A7333
+  message: Delegated to directors
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:11:28.965912'
+- action: complete
+  agent_id: vp_product-001
+  data:
+    result:
+      delegations:
+      - director: dir_product
+        subtask: Design & Planning
+        work_item_id: WI-81971D8A
+      status: delegated
+      target_director: dir_product
+  entity_id: WI-43E1CFFA
+  entity_type: work_item
+  id: BEAD-1CC69C5C0734
+  message: 'Completed: Design & Planning'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:11:29.014723'
+- action: claim_work
+  agent_id: worker_test_01-001
+  data:
+    molecule_id: MOL-FAIL-001
+    step_id: step-fail-001
+  entity_id: WI-29F4FE61
+  entity_type: work_item
+  id: BEAD-6F5ADB356B50
+  message: 'Claimed work item: Task that will fail'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:12:19.743205'
+- action: claim_work
+  agent_id: worker_test_01-001
+  data:
+    molecule_id: MOL-RECOVER-001
+    step_id: step-recover-001
+  entity_id: WI-EE26DA2F
+  entity_type: work_item
+  id: BEAD-7CB247957B4A
+  message: 'Claimed work item: Recovery test task'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:12:19.792066'
+- action: completed_execution
+  agent_id: worker_test_01-001
+  data:
+    artifacts: []
+    summary: 'Mock response for: You are Test Worker 1. Summarize the results of this
+      task execution.
+
+
+      TASK: Recovery test task
+
+
+      EXEC...'
+  entity_id: WI-EE26DA2F
+  entity_type: work_item
+  id: BEAD-846A62CAC458
+  message: 'Completed: Recovery test task'
+  parent_entry_id: null
+  timestamp: '2026-01-05T07:12:19.835157'
+updated_at: '2026-01-05T07:12:19.860025'
 version: '1.0'

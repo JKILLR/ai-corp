@@ -1,0 +1,20 @@
+agent_id: dir_product-001
+buffers: []
+updated_at: '2026-01-05T07:10:38.361338'
+variables:
+- context_type: molecule
+  created_at: '2026-01-05T07:07:52.331196'
+  id: ctx-7ef02bfc
+  metadata: {}
+  name: work_WI-029F1169
+  size: 1329
+  summary: Work analysis for Design & Planning
+  updated_at: '2026-01-05T07:07:52.331196'
+- context_type: molecule
+  created_at: '2026-01-05T07:10:38.360769'
+  id: ctx-ffe3a468
+  metadata: {}
+  name: work_WI-16E4E016
+  size: 1329
+  summary: Work analysis for Design & Planning
+  updated_at: '2026-01-05T07:10:38.360769'

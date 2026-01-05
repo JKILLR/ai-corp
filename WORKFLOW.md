@@ -26,6 +26,76 @@ This document defines the rules and processes for working on the AI Corp project
 - Add docstrings to all classes and public methods
 - Keep this `WORKFLOW.md` current
 
+### 4. Code Quality Standards (TCMO)
+
+All code must meet the **TCMO standard** before being considered complete:
+
+| Dimension | Requirement | How to Verify |
+|-----------|-------------|---------------|
+| **T**ested | Unit tests + integration tests | `pytest tests/` passes |
+| **C**lean | No dead code, clear naming, DRY | Code review checklist |
+| **M**odularized | Swappable, loosely coupled | Can replace any component |
+| **O**ptimized | No obvious inefficiencies | Profile critical paths |
+
+#### Tested
+- Every module has corresponding tests in `tests/`
+- Unit tests for individual functions/classes
+- Integration tests for component interactions
+- End-to-end tests for full workflows
+- Target: 80%+ code coverage
+
+#### Clean
+- No dead code (unused functions, imports, variables)
+- Clear, descriptive naming (no single-letter vars except loops)
+- DRY - Don't Repeat Yourself (extract common patterns)
+- Consistent formatting (follow existing style)
+- No commented-out code in commits
+- Proper error messages (not just "Error occurred")
+
+#### Modularized
+- Every component has an interface/protocol
+- Use dependency injection, not hard-coded dependencies
+- Factory patterns for object creation
+- No circular imports
+- Clear module boundaries (core, agents, cli, utils)
+
+#### Optimized
+- No N+1 query patterns (batch operations where possible)
+- Lazy loading for expensive resources
+- Appropriate data structures (dict for lookups, list for iteration)
+- Profile before optimizing (don't guess at bottlenecks)
+- Document known performance tradeoffs
+
+### TCMO Checklist
+
+Before marking any feature complete, verify:
+
+```
+[ ] TESTED
+    [ ] Unit tests written and passing
+    [ ] Integration tests cover key flows
+    [ ] Edge cases handled (empty inputs, errors)
+    [ ] Tests run in CI (when available)
+
+[ ] CLEAN
+    [ ] No dead code
+    [ ] Names are clear and descriptive
+    [ ] No code duplication
+    [ ] Proper docstrings on public APIs
+
+[ ] MODULARIZED
+    [ ] Uses interfaces/protocols
+    [ ] Dependencies are injected
+    [ ] Can be tested in isolation
+    [ ] Exports updated in __init__.py
+
+[ ] OPTIMIZED
+    [ ] No obvious inefficiencies
+    [ ] Appropriate algorithms used
+    [ ] Resource cleanup handled
+    [ ] Performance acceptable for expected load
+```
+
 ---
 
 ## Development Rules

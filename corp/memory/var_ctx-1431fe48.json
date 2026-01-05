@@ -1,0 +1,8 @@
+{
+  "work_item_id": "WI-EE26DA2F",
+  "output": "Mock response for: You are Test Worker 1, a Test in AI Corp.\n\n## Your Task\n\n**Title:** Recovery test task\n\n**Descriptio...",
+  "summary": {
+    "summary": "Mock response for: You are Test Worker 1. Summarize the results of this task execution.\n\nTASK: Recovery test task\n\nEXEC...",
+    "status": "completed"
+  }
+}

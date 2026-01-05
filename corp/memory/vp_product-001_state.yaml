@@ -1,0 +1,36 @@
+agent_id: vp_product-001
+buffers: []
+updated_at: '2026-01-05T07:11:28.931443'
+variables:
+- context_type: molecule
+  created_at: '2026-01-05T07:06:01.045652'
+  id: ctx-1012c573
+  metadata: {}
+  name: delegation_WI-4D6C93E1
+  size: 1072
+  summary: Delegation analysis for Design & Planning
+  updated_at: '2026-01-05T07:06:01.045652'
+- context_type: molecule
+  created_at: '2026-01-05T07:06:25.242087'
+  id: ctx-3c5fde45
+  metadata: {}
+  name: delegation_WI-E0243D36
+  size: 1062
+  summary: Delegation analysis for Design & Planning
+  updated_at: '2026-01-05T07:06:25.242087'
+- context_type: molecule
+  created_at: '2026-01-05T07:10:38.191123'
+  id: ctx-5c731f3c
+  metadata: {}
+  name: delegation_WI-647793A2
+  size: 1072
+  summary: Delegation analysis for Design & Planning
+  updated_at: '2026-01-05T07:10:38.191123'
+- context_type: molecule
+  created_at: '2026-01-05T07:11:28.931045'
+  id: ctx-229c53c7
+  metadata: {}
+  name: delegation_WI-43E1CFFA
+  size: 1086
+  summary: Delegation analysis for Design & Planning
+  updated_at: '2026-01-05T07:11:28.931045'

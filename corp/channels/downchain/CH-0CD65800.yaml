@@ -1,0 +1,102 @@
+id: CH-0CD65800
+channel_type: downchain
+name: vp_product-001-to-dir_product
+owner_id: vp_product-001
+participants:
+- vp_product-001
+- dir_product
+messages:
+- id: MSG-948BCA06
+  channel_type: downchain
+  sender_id: vp_product-001
+  sender_role: vp_product
+  recipient_id: dir_product
+  recipient_role: dir_product
+  subject: 'Delegation: MOL-152D1477'
+  body: "\nTask: Design & Planning\n\nContext: Create design specifications and plans\n\
+    \nAnalysis: Mock response for: You are VP Product. Analyze this work item and\
+    \ recommend an approach.\n\nWORK ITEM:\n{\n  \"id\": \"WI-4D6C...\n\nApproach:\
+    \ parsed_from_text\n"
+  priority: 2
+  status: pending
+  message_type: delegation
+  molecule_id: MOL-152D1477
+  step_id: step-5e03bc23
+  references: []
+  attachments: {}
+  created_at: '2026-01-05T07:06:01.066915'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+- id: MSG-8BD5FCEE
+  channel_type: downchain
+  sender_id: vp_product-001
+  sender_role: vp_product
+  recipient_id: dir_product
+  recipient_role: dir_product
+  subject: 'Delegation: MOL-FA99932C'
+  body: "\nTask: Design & Planning\n\nContext: Create design specifications and plans\n\
+    \nAnalysis: Mock response for: You are VP Product. Analyze this work item and\
+    \ recommend an approach.\n\nWORK ITEM:\n{\n  \"id\": \"WI-E024...\n\nApproach:\
+    \ parsed_from_text\n"
+  priority: 2
+  status: pending
+  message_type: delegation
+  molecule_id: MOL-FA99932C
+  step_id: step-11033c59
+  references: []
+  attachments: {}
+  created_at: '2026-01-05T07:06:25.259783'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+- id: MSG-49E05935
+  channel_type: downchain
+  sender_id: vp_product-001
+  sender_role: vp_product
+  recipient_id: dir_product
+  recipient_role: dir_product
+  subject: 'Delegation: MOL-B3936C6E'
+  body: "\nTask: Design & Planning\n\nContext: Create design specifications and plans\n\
+    \nAnalysis: Mock response for: You are VP Product. Analyze this work item and\
+    \ recommend an approach.\n\nWORK ITEM:\n{\n  \"id\": \"WI-6477...\n\nApproach:\
+    \ parsed_from_text\n"
+  priority: 2
+  status: pending
+  message_type: delegation
+  molecule_id: MOL-B3936C6E
+  step_id: step-5bcd4c05
+  references: []
+  attachments: {}
+  created_at: '2026-01-05T07:10:38.211978'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+- id: MSG-8689B75A
+  channel_type: downchain
+  sender_id: vp_product-001
+  sender_role: vp_product
+  recipient_id: dir_product
+  recipient_role: dir_product
+  subject: 'Delegation: MOL-7B996222'
+  body: "\nTask: Design & Planning\n\nContext: Create design specifications and plans\n\
+    \nAnalysis: Mock response for: You are VP Product. Analyze this work item and\
+    \ recommend an approach.\n\nWORK ITEM:\n{\n  \"id\": \"WI-43E1...\n\nApproach:\
+    \ parsed_from_text\n"
+  priority: 2
+  status: pending
+  message_type: delegation
+  molecule_id: MOL-7B996222
+  step_id: step-6da89889
+  references: []
+  attachments: {}
+  created_at: '2026-01-05T07:11:28.953514'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+created_at: '2026-01-05T07:06:01.066195'
+updated_at: '2026-01-05T07:11:28.953527'

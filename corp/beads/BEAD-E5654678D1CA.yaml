@@ -1,0 +1,11 @@
+action: claim_work
+agent_id: vp_product-001
+data:
+  molecule_id: MOL-7B996222
+  step_id: step-6da89889
+entity_id: WI-43E1CFFA
+entity_type: work_item
+id: BEAD-E5654678D1CA
+message: 'Claimed work item: Design & Planning'
+parent_entry_id: null
+timestamp: '2026-01-05T07:11:28.896230'

@@ -477,7 +477,7 @@ def create_vp_agent(
             'role_id': 'vp_product',
             'role_name': 'VP Product',
             'directors': ['dir_product', 'dir_design'],
-            'capabilities': ['product_strategy', 'design', 'requirements']
+            'capabilities': ['product_strategy', 'design', 'requirements', 'planning']
         },
         'quality': {
             'role_id': 'vp_quality',

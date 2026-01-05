@@ -1,0 +1,16 @@
+action: complete
+agent_id: vp_product-001
+data:
+  result:
+    delegations:
+    - director: dir_product
+      subtask: Design & Planning
+      work_item_id: WI-81971D8A
+    status: delegated
+    target_director: dir_product
+entity_id: WI-43E1CFFA
+entity_type: work_item
+id: BEAD-1CC69C5C0734
+message: 'Completed: Design & Planning'
+parent_entry_id: null
+timestamp: '2026-01-05T07:11:29.014723'

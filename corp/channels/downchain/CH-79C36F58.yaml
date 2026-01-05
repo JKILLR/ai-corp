@@ -120,5 +120,43 @@ messages:
   read_at: null
   acknowledged_at: null
   response_id: null
+- id: MSG-F399F279
+  channel_type: downchain
+  sender_id: coo-001
+  sender_role: coo
+  recipient_id: vp_product
+  recipient_role: vp_product
+  subject: 'Delegation: MOL-7B996222'
+  body: '
+
+    Please handle the following task:
+
+
+    Molecule: Build a user authentication system
+
+    Step: Design & Planning
+
+    Description: Create design specifications and plans
+
+
+
+
+    Context:
+
+    Build a user authentication system
+
+    '
+  priority: 2
+  status: pending
+  message_type: delegation
+  molecule_id: MOL-7B996222
+  step_id: step-6da89889
+  references: []
+  attachments: {}
+  created_at: '2026-01-05T07:03:28.560638'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
 created_at: '2026-01-05T06:43:42.706852'
-updated_at: '2026-01-05T06:48:09.312692'
+updated_at: '2026-01-05T07:03:28.560653'
