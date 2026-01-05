@@ -15,6 +15,7 @@ This module provides the core infrastructure for the AI Corporation:
 - Processor: Inter-agent message processing
 - Knowledge: Scoped document and context management
 - Ingest: RLM-inspired document processing pipeline
+- Skills: Role-based skill discovery and loading
 """
 
 from .molecule import Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine
@@ -56,6 +57,10 @@ from .ingest import (
     IngestResult, ProcessedChunk, ExtractionMethod,
     ingest_file, ingest_foundation, ingest_project, ingest_task
 )
+from .skills import (
+    Skill, SkillLoader, SkillRegistry,
+    parse_frontmatter, CAPABILITY_SKILL_MAP, SKILL_CAPABILITY_MAP
+)
 
 __all__ = [
     'Molecule', 'MoleculeStep', 'MoleculeStatus', 'MoleculeEngine',
@@ -90,4 +95,7 @@ __all__ = [
     'DocumentProcessor', 'ContentExtractor', 'DocumentChunker', 'FactExtractor',
     'IngestResult', 'ProcessedChunk', 'ExtractionMethod',
     'ingest_file', 'ingest_foundation', 'ingest_project', 'ingest_task',
+    # Skills System
+    'Skill', 'SkillLoader', 'SkillRegistry',
+    'parse_frontmatter', 'CAPABILITY_SKILL_MAP', 'SKILL_CAPABILITY_MAP',
 ]
