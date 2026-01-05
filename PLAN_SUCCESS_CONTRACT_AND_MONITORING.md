@@ -10,6 +10,503 @@ Both features are designed to integrate cleanly with the existing architecture.
 
 ---
 
+## Design Decisions (Answered)
+
+| Question | Decision |
+|----------|----------|
+| Discovery conversation mode | Web-based onboarding chat in eventual web UI |
+| Metrics persistence | YAML files (consistent with existing system) |
+| IT auto-remediation | Auto-plan remediation, then alert for human approval |
+| Contract amendments | Yes, contracts can be modified with version history |
+| Dashboard technology | Terminal-only, separate from eventual web UI |
+
+---
+
+## Part 0: Critical Review & Simplification
+
+### Original Plan Issues
+
+After review, the original plan has **overcomplexity issues**:
+
+| Component | Problem | Simplification |
+|-----------|---------|----------------|
+| DiscoveryEngine state machine | Formal FSM is overkill - LLM naturally flows through conversation | Remove states, let COO conversation flow naturally |
+| MetricsStore with histograms | Time-series analytics not needed for MVP | Simple current-value store only |
+| IT Department (3 directors) | Too much hierarchy for monitoring | Single `SystemMonitor` service, not full department |
+| HealthChecker separate class | Unnecessary abstraction layer | Merge into monitoring service |
+| 10+ metric definitions | Too many metrics to start | Core 4: heartbeats, queue depth, molecule progress, errors |
+| SuccessCriterion with metric_type | Overengineered for MVP | Simple boolean checklist |
+
+### Simplified Architecture
+
+```
+BEFORE (Overengineered):
+┌─────────────────────────────────────────────────────────────┐
+│ DiscoveryEngine                                              │
+│ ├── DiscoverySession                                         │
+│ ├── DiscoveryState (6 states)                               │
+│ └── State machine logic                                      │
+├─────────────────────────────────────────────────────────────┤
+│ IT Department                                                │
+│ ├── VP IT                                                    │
+│ ├── Infrastructure Director                                  │
+│ ├── Operations Director                                      │
+│ ├── Security Director                                        │
+│ └── Workers                                                  │
+├─────────────────────────────────────────────────────────────┤
+│ MetricsStore                                                 │
+│ ├── Gauge, Counter, Histogram types                          │
+│ ├── Complex aggregations                                     │
+│ └── Time-series queries                                      │
+├─────────────────────────────────────────────────────────────┤
+│ HealthChecker (separate)                                     │
+│ Dashboard (separate)                                         │
+└─────────────────────────────────────────────────────────────┘
+
+AFTER (Simplified):
+┌─────────────────────────────────────────────────────────────┐
+│ COO Discovery Conversation                                   │
+│ └── Single LLM conversation → extract contract at end       │
+├─────────────────────────────────────────────────────────────┤
+│ SystemMonitor (background service)                           │
+│ ├── Collects metrics (simple key-value YAML)                │
+│ ├── Checks health thresholds                                │
+│ ├── Plans remediation when issues found                     │
+│ └── Alerts for human approval                               │
+├─────────────────────────────────────────────────────────────┤
+│ Dashboard (terminal)                                         │
+│ └── Reads from metrics, displays status                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### What Stays vs What Goes
+
+**KEEP (Essential):**
+- SuccessContract data model (simplified)
+- COO-led discovery conversation (no state machine)
+- Contract → Molecule linking
+- Basic metrics collection
+- Terminal dashboard
+- Health thresholds and alerts
+
+**REMOVE (Overcomplicated):**
+- DiscoveryState enum and state machine
+- DiscoverySession tracking
+- IT Department as full org structure
+- MetricType enum (gauge/counter/histogram)
+- Complex aggregations
+- Separate HealthChecker class
+
+**DEFER (Future):**
+- Web UI for discovery (after terminal works)
+- Advanced metrics analytics
+- Auto-remediation execution (start with alerting)
+
+---
+
+## REVISED PLAN: Simplified Implementation
+
+### 1. Success Contract (Simplified)
+
+```python
+# src/core/contract.py - SIMPLIFIED
+
+@dataclass
+class SuccessCriterion:
+    """A single success criterion - simple boolean"""
+    description: str
+    is_met: bool = False
+    verified_by: Optional[str] = None
+    verified_at: Optional[str] = None
+
+@dataclass
+class SuccessContract:
+    """Lean contract - just the essentials"""
+    id: str                          # CTR-YYYYMMDD-XXX
+    molecule_id: str
+    version: int = 1                 # For amendments
+    status: str = "active"           # draft, active, completed, failed
+
+    # Core content
+    title: str
+    objective: str                   # Single clear objective
+    success_criteria: List[SuccessCriterion]  # Simple checklist
+    in_scope: List[str]
+    out_of_scope: List[str]
+    constraints: List[str]
+
+    # Metadata
+    created_at: str
+    created_by: str
+    amended_at: Optional[str] = None
+
+    def get_progress(self) -> float:
+        """Percentage of criteria met"""
+        if not self.success_criteria:
+            return 0.0
+        met = sum(1 for c in self.success_criteria if c.is_met)
+        return met / len(self.success_criteria)
+
+class ContractManager:
+    """Simple CRUD for contracts"""
+    def __init__(self, corp_path: Path):
+        self.contracts_path = corp_path / "contracts"
+
+    def create(self, molecule_id: str, data: Dict) -> SuccessContract
+    def get(self, contract_id: str) -> Optional[SuccessContract]
+    def get_by_molecule(self, molecule_id: str) -> Optional[SuccessContract]
+    def update_criterion(self, contract_id: str, index: int, is_met: bool, verifier: str)
+    def amend(self, contract_id: str, changes: Dict) -> SuccessContract  # Creates new version
+```
+
+### 2. Discovery Conversation (Simplified)
+
+**No state machine.** COO just has a natural conversation using its LLM, then extracts structured data.
+
+```python
+# In src/agents/coo.py - ADD to COOAgent
+
+class COOAgent:
+    def run_discovery(self, initial_request: str) -> SuccessContract:
+        """
+        Have a discovery conversation with CEO.
+        Returns structured contract when complete.
+        """
+        conversation = [{"role": "user", "content": initial_request}]
+
+        while True:
+            # Get COO's next response/question
+            response = self._discovery_turn(conversation)
+
+            # Check if COO wants to finalize
+            if "[FINALIZE]" in response:
+                break
+
+            # Display to user and get their response
+            print(f"COO: {response}")
+            user_input = input("You: ")
+
+            if user_input.lower() in ['done', 'yes', 'confirm', 'looks good']:
+                break
+
+            conversation.append({"role": "assistant", "content": response})
+            conversation.append({"role": "user", "content": user_input})
+
+        # Extract contract from conversation
+        return self._extract_contract(conversation)
+
+    def _discovery_turn(self, conversation: List[Dict]) -> str:
+        """Single turn of discovery - COO asks/confirms"""
+        prompt = f"""You are the COO conducting project discovery with the CEO.
+
+CONVERSATION SO FAR:
+{self._format_conversation(conversation)}
+
+YOUR TASK:
+- If you need more information: ask a focused follow-up question
+- If you have enough info: summarize understanding and ask for confirmation
+- If confirmed: respond with [FINALIZE] and a summary
+
+GATHER:
+1. Clear objective (what problem does this solve?)
+2. Success criteria (how do we know it's done? be specific)
+3. Scope (what's in/out)
+4. Constraints (technical, business)
+
+Be conversational. Ask one thing at a time. Probe vague answers.
+If something is missing (like password reset for auth), suggest it."""
+
+        return self.llm.execute(LLMRequest(prompt=prompt)).content
+
+    def _extract_contract(self, conversation: List[Dict]) -> SuccessContract:
+        """Extract structured contract from conversation"""
+        prompt = f"""Extract a Success Contract from this conversation.
+
+CONVERSATION:
+{self._format_conversation(conversation)}
+
+Return JSON:
+{{
+    "title": "...",
+    "objective": "single clear sentence",
+    "success_criteria": ["criterion 1", "criterion 2", ...],
+    "in_scope": ["item 1", ...],
+    "out_of_scope": ["item 1", ...],
+    "constraints": ["constraint 1", ...]
+}}"""
+
+        response = self.llm.execute(LLMRequest(prompt=prompt))
+        data = json.loads(response.content)
+
+        return self.contract_manager.create(
+            molecule_id=None,  # Set when molecule created
+            data=data
+        )
+```
+
+### 3. System Monitor (Simplified)
+
+**Not a department.** A lightweight background service that collects metrics and checks health.
+
+```python
+# src/core/monitor.py - NEW, SIMPLE
+
+@dataclass
+class SystemMetrics:
+    """Current system state - simple snapshot"""
+    timestamp: str
+    agents: Dict[str, AgentStatus]      # agent_id -> status
+    queues: Dict[str, int]              # agent_id -> queue depth
+    molecules: Dict[str, float]         # molecule_id -> progress %
+    errors: List[str]                   # Recent errors
+
+@dataclass
+class AgentStatus:
+    agent_id: str
+    role: str
+    last_heartbeat: str
+    current_work: Optional[str]
+    queue_depth: int
+    health: str  # healthy, slow, unresponsive
+
+@dataclass
+class HealthAlert:
+    """Alert requiring attention"""
+    severity: str           # warning, critical
+    component: str
+    message: str
+    suggested_action: str   # What to do about it
+    created_at: str
+
+class SystemMonitor:
+    """Lightweight monitoring service"""
+
+    def __init__(self, corp_path: Path):
+        self.corp_path = corp_path
+        self.metrics_file = corp_path / "metrics" / "current.yaml"
+        self.alerts_file = corp_path / "metrics" / "alerts.yaml"
+        self.thresholds = {
+            'heartbeat_warning': 60,    # seconds
+            'heartbeat_critical': 300,
+            'queue_warning': 10,
+            'queue_critical': 50,
+        }
+
+    def collect_metrics(self) -> SystemMetrics:
+        """Collect current system metrics"""
+        agents = {}
+        queues = {}
+
+        # Scan hooks for queue depths
+        hook_manager = HookManager(self.corp_path)
+        for hook in hook_manager.list_hooks():
+            stats = hook.get_stats()
+            queues[hook.owner_id] = stats['queued'] + stats['in_progress']
+
+            agents[hook.owner_id] = AgentStatus(
+                agent_id=hook.owner_id,
+                role=hook.owner_type,
+                last_heartbeat=self._get_last_heartbeat(hook.owner_id),
+                current_work=self._get_current_work(hook),
+                queue_depth=queues[hook.owner_id],
+                health=self._assess_agent_health(hook.owner_id)
+            )
+
+        # Scan molecules for progress
+        molecules = {}
+        engine = MoleculeEngine(self.corp_path)
+        for mol in engine.list_active_molecules():
+            progress = mol.get_progress()
+            molecules[mol.id] = progress['percent_complete']
+
+        metrics = SystemMetrics(
+            timestamp=datetime.utcnow().isoformat(),
+            agents=agents,
+            queues=queues,
+            molecules=molecules,
+            errors=self._get_recent_errors()
+        )
+
+        self._save_metrics(metrics)
+        return metrics
+
+    def check_health(self) -> List[HealthAlert]:
+        """Check for issues and generate alerts"""
+        metrics = self.collect_metrics()
+        alerts = []
+
+        for agent_id, status in metrics.agents.items():
+            # Check heartbeat
+            if status.health == 'unresponsive':
+                alerts.append(HealthAlert(
+                    severity='critical',
+                    component=f'agent:{agent_id}',
+                    message=f'Agent {agent_id} is unresponsive',
+                    suggested_action=f'Restart agent: ai-corp restart {agent_id}',
+                    created_at=metrics.timestamp
+                ))
+
+            # Check queue depth
+            if status.queue_depth > self.thresholds['queue_critical']:
+                alerts.append(HealthAlert(
+                    severity='critical',
+                    component=f'queue:{agent_id}',
+                    message=f'Queue depth {status.queue_depth} exceeds threshold',
+                    suggested_action=f'Scale workers or investigate bottleneck',
+                    created_at=metrics.timestamp
+                ))
+
+        self._save_alerts(alerts)
+        return alerts
+
+    def get_status_summary(self) -> str:
+        """Human-readable status for dashboard"""
+        metrics = self._load_metrics()
+        alerts = self._load_alerts()
+
+        healthy = sum(1 for a in metrics.agents.values() if a.health == 'healthy')
+        total = len(metrics.agents)
+
+        if alerts:
+            return f"⚠️  {len(alerts)} alerts | {healthy}/{total} agents healthy"
+        return f"✓ All systems operational | {healthy}/{total} agents healthy"
+```
+
+### 4. Dashboard (Simplified)
+
+```python
+# src/cli/dashboard.py - SIMPLE
+
+class Dashboard:
+    def __init__(self, corp_path: Path):
+        self.monitor = SystemMonitor(corp_path)
+        self.contracts = ContractManager(corp_path)
+
+    def render(self) -> str:
+        """Render dashboard - single function, simple output"""
+        metrics = self.monitor.collect_metrics()
+        alerts = self.monitor.check_health()
+
+        lines = [
+            "═" * 60,
+            f"  AI CORP STATUS  |  {datetime.now().strftime('%H:%M:%S')}",
+            "═" * 60,
+            "",
+            f"  Status: {self.monitor.get_status_summary()}",
+            "",
+            "  AGENTS",
+            "  " + "-" * 40,
+        ]
+
+        for agent_id, status in metrics.agents.items():
+            icon = "●" if status.health == 'healthy' else "○"
+            work = status.current_work or "idle"
+            lines.append(f"  {icon} {agent_id}: {work} (q:{status.queue_depth})")
+
+        lines.extend(["", "  PROJECTS", "  " + "-" * 40])
+
+        engine = MoleculeEngine(self.corp_path)
+        for mol in engine.list_active_molecules():
+            contract = self.contracts.get_by_molecule(mol.id)
+            progress = mol.get_progress()['percent_complete']
+            bar = "█" * (progress // 5) + "░" * (20 - progress // 5)
+
+            if contract:
+                criteria_met = sum(1 for c in contract.success_criteria if c.is_met)
+                lines.append(f"  {mol.name}")
+                lines.append(f"    [{bar}] {progress}%")
+                lines.append(f"    Criteria: {criteria_met}/{len(contract.success_criteria)}")
+            else:
+                lines.append(f"  {mol.name}: [{bar}] {progress}%")
+
+        if alerts:
+            lines.extend(["", "  ⚠️  ALERTS", "  " + "-" * 40])
+            for alert in alerts:
+                lines.append(f"  • [{alert.severity}] {alert.message}")
+                lines.append(f"    → {alert.suggested_action}")
+
+        lines.append("")
+        return "\n".join(lines)
+
+    def run_live(self, interval: int = 5):
+        """Live updating dashboard"""
+        while True:
+            print("\033[2J\033[H" + self.render())
+            time.sleep(interval)
+```
+
+### 5. File Structure (Simplified)
+
+```
+src/core/
+├── contract.py      # NEW: SuccessContract, ContractManager (lean)
+├── monitor.py       # NEW: SystemMonitor, HealthAlert (simple)
+└── ... existing
+
+src/cli/
+├── dashboard.py     # NEW: Dashboard (single file)
+└── main.py          # Modified: add dashboard, discovery commands
+
+corp/
+├── contracts/       # NEW: Contract YAML files
+│   └── CTR-20250105-001.yaml
+├── metrics/         # NEW: Simple metrics storage
+│   ├── current.yaml
+│   └── alerts.yaml
+└── ... existing
+```
+
+### 6. New CLI Commands
+
+```bash
+# Discovery (terminal for now, web UI later)
+ai-corp ceo "Build auth" --discover     # Runs discovery conversation
+ai-corp ceo "Build auth"                # Legacy: skip discovery
+
+# Monitoring
+ai-corp dashboard                       # One-time render
+ai-corp dashboard --live                # Live updating
+ai-corp status                          # Quick health check
+
+# Contract management
+ai-corp contract show CTR-XXX           # View contract
+ai-corp contract check CTR-XXX 0        # Mark criterion 0 as met
+ai-corp contract amend CTR-XXX          # Modify contract
+```
+
+### 7. Implementation Order (Revised)
+
+**Phase 1: Contract Foundation** (2-3 days)
+- `src/core/contract.py` (SuccessContract, ContractManager)
+- Add contract_id to Molecule
+- Tests
+
+**Phase 2: Discovery** (2-3 days)
+- Add `run_discovery()` to COOAgent
+- Add `_extract_contract()`
+- CLI `--discover` flag
+- Tests
+
+**Phase 3: Monitoring** (2-3 days)
+- `src/core/monitor.py` (SystemMonitor)
+- Agent heartbeat integration
+- Tests
+
+**Phase 4: Dashboard** (1-2 days)
+- `src/cli/dashboard.py`
+- CLI commands
+- Integration tests
+
+**Total: ~10 days** (vs original ~4 weeks)
+
+---
+
+## ORIGINAL PLAN (Reference)
+
+*The detailed original plan is preserved below for reference, but the simplified plan above should be implemented instead.*
+
+---
+
 ## Part 1: Success Contract System
 
 ### 1.1 Problem Statement
