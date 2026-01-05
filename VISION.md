@@ -234,6 +234,88 @@ Announcements go to all subordinates (e.g., VP announces department-wide policy)
 
 ---
 
+## Template vs Instance Separation
+
+**Critical Principle:** The AI Corp system must remain a clean, reusable template.
+
+### Three Separate Concerns
+
+```
+1. AI Corp System (Template)
+   └── The reusable codebase - stays clean, can be cloned
+   └── Lives in: ai-corp/ repo
+   └── Contains: src/, templates/, tests/, docs
+
+2. AI Corp Runtime (Instance State)
+   └── Operational data for a specific project
+   └── Lives in: project/.aicorp/
+   └── Contains: beads/, hooks/, molecules/, channels/, etc.
+
+3. Project Artifacts (Work Output)
+   └── Files/code created BY the agents
+   └── Lives in: project/ (alongside .aicorp/)
+   └── Contains: Whatever the agents build
+```
+
+### Directory Structure
+
+```
+ai-corp/                        # TEMPLATE - Clean, cloneable
+├── src/                        # System source code
+├── templates/                  # Organization templates
+│   └── software/               # Software company template
+│       ├── org/hierarchy.yaml
+│       ├── org/departments/
+│       └── org/roles/
+├── tests/
+├── VISION.md
+└── ...
+
+~/projects/my-app/              # PROJECT - Created per-project
+├── .aicorp/                    # Runtime state (gitignore in project)
+│   ├── org/                    # Copied from template on init
+│   ├── beads/                  # Audit trail
+│   ├── hooks/                  # Work queues
+│   ├── molecules/              # Workflows
+│   ├── channels/               # Messages
+│   ├── gates/                  # Quality gates
+│   ├── pools/                  # Worker pools
+│   └── memory/                 # Agent memory
+├── src/                        # Files CREATED by agents
+│   └── app.py
+└── README.md
+```
+
+### Why This Matters
+
+1. **Cloneable Template** - Anyone can clone AI Corp and start fresh
+2. **Multiple Projects** - Run separate projects without interference
+3. **Clean Git History** - Runtime state doesn't pollute system repo
+4. **Portable** - Move/backup projects independently
+5. **Testable** - Tests create isolated temp directories
+
+### Workflow
+
+```bash
+# Install AI Corp (once)
+git clone <ai-corp-repo>
+pip install -e ai-corp/
+
+# Create a new project (anywhere)
+ai-corp init software ~/projects/todo-app
+cd ~/projects/todo-app
+
+# Work on project
+ai-corp ceo "Build a todo application"
+
+# Project structure created:
+# ~/projects/todo-app/
+# ├── .aicorp/          <- Runtime state
+# └── (agent-created files)
+```
+
+---
+
 ## Long-Term Goals
 
 ### P1: Production Ready
@@ -274,6 +356,10 @@ When making design decisions, ask:
 
 5. **Can we test this?**
    - If it can't be tested with MockBackend, it needs refactoring
+
+6. **Does this keep the template clean?**
+   - System code must stay separate from runtime data
+   - Never commit generated state to the template repo
 
 ---
 

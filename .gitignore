@@ -1,2 +1,54 @@
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
 .coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# AI Corp Runtime Data
+# These are generated per-project and should NOT be in the template
+corp/
+.aicorp/
+
+# Keep templates tracked (this is a whitelist pattern)
+!templates/
+
+# OS
+.DS_Store
+Thumbs.db
