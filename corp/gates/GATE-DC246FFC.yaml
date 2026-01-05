@@ -1,0 +1,28 @@
+id: GATE-DC246FFC
+name: Design Gate
+description: Review design before proceeding to build
+owner_role: vp_product
+pipeline_stage: design
+criteria:
+- id: CRIT-C4796B
+  name: Design Complete
+  description: Design is complete
+  required: true
+  auto_check: false
+  check_command: null
+- id: CRIT-1ECC45
+  name: Stakeholder Approval
+  description: Stakeholders have approved
+  required: true
+  auto_check: false
+  check_command: null
+- id: CRIT-8BB1D2
+  name: Technical Feasibility
+  description: Engineering confirms feasibility
+  required: true
+  auto_check: false
+  check_command: null
+status: open
+submissions: []
+created_at: '2026-01-05T06:33:52.717651'
+updated_at: '2026-01-05T06:33:52.717651'
