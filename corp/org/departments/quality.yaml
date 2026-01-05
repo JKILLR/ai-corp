@@ -1,0 +1,103 @@
+# Quality Department Configuration
+# VP Quality leads QA and Security teams
+
+department:
+  id: quality
+  name: Quality Department
+  head: vp_quality
+  description: "Responsible for quality assurance, security review, and code quality"
+
+mission: |
+  Ensure all deliverables meet quality standards before release.
+  Protect the organization through rigorous security review and testing.
+
+directors:
+  - id: dir_qa
+    name: QA Director
+    focus: "Test strategy, test automation, quality metrics"
+    skills: [webapp-testing]
+    responsibilities:
+      - Define test strategy and standards
+      - Manage test automation framework
+      - Track quality metrics and trends
+      - Coordinate testing efforts
+      - Gate releases based on quality
+
+  - id: dir_security
+    name: Security Director
+    focus: "Security review, vulnerability assessment, compliance"
+    skills: [security-bluebook-builder]
+    responsibilities:
+      - Conduct security reviews
+      - Identify and track vulnerabilities
+      - Define security standards
+      - Ensure compliance requirements
+      - Gate releases based on security
+
+worker_pools:
+  - id: pool_qa_engineers
+    name: QA Engineers
+    director: dir_qa
+    min_workers: 1
+    max_workers: 4
+    capabilities: [test_writing, test_automation, bug_reporting, regression_testing]
+    skills: [webapp-testing]
+
+  - id: pool_security_reviewers
+    name: Security Reviewers
+    director: dir_security
+    min_workers: 1
+    max_workers: 2
+    capabilities: [code_review, vulnerability_scanning, penetration_testing, compliance_check]
+    skills: [security-bluebook-builder]
+
+  - id: pool_code_reviewers
+    name: Code Reviewers
+    director: dir_qa
+    min_workers: 1
+    max_workers: 3
+    capabilities: [code_review, best_practices, performance_review]
+    skills: []
+
+quality_gates:
+  - id: gate_code_review
+    name: Code Review Gate
+    owner: dir_qa
+    criteria:
+      - all_changes_reviewed: true
+      - no_blocking_issues: true
+      - coding_standards_met: true
+
+  - id: gate_testing
+    name: Testing Gate
+    owner: dir_qa
+    criteria:
+      - unit_tests_pass: true
+      - integration_tests_pass: true
+      - coverage_threshold_met: true
+      - no_critical_bugs: true
+
+  - id: gate_security
+    name: Security Gate
+    owner: dir_security
+    criteria:
+      - security_review_complete: true
+      - no_critical_vulnerabilities: true
+      - no_high_vulnerabilities: true
+      - compliance_check_passed: true
+
+metrics:
+  - defect_escape_rate
+  - test_coverage
+  - mean_time_to_detect
+  - security_vulnerability_count
+  - code_review_turnaround_time
+
+collaboration:
+  primary_partners: [engineering]
+  inputs_from:
+    - product: acceptance criteria
+    - engineering: code changes, test requests
+  gates_controlled:
+    - qa_gate: blocks deployment
+    - security_gate: blocks deployment

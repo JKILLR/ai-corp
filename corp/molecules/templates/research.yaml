@@ -1,0 +1,49 @@
+# Research Molecule Template
+# Use this for research initiatives
+
+name: Research Initiative
+description: Research and exploration workflow
+priority: P2_MEDIUM
+
+steps:
+  - name: Define Scope
+    description: Define research questions and scope
+    department: research
+    required_capabilities: [analysis, planning]
+
+  - name: Literature Review
+    description: Review existing research and documentation
+    department: research
+    required_capabilities: [research, analysis]
+    depends_on: [Define Scope]
+
+  - name: Technical Exploration
+    description: Hands-on exploration and prototyping
+    department: research
+    required_capabilities: [poc_development, tech_evaluation]
+    depends_on: [Literature Review]
+
+  - name: Analysis & Synthesis
+    description: Analyze findings and synthesize insights
+    department: research
+    required_capabilities: [analysis, synthesis]
+    depends_on: [Technical Exploration]
+
+  - name: Research Gate
+    description: Review research findings
+    department: research
+    is_gate: true
+    gate_id: research
+    depends_on: [Analysis & Synthesis]
+
+  - name: Report Writing
+    description: Document findings and recommendations
+    department: operations
+    required_capabilities: [documentation, technical_writing]
+    depends_on: [Research Gate]
+
+  - name: Stakeholder Review
+    description: Present to stakeholders
+    department: product
+    required_capabilities: [presentation, stakeholder_management]
+    depends_on: [Report Writing]

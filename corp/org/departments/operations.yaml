@@ -1,0 +1,108 @@
+# Operations Department Configuration
+# VP Operations leads Project Management and Documentation teams
+
+department:
+  id: operations
+  name: Operations Department
+  head: vp_operations
+  description: "Responsible for project management, documentation, and organizational efficiency"
+
+mission: |
+  Keep the organization running smoothly through effective project management.
+  Maintain comprehensive documentation and knowledge base for organizational memory.
+
+directors:
+  - id: dir_project
+    name: Project Director
+    focus: "Timelines, resources, risk management, cross-team coordination"
+    skills: []
+    responsibilities:
+      - Manage project timelines and milestones
+      - Allocate resources across projects
+      - Track and mitigate risks
+      - Facilitate cross-team coordination
+      - Report project status to leadership
+
+  - id: dir_documentation
+    name: Documentation Director
+    focus: "Technical docs, knowledge base, process documentation"
+    skills: [docx, pdf]
+    responsibilities:
+      - Maintain documentation standards
+      - Manage knowledge base
+      - Ensure process documentation
+      - Create and update guides
+      - Archive completed project docs
+
+worker_pools:
+  - id: pool_project_managers
+    name: Project Managers
+    director: dir_project
+    min_workers: 1
+    max_workers: 3
+    capabilities: [scheduling, resource_allocation, risk_management, status_reporting]
+    skills: []
+
+  - id: pool_technical_writers
+    name: Technical Writers
+    director: dir_documentation
+    min_workers: 1
+    max_workers: 3
+    capabilities: [technical_writing, documentation, knowledge_base, tutorials]
+    skills: [docx, pdf]
+
+project_tracking:
+  statuses:
+    - NOT_STARTED
+    - IN_PROGRESS
+    - BLOCKED
+    - IN_REVIEW
+    - COMPLETED
+    - CANCELLED
+
+  priority_levels:
+    - P0_CRITICAL
+    - P1_HIGH
+    - P2_MEDIUM
+    - P3_LOW
+
+  required_artifacts:
+    - project_charter
+    - timeline
+    - resource_plan
+    - risk_register
+    - status_reports
+    - retrospective
+
+documentation_types:
+  - type: technical_documentation
+    format: markdown
+    location: docs/technical/
+
+  - type: api_documentation
+    format: markdown
+    location: docs/api/
+
+  - type: user_guides
+    format: markdown
+    location: docs/guides/
+
+  - type: process_documentation
+    format: markdown
+    location: docs/processes/
+
+  - type: decision_records
+    format: markdown
+    location: docs/decisions/
+
+  - type: retrospectives
+    format: markdown
+    location: docs/retrospectives/
+
+collaboration:
+  primary_partners: [all_departments]
+  responsibilities:
+    - cross_team_coordination
+    - meeting_facilitation
+    - documentation_support
+    - process_improvement
