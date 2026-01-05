@@ -160,8 +160,7 @@ class BaseAgent(ABC):
 
         # 2. Load recent context from beads (what happened last session)
         try:
-            recent_beads = self.bead_ledger.get_recent(
-                entity_type='work_item',
+            recent_beads = self.bead_ledger.get_entries_by_agent(
                 agent_id=self.identity.id,
                 limit=5
             )
@@ -177,7 +176,13 @@ class BaseAgent(ABC):
 
         # 3. Check for interrupted work (recovery)
         if self.current_work is None:
-            in_progress = self.hook.get_in_progress_items()
+            # Check for work items that are in_progress status (interrupted from previous session)
+            from ..core.hook import WorkItemStatus
+            queued_items = self.hook.get_queued_items()
+            in_progress = [
+                item for item in queued_items
+                if item.status == WorkItemStatus.IN_PROGRESS
+            ]
             if in_progress:
                 # Found work that was interrupted - log for potential recovery
                 context['interrupted_work'] = [
