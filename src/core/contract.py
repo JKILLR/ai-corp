@@ -334,16 +334,33 @@ class ContractManager:
         message: str = "",
         agent_id: str = "system"
     ) -> None:
-        """Record a bead entry for contract operations"""
+        """Record a bead entry for contract operations.
+
+        Handles both BeadLedger (takes agent_id) and Bead (uses self.agent_id) types.
+        """
         if self.bead_ledger:
-            self.bead_ledger.record(
-                agent_id=agent_id,
-                action=action,
-                entity_type='contract',
-                entity_id=contract.id,
-                data=contract.to_dict(),
-                message=message
-            )
+            # Check if this is a Bead object (agent's bead) or BeadLedger
+            # Bead.record() doesn't take agent_id (it uses self.agent_id)
+            # BeadLedger.record() requires agent_id as first positional arg
+            if hasattr(self.bead_ledger, 'agent_id'):
+                # This is a Bead instance (from an agent)
+                self.bead_ledger.record(
+                    action=action,
+                    entity_type='contract',
+                    entity_id=contract.id,
+                    data=contract.to_dict(),
+                    message=message
+                )
+            else:
+                # This is a BeadLedger instance
+                self.bead_ledger.record(
+                    agent_id=agent_id,
+                    action=action,
+                    entity_type='contract',
+                    entity_id=contract.id,
+                    data=contract.to_dict(),
+                    message=message
+                )
 
     def create(
         self,

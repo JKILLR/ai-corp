@@ -3,12 +3,15 @@ COO Agent - Chief Operating Officer
 
 The COO is the primary orchestrator of AI Corp, responsible for:
 - Receiving tasks from the CEO (human)
+- Running discovery conversations to create success contracts
 - Analyzing scope and creating molecules
 - Delegating work to VPs
 - Monitoring overall progress
 - Reporting results to CEO
 """
 
+import json
+import re
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -19,6 +22,8 @@ from ..core.hook import WorkItem, WorkItemPriority
 from ..core.channel import MessagePriority, ChannelType
 from ..core.raci import RACI, create_raci
 from ..core.gate import GateKeeper
+from ..core.contract import ContractManager, SuccessContract
+from ..core.llm import LLMRequest
 
 
 class COOAgent(BaseAgent):
@@ -58,6 +63,9 @@ class COOAgent(BaseAgent):
 
         # Initialize gate keeper
         self.gate_keeper = GateKeeper(self.corp_path)
+
+        # Initialize contract manager
+        self.contract_manager = ContractManager(self.corp_path, bead_ledger=self.bead)
 
     def process_work(self, work_item: WorkItem) -> Dict[str, Any]:
         """Process a work item (CEO task)"""
@@ -524,3 +532,411 @@ Project Summary:
             report += f"- {dept}: {stats.get('queued', 0)} queued, {stats.get('in_progress', 0)} in progress\n"
 
         return report
+
+    # =========================================================================
+    # Discovery Conversation Methods
+    # =========================================================================
+
+    def run_discovery(
+        self,
+        initial_request: str,
+        interactive: bool = True
+    ) -> SuccessContract:
+        """
+        Have a discovery conversation to create a Success Contract.
+
+        This implements a conversational flow where the COO asks questions
+        to gather enough information to create a comprehensive contract.
+
+        Args:
+            initial_request: The initial task description from CEO
+            interactive: If True, prompts for user input. If False, uses LLM to simulate.
+
+        Returns:
+            SuccessContract created from the discovery conversation
+
+        Integration Points:
+        - Discovery → Contracts: Creates contract via ContractManager
+        - Discovery → Beads: Completion recorded in audit trail
+        """
+        print(f"[COO] Starting discovery conversation...")
+        print("=" * 60)
+
+        conversation = [{"role": "user", "content": initial_request}]
+
+        max_turns = 10  # Prevent infinite loops
+        turn = 0
+
+        while turn < max_turns:
+            turn += 1
+
+            # Get COO's next response/question
+            response = self._discovery_turn(conversation)
+
+            # Check if COO wants to finalize
+            if "[FINALIZE]" in response:
+                # Remove the finalize marker for clean display
+                clean_response = response.replace("[FINALIZE]", "").strip()
+                print(f"\nCOO: {clean_response}")
+                break
+
+            print(f"\nCOO: {response}")
+
+            if interactive:
+                # Get user input
+                user_input = input("\nYou: ").strip()
+
+                # Check for early confirmation
+                if user_input.lower() in ['done', 'yes', 'confirm', 'looks good', 'approved', 'ok']:
+                    print("\n[COO] Great! Let me finalize the contract based on our discussion.")
+                    break
+            else:
+                # In non-interactive mode, just proceed
+                user_input = "Please continue and finalize when ready."
+
+            conversation.append({"role": "assistant", "content": response})
+            conversation.append({"role": "user", "content": user_input})
+
+        # Extract contract from conversation
+        contract = self._extract_contract(conversation, initial_request)
+
+        print("\n" + "=" * 60)
+        print("[COO] Discovery complete. Contract created:")
+        print(contract.to_display())
+
+        # Record discovery completion in bead
+        self.bead.create(
+            entity_type='contract',
+            entity_id=contract.id,
+            data={
+                'action': 'discovery_complete',
+                'contract_id': contract.id,
+                'turns': turn,
+                'transcript_length': len(conversation)
+            },
+            message=f"Discovery conversation completed for: {contract.title}"
+        )
+
+        return contract
+
+    def _discovery_turn(self, conversation: List[Dict[str, str]]) -> str:
+        """
+        Execute a single turn of the discovery conversation.
+
+        The COO asks focused questions to gather information needed
+        for creating a comprehensive success contract.
+
+        Args:
+            conversation: The conversation history so far
+
+        Returns:
+            The COO's next message (question or confirmation)
+        """
+        # Format conversation for the prompt
+        formatted_conv = self._format_conversation(conversation)
+
+        # Count what information we have gathered
+        gathered_info = self._analyze_gathered_info(conversation)
+
+        prompt = f"""You are the COO of AI Corp conducting a discovery conversation with the CEO.
+Your goal is to gather enough information to create a comprehensive Success Contract.
+
+CONVERSATION SO FAR:
+{formatted_conv}
+
+INFORMATION GATHERED:
+{json.dumps(gathered_info, indent=2)}
+
+YOUR TASK:
+Based on what has been discussed, do ONE of the following:
+
+1. If you need MORE information about any of these areas, ask a focused follow-up question:
+   - Clear objective (what problem does this solve?)
+   - Success criteria (how do we know it's done? be specific and measurable)
+   - Scope (what's in/out)
+   - Constraints (technical, business, timeline)
+
+2. If you have ENOUGH information (objective, at least 3 success criteria, some scope):
+   Summarize your understanding and ask: "Does this capture the requirements? Reply 'yes' to confirm or let me know what to adjust."
+
+3. If the CEO has CONFIRMED your summary:
+   Start your response with [FINALIZE] and provide a final summary.
+
+GUIDELINES:
+- Be conversational and professional
+- Ask ONE question at a time
+- Probe vague answers (e.g., "fast" -> "what response time specifically?")
+- Suggest missing items (e.g., for auth: "Should we include password reset?")
+- Convert vague requirements into measurable criteria
+
+Respond with your next message to the CEO:"""
+
+        # Use LLM to generate response
+        if hasattr(self, 'llm') and self.llm:
+            try:
+                response = self.llm.execute(LLMRequest(prompt=prompt))
+                return response.content.strip()
+            except Exception as e:
+                print(f"[COO] LLM error: {e}, using fallback")
+
+        # Fallback: simple rule-based discovery
+        return self._fallback_discovery_turn(conversation, gathered_info)
+
+    def _fallback_discovery_turn(
+        self,
+        conversation: List[Dict[str, str]],
+        gathered_info: Dict[str, Any]
+    ) -> str:
+        """Fallback discovery logic when LLM is not available"""
+        turn_count = len([m for m in conversation if m['role'] == 'assistant'])
+
+        if turn_count == 0:
+            return ("Thanks for bringing this to me. To create a solid success contract, "
+                   "I need to understand the objective better.\n\n"
+                   "What specific problem are we solving? Who will benefit?")
+
+        elif turn_count == 1:
+            return ("Got it. Now let's define success criteria.\n\n"
+                   "How will we know this is done? What specific, measurable outcomes "
+                   "indicate success? (e.g., 'users can log in' or 'response time < 200ms')")
+
+        elif turn_count == 2:
+            return ("Good. Let's clarify the scope.\n\n"
+                   "What's explicitly IN scope for this project? "
+                   "And what should we explicitly NOT include (out of scope)?")
+
+        elif turn_count == 3:
+            return ("Almost there. Any constraints I should know about?\n\n"
+                   "Technical requirements, existing systems to integrate with, "
+                   "timeline, or business rules?")
+
+        else:
+            # Summarize and confirm
+            return ("[FINALIZE] Based on our discussion, I'll create a Success Contract "
+                   "capturing the objective, success criteria, scope, and constraints "
+                   "we've discussed. The team will work against these defined criteria.")
+
+    def _extract_contract(
+        self,
+        conversation: List[Dict[str, str]],
+        initial_request: str
+    ) -> SuccessContract:
+        """
+        Extract a structured Success Contract from the conversation.
+
+        Uses LLM to parse the conversation and extract:
+        - Title and objective
+        - Success criteria
+        - Scope (in/out)
+        - Constraints
+
+        Args:
+            conversation: The full discovery conversation
+            initial_request: The original request text
+
+        Returns:
+            A new SuccessContract created and saved via ContractManager
+        """
+        formatted_conv = self._format_conversation(conversation)
+
+        extraction_prompt = f"""Extract a Success Contract from this discovery conversation.
+
+CONVERSATION:
+{formatted_conv}
+
+Return ONLY valid JSON (no markdown, no explanation) in this exact format:
+{{
+    "title": "Short descriptive title (3-7 words)",
+    "objective": "Single clear sentence describing what success looks like",
+    "success_criteria": [
+        "Specific measurable criterion 1",
+        "Specific measurable criterion 2",
+        "Specific measurable criterion 3"
+    ],
+    "in_scope": [
+        "Item explicitly in scope 1",
+        "Item explicitly in scope 2"
+    ],
+    "out_of_scope": [
+        "Item explicitly out of scope 1"
+    ],
+    "constraints": [
+        "Constraint or requirement 1"
+    ]
+}}
+
+IMPORTANT:
+- Title should be concise (e.g., "User Authentication System")
+- Objective is ONE sentence describing the end goal
+- Success criteria must be SPECIFIC and MEASURABLE (not vague)
+- Include at least 3 success criteria
+- If scope or constraints weren't discussed, use reasonable defaults based on the objective"""
+
+        extracted_data = None
+
+        # Try LLM extraction
+        if hasattr(self, 'llm') and self.llm:
+            try:
+                response = self.llm.execute(LLMRequest(prompt=extraction_prompt))
+                content = response.content.strip()
+
+                # Try to parse JSON from the response
+                # Handle potential markdown code blocks
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0]
+                elif "```" in content:
+                    content = content.split("```")[1].split("```")[0]
+
+                extracted_data = json.loads(content)
+            except Exception as e:
+                print(f"[COO] LLM extraction error: {e}, using fallback")
+
+        # Fallback extraction
+        if not extracted_data:
+            extracted_data = self._fallback_extract_contract(conversation, initial_request)
+
+        # Create transcript for record keeping
+        transcript = "\n".join([
+            f"{'CEO' if m['role'] == 'user' else 'COO'}: {m['content']}"
+            for m in conversation
+        ])
+
+        # Create contract via ContractManager
+        contract = self.contract_manager.create(
+            title=extracted_data.get('title', initial_request[:50]),
+            objective=extracted_data.get('objective', initial_request),
+            created_by=self.identity.id,
+            success_criteria=extracted_data.get('success_criteria', []),
+            in_scope=extracted_data.get('in_scope', []),
+            out_of_scope=extracted_data.get('out_of_scope', []),
+            constraints=extracted_data.get('constraints', []),
+            discovery_transcript=transcript
+        )
+
+        return contract
+
+    def _fallback_extract_contract(
+        self,
+        conversation: List[Dict[str, str]],
+        initial_request: str
+    ) -> Dict[str, Any]:
+        """Fallback contract extraction when LLM is not available"""
+        # Simple extraction based on conversation content
+        all_text = " ".join([m['content'] for m in conversation])
+
+        # Generate title from initial request
+        title = initial_request.split('.')[0][:50]
+        if len(title) < 10:
+            title = f"Project: {initial_request[:40]}"
+
+        # Default success criteria based on common patterns
+        success_criteria = []
+
+        # Look for explicit criteria mentions
+        criteria_patterns = [
+            r'users? can ([^.]+)',
+            r'should (?:be able to )?([^.]+)',
+            r'must ([^.]+)',
+            r'criteria[: ]+([^.]+)',
+            r'success[: ]+([^.]+)',
+        ]
+
+        for pattern in criteria_patterns:
+            matches = re.findall(pattern, all_text.lower())
+            for match in matches[:3]:  # Limit to 3 per pattern
+                criterion = match.strip().capitalize()
+                if len(criterion) > 10 and criterion not in success_criteria:
+                    success_criteria.append(criterion)
+
+        # Add defaults if we don't have enough
+        if len(success_criteria) < 3:
+            success_criteria.extend([
+                "Core functionality implemented",
+                "Tests passing with reasonable coverage",
+                "Code reviewed and approved"
+            ][:3 - len(success_criteria)])
+
+        return {
+            'title': title,
+            'objective': initial_request,
+            'success_criteria': success_criteria[:5],  # Max 5 criteria
+            'in_scope': ["Core implementation", "Unit tests"],
+            'out_of_scope': ["Future enhancements"],
+            'constraints': []
+        }
+
+    def _format_conversation(self, conversation: List[Dict[str, str]]) -> str:
+        """Format conversation history for prompts"""
+        lines = []
+        for msg in conversation:
+            role = "CEO" if msg['role'] == 'user' else "COO"
+            lines.append(f"{role}: {msg['content']}")
+        return "\n\n".join(lines)
+
+    def _analyze_gathered_info(self, conversation: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Analyze what information has been gathered from the conversation"""
+        all_text = " ".join([m['content'] for m in conversation]).lower()
+
+        return {
+            'has_objective': any(word in all_text for word in ['problem', 'goal', 'objective', 'solve', 'need']),
+            'has_criteria': any(word in all_text for word in ['criteria', 'success', 'measure', 'done', 'complete']),
+            'has_scope': any(word in all_text for word in ['scope', 'include', 'exclude', 'in scope', 'out of scope']),
+            'has_constraints': any(word in all_text for word in ['constraint', 'requirement', 'must', 'timeline', 'deadline']),
+            'turn_count': len([m for m in conversation if m['role'] == 'assistant'])
+        }
+
+    def receive_ceo_task_with_discovery(
+        self,
+        title: str,
+        description: str,
+        priority: str = "P2_MEDIUM",
+        context: Optional[Dict[str, Any]] = None,
+        interactive: bool = True
+    ) -> tuple[SuccessContract, Molecule]:
+        """
+        Receive a task from CEO with discovery conversation.
+
+        This enhanced method runs a discovery conversation first to create
+        a Success Contract, then creates and links a Molecule for execution.
+
+        Args:
+            title: Task title
+            description: Task description
+            priority: Priority level
+            context: Additional context
+            interactive: Whether to run interactive discovery
+
+        Returns:
+            Tuple of (SuccessContract, Molecule)
+
+        Integration Points:
+        - Discovery → Contracts: Creates contract
+        - Contracts → Molecules: Links contract to molecule
+        - Discovery → Beads: All operations recorded
+        """
+        # Run discovery to create contract
+        initial_request = f"{title}: {description}"
+        contract = self.run_discovery(initial_request, interactive=interactive)
+
+        # Create molecule using standard method
+        molecule = self.receive_ceo_task(
+            title=contract.title,
+            description=contract.objective,
+            priority=priority,
+            context=context
+        )
+
+        # Link contract to molecule
+        self.contract_manager.link_molecule(contract.id, molecule.id, agent_id=self.identity.id)
+
+        # Activate contract
+        self.contract_manager.activate(contract.id, agent_id=self.identity.id)
+
+        # Update molecule with contract_id
+        molecule.contract_id = contract.id
+        self.molecule_engine._save_molecule(molecule)
+
+        print(f"\n[COO] Contract {contract.id} linked to Molecule {molecule.id}")
+        print(f"[COO] Contract activated. Work can begin!")
+
+        return contract, molecule

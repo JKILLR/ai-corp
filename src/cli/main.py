@@ -5,6 +5,7 @@ AI Corp CLI - Main Entry Point
 Usage:
     ai-corp init <industry>         Initialize AI Corp for an industry
     ai-corp ceo <task>              Submit a task as CEO
+    ai-corp ceo <task> --discover   Submit task with discovery conversation
     ai-corp coo                     Start the COO orchestrator
     ai-corp status                  View system status
     ai-corp org                     View organization structure
@@ -64,20 +65,46 @@ def cmd_ceo(args):
     print(f"Description: {args.description or args.title}")
     print()
 
-    molecule = coo.receive_ceo_task(
-        title=args.title,
-        description=args.description or args.title,
-        priority=args.priority
-    )
+    if args.discover:
+        # Run discovery conversation to create Success Contract first
+        print("=" * 60)
+        print("DISCOVERY MODE: Creating Success Contract")
+        print("=" * 60)
+        print()
 
-    print(f"Created molecule: {molecule.id}")
-    print(f"Steps: {len(molecule.steps)}")
+        contract, molecule = coo.receive_ceo_task_with_discovery(
+            title=args.title,
+            description=args.description or args.title,
+            priority=args.priority,
+            interactive=True  # Always interactive from CLI
+        )
 
-    if args.start:
-        print("\nStarting molecule and delegating work...")
-        molecule = coo.molecule_engine.start_molecule(molecule.id)
-        delegations = coo.delegate_molecule(molecule)
-        print(f"Delegated {len(delegations)} steps")
+        print(f"\nContract created: {contract.id}")
+        print(f"Molecule created: {molecule.id}")
+        print(f"Steps: {len(molecule.steps)}")
+
+        if args.start:
+            print("\nStarting molecule and delegating work...")
+            molecule = coo.molecule_engine.start_molecule(molecule.id)
+            delegations = coo.delegate_molecule(molecule)
+            print(f"Delegated {len(delegations)} steps")
+
+    else:
+        # Legacy behavior - direct molecule creation without discovery
+        molecule = coo.receive_ceo_task(
+            title=args.title,
+            description=args.description or args.title,
+            priority=args.priority
+        )
+
+        print(f"Created molecule: {molecule.id}")
+        print(f"Steps: {len(molecule.steps)}")
+
+        if args.start:
+            print("\nStarting molecule and delegating work...")
+            molecule = coo.molecule_engine.start_molecule(molecule.id)
+            delegations = coo.delegate_molecule(molecule)
+            print(f"Delegated {len(delegations)} steps")
 
     print("\nDone!")
 
@@ -597,6 +624,8 @@ def main():
                            choices=['P0_CRITICAL', 'P1_HIGH', 'P2_MEDIUM', 'P3_LOW'])
     ceo_parser.add_argument('-s', '--start', action='store_true',
                            help='Start the molecule immediately')
+    ceo_parser.add_argument('--discover', action='store_true',
+                           help='Run discovery conversation to create Success Contract first')
     ceo_parser.set_defaults(func=cmd_ceo)
 
     # COO command

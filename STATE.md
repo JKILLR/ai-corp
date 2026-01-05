@@ -2,7 +2,7 @@
 
 > **Last Updated:** 2026-01-05
 > **Current Phase:** P1 - Success Contracts & Monitoring
-> **Status:** Phase 1 (Contract Foundation) COMPLETE
+> **Status:** Phase 2 (Discovery Conversation) COMPLETE
 
 ---
 
@@ -16,15 +16,46 @@
 | LLM Integration | ✅ Complete | Swappable backends (ClaudeCode, API, Mock) |
 | Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
 | **Success Contracts** | ✅ Complete | Phase 1: Foundation with bead/gate integration |
-| Discovery | ❌ Next | Phase 2: COO discovery conversation |
-| Monitoring | ❌ Pending | Phase 3: System monitoring |
+| **Discovery** | ✅ Complete | Phase 2: COO discovery conversation |
+| Monitoring | ❌ Next | Phase 3: System monitoring |
 | Dashboard | ❌ Pending | Phase 4: Terminal dashboard |
-| Tests | ✅ Complete | 266+ tests passing |
+| Tests | ✅ Complete | 304+ tests passing |
 | End-to-End Test | ✅ Basic | CLI flow works with mock backend |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-05: Phase 2 - Discovery Conversation Complete
+
+**Added:**
+- `src/agents/coo.py` - Discovery conversation methods
+  - `run_discovery()` - Main discovery loop with conversation management
+  - `_discovery_turn()` - Single turn conversation handling (LLM + fallback)
+  - `_extract_contract()` - LLM-based contract extraction from conversation
+  - `_fallback_discovery_turn()` - Rule-based fallback when LLM unavailable
+  - `_fallback_extract_contract()` - Pattern-based contract extraction fallback
+  - `receive_ceo_task_with_discovery()` - Full flow: discovery → contract → molecule
+- `tests/agents/test_coo_discovery.py` - 27 unit tests for discovery methods
+- `tests/integration/test_discovery_integration.py` - 11 integration tests
+
+**Integrations Completed:**
+- **Discovery → Contracts**: COO creates contract via ContractManager after conversation
+- **Discovery → Molecules**: Contract automatically linked to molecule on creation
+- **Discovery → Beads**: Discovery completion recorded in audit trail
+- **Discovery ↔ Gates**: Discovered contracts work with gate validation
+
+**CLI Commands Updated:**
+- `ai-corp ceo "task" --discover` - Run discovery conversation before creating molecule
+- `ai-corp ceo "task" --start` - Legacy: skip discovery (unchanged)
+
+**Modified:**
+- `src/core/contract.py` - Fixed `_record_bead()` to handle both Bead and BeadLedger types
+- `src/cli/main.py` - Added `--discover` flag to ceo command
+
+**Tests:** 38 new tests (27 unit + 11 integration) all passing
+
+---
 
 ### 2026-01-05: Phase 1 - Contract Foundation Complete
 
