@@ -490,3 +490,110 @@ class GateKeeper:
         """Save gate to disk"""
         gate_file = self.gates_path / f"{gate.id}.yaml"
         gate_file.write_text(gate.to_yaml())
+
+    def validate_against_contract(
+        self,
+        submission: GateSubmission,
+        contract_manager
+    ) -> Dict[str, Any]:
+        """
+        Validate a gate submission against its linked contract's criteria.
+
+        This integration allows gates to check if contract success criteria
+        are being met before approving submissions.
+
+        Args:
+            submission: The gate submission to validate
+            contract_manager: ContractManager instance for looking up contracts
+
+        Returns:
+            Validation result with:
+            - passed: bool - whether all applicable criteria are met
+            - contract_id: str or None
+            - criteria_status: list of criterion statuses
+            - unmet_criteria: list of criteria that are not yet met
+        """
+        # Get the contract linked to this molecule
+        contract = contract_manager.get_by_molecule(submission.molecule_id)
+
+        if not contract:
+            return {
+                'passed': True,  # No contract = no contract criteria to check
+                'contract_id': None,
+                'criteria_status': [],
+                'unmet_criteria': [],
+                'message': 'No contract linked to this molecule'
+            }
+
+        # Check which criteria are met/unmet
+        criteria_status = []
+        unmet_criteria = []
+
+        for criterion in contract.success_criteria:
+            status = {
+                'id': criterion.id,
+                'description': criterion.description,
+                'is_met': criterion.is_met,
+                'verified_by': criterion.verified_by
+            }
+            criteria_status.append(status)
+
+            if not criterion.is_met:
+                unmet_criteria.append(criterion.description)
+
+        # Contract validation passes if all criteria are met
+        # Note: We don't fail the gate automatically - this is informational
+        # The gate owner can decide whether to require all criteria
+        progress = contract.get_progress()
+
+        return {
+            'passed': len(unmet_criteria) == 0,
+            'contract_id': contract.id,
+            'criteria_status': criteria_status,
+            'unmet_criteria': unmet_criteria,
+            'progress': progress,
+            'message': f"{progress['met']}/{progress['total']} criteria met ({progress['percent_complete']:.0f}%)"
+        }
+
+    def evaluate_submission_with_contract(
+        self,
+        gate_id: str,
+        submission_id: str,
+        contract_manager
+    ) -> Dict[str, Any]:
+        """
+        Comprehensive evaluation of a submission including contract criteria.
+
+        Combines gate criteria check with contract criteria check.
+
+        Args:
+            gate_id: The gate ID
+            submission_id: The submission ID
+            contract_manager: ContractManager for contract lookup
+
+        Returns:
+            Combined evaluation result
+        """
+        gate = self.get_gate(gate_id)
+        if not gate:
+            raise ValueError(f"Gate {gate_id} not found")
+
+        submission = gate.get_submission(submission_id)
+        if not submission:
+            raise ValueError(f"Submission {submission_id} not found")
+
+        # Check gate's own criteria
+        gate_result = gate.check_criteria(submission.checklist_results)
+
+        # Check contract criteria
+        contract_result = self.validate_against_contract(submission, contract_manager)
+
+        # Combined result
+        return {
+            'submission_id': submission_id,
+            'gate_id': gate_id,
+            'gate_criteria': gate_result,
+            'contract_criteria': contract_result,
+            'overall_passed': gate_result['passed'] and contract_result['passed'],
+            'recommendation': 'approve' if (gate_result['passed'] and contract_result['passed']) else 'review'
+        }

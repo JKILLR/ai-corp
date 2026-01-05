@@ -7,6 +7,7 @@ This module provides the core infrastructure for the AI Corporation:
 - Beads: Git-backed ledger for state persistence
 - Channels: Communication between agents
 - Gates: Quality checkpoints
+- Contracts: Success criteria and measurable outcomes
 - Hiring: Dynamic agent onboarding
 - Templates: Industry-specific configurations
 - Memory: RLM-inspired context management (arXiv:2512.24601)
@@ -21,6 +22,9 @@ from .channel import Channel, ChannelType, ChannelManager
 from .gate import Gate, GateStatus, GateKeeper
 from .pool import WorkerPool, PoolManager
 from .raci import RACI, RACIRole
+from .contract import (
+    SuccessContract, SuccessCriterion, ContractStatus, ContractManager
+)
 from .hiring import HiringManager, quick_hire
 from .templates import IndustryTemplateManager, init_corp, INDUSTRY_TEMPLATES
 from .memory import (
@@ -46,6 +50,8 @@ __all__ = [
     'Gate', 'GateStatus', 'GateKeeper',
     'WorkerPool', 'PoolManager',
     'RACI', 'RACIRole',
+    # Success Contracts
+    'SuccessContract', 'SuccessCriterion', 'ContractStatus', 'ContractManager',
     'HiringManager', 'quick_hire',
     'IndustryTemplateManager', 'init_corp', 'INDUSTRY_TEMPLATES',
     # Memory system (RLM-inspired)

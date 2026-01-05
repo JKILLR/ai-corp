@@ -13,6 +13,7 @@ Usage:
     ai-corp molecules [list|show]   Manage molecules
     ai-corp hooks [list|show]       Manage hooks
     ai-corp gates [list|show]       Manage quality gates
+    ai-corp contracts [list|show|create|check|link|activate]  Manage success contracts
 """
 
 import argparse
@@ -30,6 +31,7 @@ from src.core.gate import GateKeeper
 from src.core.bead import BeadLedger
 from src.core.hiring import HiringManager
 from src.core.templates import IndustryTemplateManager, init_corp, INDUSTRY_TEMPLATES
+from src.core.contract import ContractManager, SuccessContract, ContractStatus
 
 
 def get_corp_path() -> Path:
@@ -257,6 +259,158 @@ def cmd_gates(args):
             print(f"  {sub.id}: {sub.summary[:50]}...")
 
 
+def cmd_contracts(args):
+    """Manage success contracts"""
+    corp_path = get_corp_path()
+    bead_ledger = BeadLedger(corp_path, auto_commit=False)
+    manager = ContractManager(corp_path, bead_ledger=bead_ledger)
+
+    if args.action == 'list':
+        # List all contracts
+        status_filter = None
+        if args.status:
+            status_filter = ContractStatus(args.status)
+
+        contracts = manager.list_contracts(status=status_filter)
+        if not contracts:
+            print("No contracts found")
+            return
+
+        print(f"Success Contracts ({len(contracts)}):")
+        print("-" * 60)
+        for contract in contracts:
+            progress = contract.get_progress()
+            print(f"{contract.id}: {contract.title}")
+            print(f"  Status: {contract.status.value}")
+            print(f"  Molecule: {contract.molecule_id or 'Not linked'}")
+            print(f"  Progress: {progress['met']}/{progress['total']} ({progress['percent_complete']:.0f}%)")
+            print()
+
+    elif args.action == 'show':
+        if not args.contract_id:
+            print("Error: contract_id required for show")
+            return
+
+        contract = manager.get(args.contract_id)
+        if not contract:
+            print(f"Contract {args.contract_id} not found")
+            return
+
+        print(contract.to_display())
+
+    elif args.action == 'create':
+        # Interactive contract creation
+        print("Creating new Success Contract")
+        print("-" * 40)
+
+        title = args.title or input("Title: ").strip()
+        if not title:
+            print("Error: Title is required")
+            return
+
+        objective = args.objective or input("Objective: ").strip()
+        if not objective:
+            print("Error: Objective is required")
+            return
+
+        # Gather success criteria
+        print("\nEnter success criteria (one per line, empty line to finish):")
+        criteria = []
+        if args.criteria:
+            criteria = [c.strip() for c in args.criteria.split(';') if c.strip()]
+        else:
+            while True:
+                criterion = input(f"  {len(criteria) + 1}. ").strip()
+                if not criterion:
+                    break
+                criteria.append(criterion)
+
+        if not criteria:
+            print("Error: At least one criterion is required")
+            return
+
+        # Create the contract
+        contract = manager.create(
+            title=title,
+            objective=objective,
+            created_by=args.created_by or 'cli_user',
+            success_criteria=criteria,
+            in_scope=[s.strip() for s in (args.in_scope or '').split(';') if s.strip()],
+            out_of_scope=[s.strip() for s in (args.out_of_scope or '').split(';') if s.strip()],
+            constraints=[s.strip() for s in (args.constraints or '').split(';') if s.strip()]
+        )
+
+        print(f"\nCreated contract: {contract.id}")
+        print(contract.to_display())
+
+    elif args.action == 'check':
+        # Mark a criterion as met
+        if not args.contract_id:
+            print("Error: contract_id required")
+            return
+        if args.criterion_index is None:
+            print("Error: criterion index required (use --index N)")
+            return
+
+        contract = manager.update_criterion(
+            contract_id=args.contract_id,
+            criterion_index=args.criterion_index,
+            is_met=True,
+            verifier=args.verifier or 'cli_user'
+        )
+
+        if not contract:
+            print(f"Error: Contract {args.contract_id} not found or invalid criterion index")
+            return
+
+        criterion = contract.get_criterion_by_index(args.criterion_index)
+        print(f"Marked criterion {args.criterion_index} as met:")
+        print(f"  \u2611 {criterion.description}")
+        print(f"  Verified by: {criterion.verified_by}")
+
+        progress = contract.get_progress()
+        print(f"\nProgress: {progress['met']}/{progress['total']} ({progress['percent_complete']:.0f}%)")
+
+        if contract.is_complete():
+            print("\n\u2713 All criteria met! Contract completed.")
+
+    elif args.action == 'link':
+        # Link contract to molecule
+        if not args.contract_id:
+            print("Error: contract_id required")
+            return
+        if not args.molecule_id:
+            print("Error: molecule_id required (use --molecule)")
+            return
+
+        contract = manager.link_molecule(
+            contract_id=args.contract_id,
+            molecule_id=args.molecule_id
+        )
+
+        if not contract:
+            print(f"Error: Contract {args.contract_id} not found")
+            return
+
+        print(f"Linked contract {contract.id} to molecule {args.molecule_id}")
+
+    elif args.action == 'activate':
+        if not args.contract_id:
+            print("Error: contract_id required")
+            return
+
+        contract = manager.activate(args.contract_id)
+        if not contract:
+            print(f"Error: Contract {args.contract_id} not found")
+            return
+
+        print(f"Activated contract: {contract.id}")
+        print(f"Status: {contract.status.value}")
+
+    else:
+        print(f"Unknown action: {args.action}")
+
+
 def cmd_init(args):
     """Initialize AI Corp for an industry"""
     corp_path = get_corp_path()
@@ -474,6 +628,26 @@ def main():
     gates_parser.add_argument('action', choices=['list', 'show'], default='list', nargs='?')
     gates_parser.add_argument('gate_id', nargs='?', help='Gate ID for show')
     gates_parser.set_defaults(func=cmd_gates)
+
+    # Contracts command
+    contracts_parser = subparsers.add_parser('contracts', help='Manage success contracts')
+    contracts_parser.add_argument('action', choices=['list', 'show', 'create', 'check', 'link', 'activate'],
+                                  default='list', nargs='?')
+    contracts_parser.add_argument('contract_id', nargs='?', help='Contract ID')
+    contracts_parser.add_argument('--status', choices=['draft', 'active', 'completed', 'failed', 'amended'],
+                                  help='Filter by status (for list)')
+    contracts_parser.add_argument('--title', help='Contract title (for create)')
+    contracts_parser.add_argument('--objective', help='Contract objective (for create)')
+    contracts_parser.add_argument('--criteria', help='Success criteria separated by ; (for create)')
+    contracts_parser.add_argument('--in-scope', help='In scope items separated by ; (for create)')
+    contracts_parser.add_argument('--out-of-scope', help='Out of scope items separated by ; (for create)')
+    contracts_parser.add_argument('--constraints', help='Constraints separated by ; (for create)')
+    contracts_parser.add_argument('--created-by', help='Creator ID (for create)')
+    contracts_parser.add_argument('--index', type=int, dest='criterion_index',
+                                  help='Criterion index to mark as met (for check)')
+    contracts_parser.add_argument('--verifier', help='Verifier ID (for check)')
+    contracts_parser.add_argument('--molecule', dest='molecule_id', help='Molecule ID (for link)')
+    contracts_parser.set_defaults(func=cmd_contracts)
 
     args = parser.parse_args()
 

@@ -1,8 +1,8 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-05
-> **Current Phase:** P1 - Testing & Monitoring
-> **Status:** Core agent infrastructure complete, all 6 test stages passed with MockBackend
+> **Current Phase:** P1 - Success Contracts & Monitoring
+> **Status:** Phase 1 (Contract Foundation) COMPLETE
 
 ---
 
@@ -15,13 +15,48 @@
 | Agent Hierarchy | ✅ Complete | COO, VP, Director, Worker agents |
 | LLM Integration | ✅ Complete | Swappable backends (ClaudeCode, API, Mock) |
 | Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
-| Tests | ✅ Complete | 220 tests passing, 58% overall coverage |
-| Monitoring | ❌ Missing | Need dashboard |
+| **Success Contracts** | ✅ Complete | Phase 1: Foundation with bead/gate integration |
+| Discovery | ❌ Next | Phase 2: COO discovery conversation |
+| Monitoring | ❌ Pending | Phase 3: System monitoring |
+| Dashboard | ❌ Pending | Phase 4: Terminal dashboard |
+| Tests | ✅ Complete | 266+ tests passing |
 | End-to-End Test | ✅ Basic | CLI flow works with mock backend |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-05: Phase 1 - Contract Foundation Complete
+
+**Added:**
+- `src/core/contract.py` - Success Contract system
+  - `SuccessCriterion` dataclass with met/unmet tracking
+  - `SuccessContract` dataclass with full lifecycle (DRAFT→ACTIVE→COMPLETED/FAILED)
+  - `ContractManager` with CRUD, bead integration, and amendment support
+- `tests/core/test_contract.py` - 37 unit tests for contract module
+- `tests/integration/test_contract_integration.py` - 9 integration tests
+
+**Integrations Completed:**
+- **Contracts → Beads**: All contract operations (create, activate, update, amend, fail) recorded in audit trail
+- **Contracts → Gates**: `GateKeeper.validate_against_contract()` and `evaluate_submission_with_contract()` methods
+- **Contracts ↔ Molecules**: `Molecule.contract_id` field links workflows to contracts
+
+**CLI Commands Added:**
+- `ai-corp contracts list` - List all contracts
+- `ai-corp contracts show <id>` - Show contract details
+- `ai-corp contracts create` - Create a contract (interactive)
+- `ai-corp contracts check <id> --index N` - Mark criterion as met
+- `ai-corp contracts link <id> --molecule <mol_id>` - Link to molecule
+- `ai-corp contracts activate <id>` - Activate a draft contract
+
+**Modified:**
+- `src/core/molecule.py` - Added `contract_id` field to Molecule dataclass
+- `src/core/gate.py` - Added contract validation methods to GateKeeper
+- `src/core/__init__.py` - Exports for contract module
+- `src/cli/main.py` - Contract CLI commands
+- `WORKFLOW.md` - Added "Architectural Beauty" integration principle
+
+**Tests:** 46 new tests (37 unit + 9 integration) all passing
 
 ### 2026-01-05: Comprehensive Test Suite Complete
 
