@@ -18,7 +18,10 @@ import json
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Callable
+from typing import Optional, List, Dict, Any, Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .skills import SkillRegistry
 from dataclasses import dataclass, field
 from enum import Enum
 import yaml
@@ -98,11 +101,18 @@ class ClaudeCodeBackend(LLMBackend):
 
     This is the primary backend for agent execution as it provides
     full Claude Code capabilities including tools and skills.
+
+    Optionally integrates with SkillRegistry for role-based skill loading.
     """
 
-    def __init__(self, timeout: int = 300):
+    def __init__(
+        self,
+        timeout: int = 300,
+        skill_registry: Optional['SkillRegistry'] = None
+    ):
         self.timeout = timeout
         self._claude_path = self._find_claude()
+        self.skill_registry = skill_registry
 
     def _find_claude(self) -> Optional[str]:
         """Find the Claude Code CLI executable"""
@@ -135,13 +145,35 @@ class ClaudeCodeBackend(LLMBackend):
     def is_available(self) -> bool:
         return self._claude_path is not None
 
-    def execute(self, request: LLMRequest) -> LLMResponse:
+    def execute(
+        self,
+        request: LLMRequest,
+        role_id: Optional[str] = None
+    ) -> LLMResponse:
+        """
+        Execute an LLM request via Claude Code CLI.
+
+        Args:
+            request: The LLM request to execute
+            role_id: Optional role ID for role-based skill loading
+
+        Returns:
+            LLMResponse with result or error
+        """
         if not self.is_available():
             return LLMResponse(
                 content="",
                 success=False,
                 error="Claude Code CLI not found"
             )
+
+        # Collect all skills: request skills + role-based skills
+        all_skills = set(request.skills)
+
+        # Add role-based skills if registry available
+        if role_id and self.skill_registry:
+            role_skills = self.skill_registry.get_skill_names_for_role(role_id)
+            all_skills.update(role_skills)
 
         # Build command
         cmd = [self._claude_path]
@@ -157,7 +189,7 @@ class ClaudeCodeBackend(LLMBackend):
             cmd.extend(['--system-prompt', request.system_prompt])
 
         # Add skills/allowed tools
-        for skill in request.skills:
+        for skill in all_skills:
             cmd.extend(['--allowedTools', skill])
 
         # Add working directory access
@@ -214,6 +246,15 @@ class ClaudeCodeBackend(LLMBackend):
                 success=False,
                 error=str(e)
             )
+
+    def set_skill_registry(self, registry: 'SkillRegistry') -> None:
+        """
+        Attach a skill registry for role-based skill loading.
+
+        Args:
+            registry: SkillRegistry instance
+        """
+        self.skill_registry = registry
 
 
 class ClaudeAPIBackend(LLMBackend):

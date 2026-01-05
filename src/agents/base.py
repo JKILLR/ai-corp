@@ -34,6 +34,7 @@ from ..core.llm import (
     get_llm_interface
 )
 from ..core.processor import MessageProcessor, ProcessingResult
+from ..core.skills import SkillRegistry
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -69,7 +70,8 @@ class BaseAgent(ABC):
         identity: AgentIdentity,
         corp_path: Path,
         auto_claim: bool = True,
-        llm_backend: Optional[LLMBackend] = None
+        llm_backend: Optional[LLMBackend] = None,
+        skill_registry: Optional[SkillRegistry] = None
     ):
         self.identity = identity
         self.corp_path = Path(corp_path)
@@ -89,6 +91,15 @@ class BaseAgent(ABC):
         self.recursive_manager = RecursiveMemoryManager(self.corp_path)
         self.compressor = ContextCompressor(self.memory)
         self.org_memory = OrganizationalMemory(self.corp_path)
+
+        # Initialize skill registry (role-based skill loading)
+        self.skill_registry = skill_registry
+        if self.skill_registry:
+            # Register this role's skills
+            self.skill_registry.register_role(
+                role_id=self.identity.role_id,
+                department=self.identity.department
+            )
 
         # Initialize LLM interface (swappable backend)
         self.llm = AgentLLMInterface(llm_backend or LLMBackendFactory.get_best_available())
@@ -245,6 +256,42 @@ Always maintain professional communication and follow the organizational hierarc
             constraints=[f"Reports to: {self.identity.reports_to}"] if self.identity.reports_to else []
         )
 
+    def get_available_skills(self) -> List[str]:
+        """
+        Get all skills available to this agent.
+
+        Combines:
+        - Skills from identity (explicit configuration)
+        - Skills from registry (role-based discovery)
+
+        Returns:
+            List of skill names
+        """
+        skills = set(self.identity.skills)
+
+        # Add registry skills if available
+        if self.skill_registry:
+            registry_skills = self.skill_registry.get_skill_names_for_role(
+                self.identity.role_id
+            )
+            skills.update(registry_skills)
+
+        return list(skills)
+
+    def set_skill_registry(self, registry: SkillRegistry) -> None:
+        """
+        Attach a skill registry to this agent.
+
+        Args:
+            registry: SkillRegistry instance
+        """
+        self.skill_registry = registry
+        # Register this role
+        registry.register_role(
+            role_id=self.identity.role_id,
+            department=self.identity.department
+        )
+
     def execute_with_llm(
         self,
         task: str,
@@ -254,13 +301,14 @@ Always maintain professional communication and follow the organizational hierarc
         Execute a task using the LLM backend.
 
         This is the main method for agents to use LLM capabilities.
+        Automatically includes all skills available to this agent.
         """
         return self.llm.execute_task(
             role=self.identity.role_name,
             system_prompt=self.get_system_prompt(),
             task=task,
             working_directory=working_directory or self.corp_path,
-            skills=self.identity.skills,
+            skills=self.get_available_skills(),  # Use combined skills
             context={
                 'agent_id': self.identity.id,
                 'molecule_id': self.current_molecule.id if self.current_molecule else None,

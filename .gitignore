@@ -46,8 +46,10 @@ ENV/
 corp/
 .aicorp/
 
-# Keep templates tracked (this is a whitelist pattern)
+# Keep templates tracked (whitelist patterns)
 !templates/
+!templates/corp/
+!templates/corp/**
 
 # OS
 .DS_Store

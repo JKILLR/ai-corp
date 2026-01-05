@@ -2,7 +2,7 @@
 
 > **Last Updated:** 2026-01-05
 > **Current Phase:** P1 - Success Contracts & Monitoring
-> **Status:** Phase 3 (System Monitoring) COMPLETE
+> **Status:** Phase 4 (Terminal Dashboard) COMPLETE
 
 ---
 
@@ -19,13 +19,51 @@
 | **Discovery** | ✅ Complete | Phase 2: COO discovery conversation |
 | **Monitoring** | ✅ Complete | Phase 3: System monitoring |
 | **Knowledge Base** | ✅ Complete | Scoped document management + ingestion |
-| Dashboard | ❌ Next | Phase 4: Terminal dashboard |
-| Tests | ✅ Complete | 403+ tests passing |
+| **Dashboard** | ✅ Complete | Phase 4: Terminal dashboard with live mode |
+| Tests | ✅ Complete | 451+ tests passing |
 | End-to-End Test | ✅ Basic | CLI flow works with mock backend |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-05: Phase 4 - Terminal Dashboard Complete
+
+**Added:**
+- `src/cli/dashboard.py` - Terminal dashboard module
+  - `Dashboard` - Main dashboard class with rich terminal rendering
+  - `Colors` - ANSI color codes with disable support
+  - `run_dashboard()` - Run function with live mode support
+  - `get_status_line()` - Single-line status for scripts
+  - Box drawing characters for panels
+  - Progress bars with visual indicators
+  - Health and severity icons
+- `tests/cli/test_dashboard.py` - 34 unit tests for dashboard
+- `tests/integration/test_dashboard_integration.py` - 14 integration tests
+
+**Dashboard Panels:**
+- **Header**: Overall status, timestamp, quick stats
+- **Agent Status**: Health indicators, current work, queue depths
+- **Project Progress**: Molecules with progress bars, linked contract status
+- **Work Queues**: Visual queue depth representation
+- **Active Alerts**: Severity-coded alerts with suggested actions
+
+**CLI Commands Added:**
+- `ai-corp dashboard` - View dashboard once
+- `ai-corp dashboard --live` - Live-updating dashboard
+- `ai-corp dashboard --interval N` - Custom refresh interval
+- `ai-corp dashboard --compact` - Compact single-line output
+- `ai-corp dashboard --status-line` - Plain status for scripts
+
+**Integrations:**
+- **Dashboard ← Monitor**: Reads agent health, heartbeats, metrics
+- **Dashboard ← Contracts**: Shows contract progress with molecules
+- **Dashboard ← Molecules**: Displays active project progress
+- **Dashboard ← Hooks**: Shows queue depths per agent
+
+**Tests:** 48 new tests (34 unit + 14 integration) all passing
+
+---
 
 ### 2026-01-05: Knowledge Base System Complete
 
@@ -323,9 +361,9 @@
 ## Next Actions
 
 ### P1 Priority
-1. ~~Create pytest test suite~~ ✅ Complete (341+ tests)
+1. ~~Create pytest test suite~~ ✅ Complete (451+ tests)
 2. ~~Add monitoring~~ ✅ Complete (Phase 3)
-3. Add terminal dashboard (Phase 4)
+3. ~~Add terminal dashboard~~ ✅ Complete (Phase 4)
 4. End-to-end test with real Claude Code
 5. Implement skill loading
 
