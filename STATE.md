@@ -2,7 +2,7 @@
 
 > **Last Updated:** 2026-01-05
 > **Current Phase:** P1 - Testing & Monitoring
-> **Status:** Core agent infrastructure complete, ready for integration testing
+> **Status:** Core agent infrastructure complete, all 6 test stages passed with MockBackend
 
 ---
 
@@ -22,6 +22,26 @@
 ---
 
 ## Recent Changes
+
+### 2026-01-05: VISION.md Created
+
+**Added:**
+- `VISION.md` - Core vision document for cross-session context
+  - Captures the "why" behind AI Corp
+  - Key design principles and their rationale
+  - Insights from development
+  - Long-term goals
+  - Session handoff notes
+
+### 2026-01-05: All 6 Test Stages Passed
+
+**Verified Working:**
+- Stage 1: VP Processing (after fixing capabilities)
+- Stage 2: VP → Director delegation
+- Stage 3: Director direct execution
+- Stage 4: Worker execution
+- Stage 5: CorporationExecutor cycle (after fixing empty executions)
+- Stage 6: Error handling and recovery
 
 ### 2026-01-05: Bug Fixes for End-to-End Testing
 
