@@ -9,7 +9,7 @@ roles:
     department: engineering
     description: "Leads all engineering efforts across architecture, frontend, backend, and devops"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: []
     responsibilities:
       - Receive engineering molecules from COO
@@ -34,7 +34,7 @@ roles:
     department: research
     description: "Leads market and technical research initiatives"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: []
     responsibilities:
       - Receive research molecules from COO
@@ -57,7 +57,7 @@ roles:
     department: product
     description: "Leads product strategy, roadmap, and design"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: [frontend-design]
     responsibilities:
       - Define product vision and roadmap
@@ -80,7 +80,7 @@ roles:
     department: quality
     description: "Leads quality assurance and security review"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: [webapp-testing]
     responsibilities:
       - Define quality standards
@@ -103,7 +103,7 @@ roles:
     department: operations
     description: "Leads project management and documentation"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: [docx, pdf]
     responsibilities:
       - Manage project timelines

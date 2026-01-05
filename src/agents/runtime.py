@@ -24,7 +24,7 @@ class AgentConfig:
     role_name: str
     department: str
     level: int
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-opus-4-5-20251101"
     skills: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
     reports_to: Optional[str] = None
@@ -41,7 +41,7 @@ class AgentConfig:
             role_name=role_data.get('name', ''),
             department=role_data.get('department', ''),
             level=role_data.get('level', 4),
-            model=role_data.get('model', 'claude-sonnet-4-20250514'),
+            model=role_data.get('model', 'claude-opus-4-5-20251101'),
             skills=role_data.get('skills', []),
             capabilities=role_data.get('capabilities', []),
             reports_to=role_data.get('reports_to'),

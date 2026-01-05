@@ -12,7 +12,7 @@ roles:
     director: dir_frontend
     description: "Implements frontend features and components"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: [frontend-design]
     capabilities:
       - html
@@ -38,7 +38,7 @@ roles:
     director: dir_backend
     description: "Implements backend services and APIs"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: []
     capabilities:
       - python
@@ -64,7 +64,7 @@ roles:
     director: dir_devops
     description: "Manages infrastructure and deployments"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: [aws-skills, terraform-skills]
     capabilities:
       - docker
@@ -90,7 +90,7 @@ roles:
     director: dir_market_research
     description: "Conducts research and analysis"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: []
     capabilities:
       - web_research
@@ -112,7 +112,7 @@ roles:
     director: dir_technical_research
     description: "Evaluates technologies and builds POCs"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: []
     capabilities:
       - poc_development
@@ -135,7 +135,7 @@ roles:
     director: dir_product
     description: "Manages product requirements and backlog"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: []
     capabilities:
       - requirements_writing
@@ -157,7 +157,7 @@ roles:
     director: dir_design
     description: "Creates UX and visual designs"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: [frontend-design]
     capabilities:
       - wireframes
@@ -181,7 +181,7 @@ roles:
     director: dir_qa
     description: "Tests software and reports bugs"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: [webapp-testing]
     capabilities:
       - test_writing
@@ -203,7 +203,7 @@ roles:
     director: dir_security
     description: "Reviews code for security issues"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: [security-bluebook-builder]
     capabilities:
       - code_review
@@ -225,7 +225,7 @@ roles:
     director: dir_qa
     description: "Reviews code for quality and standards"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: []
     capabilities:
       - code_review
@@ -247,7 +247,7 @@ roles:
     director: dir_project
     description: "Manages project timelines and coordination"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: []
     capabilities:
       - scheduling
@@ -269,7 +269,7 @@ roles:
     director: dir_documentation
     description: "Creates and maintains documentation"
     is_human: false
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-5-20251101
     skills: [docx, pdf]
     capabilities:
       - technical_writing
