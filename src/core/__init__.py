@@ -16,6 +16,7 @@ This module provides the core infrastructure for the AI Corporation:
 - Knowledge: Scoped document and context management
 - Ingest: RLM-inspired document processing pipeline
 - Skills: Role-based skill discovery and loading
+- Scheduler: Intelligent work scheduling and orchestration
 """
 
 from .molecule import Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine
@@ -61,6 +62,10 @@ from .skills import (
     Skill, SkillLoader, SkillRegistry,
     parse_frontmatter, CAPABILITY_SKILL_MAP, SKILL_CAPABILITY_MAP
 )
+from .scheduler import (
+    WorkScheduler, CapabilityMatcher, LoadBalancer, DependencyResolver,
+    SchedulingDecision
+)
 
 __all__ = [
     'Molecule', 'MoleculeStep', 'MoleculeStatus', 'MoleculeEngine',
@@ -98,4 +103,7 @@ __all__ = [
     # Skills System
     'Skill', 'SkillLoader', 'SkillRegistry',
     'parse_frontmatter', 'CAPABILITY_SKILL_MAP', 'SKILL_CAPABILITY_MAP',
+    # Work Scheduler
+    'WorkScheduler', 'CapabilityMatcher', 'LoadBalancer', 'DependencyResolver',
+    'SchedulingDecision',
 ]
