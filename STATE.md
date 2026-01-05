@@ -2,7 +2,7 @@
 
 > **Last Updated:** 2026-01-05
 > **Current Phase:** P1 - Success Contracts & Monitoring
-> **Status:** Phase 2 (Discovery Conversation) COMPLETE
+> **Status:** Phase 3 (System Monitoring) COMPLETE
 
 ---
 
@@ -17,14 +17,44 @@
 | Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
 | **Success Contracts** | ✅ Complete | Phase 1: Foundation with bead/gate integration |
 | **Discovery** | ✅ Complete | Phase 2: COO discovery conversation |
-| Monitoring | ❌ Next | Phase 3: System monitoring |
-| Dashboard | ❌ Pending | Phase 4: Terminal dashboard |
-| Tests | ✅ Complete | 304+ tests passing |
+| **Monitoring** | ✅ Complete | Phase 3: System monitoring |
+| Dashboard | ❌ Next | Phase 4: Terminal dashboard |
+| Tests | ✅ Complete | 341+ tests passing |
 | End-to-End Test | ✅ Basic | CLI flow works with mock backend |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-05: Phase 3 - System Monitoring Complete
+
+**Added:**
+- `src/core/monitor.py` - System monitoring module
+  - `SystemMonitor` - Background service that collects metrics and checks health
+  - `SystemMetrics` - Snapshot of system state (queues, molecules, agents)
+  - `AgentStatus` - Individual agent health tracking with heartbeat monitoring
+  - `HealthAlert` - Alert system with severity levels (INFO, WARNING, CRITICAL)
+  - `AlertSeverity` and `HealthState` enums
+- `tests/core/test_monitor.py` - 28 unit tests for monitoring classes
+- `tests/integration/test_monitor_integration.py` - 9 integration tests
+
+**Integrations Completed:**
+- **Monitor ← Hooks**: Reads queue depths from agent hooks
+- **Monitor ← Molecules**: Tracks active molecule progress
+- **Monitor → Beads**: Critical alerts recorded in audit trail
+- **Monitor → Channels**: Alert broadcasting capability
+- **BaseAgent → Monitor**: Agents emit heartbeats during run cycles
+
+**CLI Commands Updated:**
+- `ai-corp status --health` - Show system health with agent status, project progress, and alerts
+
+**Modified:**
+- `src/agents/base.py` - Added `_emit_heartbeat()` method to agent run cycle
+- `src/core/__init__.py` - Exports for monitor module
+
+**Tests:** 37 new tests (28 unit + 9 integration) all passing
+
+---
 
 ### 2026-01-05: Phase 2 - Discovery Conversation Complete
 
@@ -217,8 +247,10 @@
 | `hiring.py` | ✅ Stable | Dynamic hiring |
 | `templates.py` | ✅ Stable | Industry templates |
 | `memory.py` | ✅ Stable | RLM memory system |
-| `llm.py` | ✅ New | LLM backends |
-| `processor.py` | ✅ New | Message processing |
+| `llm.py` | ✅ Stable | LLM backends |
+| `processor.py` | ✅ Stable | Message processing |
+| `contract.py` | ✅ Stable | Success contracts |
+| `monitor.py` | ✅ New | System monitoring |
 
 ### Agents (`src/agents/`)
 
@@ -244,19 +276,20 @@
 
 | Issue | Severity | Notes |
 |-------|----------|-------|
-| No test suite | Medium | Need pytest tests |
 | No async support | Low | Could improve performance |
 | ClaudeCodeBackend untested with real Claude | Medium | Need live test |
+| No terminal dashboard | Low | Phase 4 next |
 
 ---
 
 ## Next Actions
 
 ### P1 Priority
-1. Create pytest test suite
-2. End-to-end test with real Claude Code
-3. Add monitoring/dashboard
-4. Implement skill loading
+1. ~~Create pytest test suite~~ ✅ Complete (341+ tests)
+2. ~~Add monitoring~~ ✅ Complete (Phase 3)
+3. Add terminal dashboard (Phase 4)
+4. End-to-end test with real Claude Code
+5. Implement skill loading
 
 ### P2 Future
 1. Chapters & Guilds
@@ -270,11 +303,11 @@
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Core modules | 12 | - |
+| Core modules | 14 | - |
 | Agent types | 5 | 5+ |
-| Lines of code | ~6000 | - |
-| Test coverage | 58% | 80% |
-| Integration tests | Basic | Comprehensive |
+| Lines of code | ~7000 | - |
+| Test coverage | 60% | 80% |
+| Integration tests | Comprehensive | Comprehensive |
 
 ---
 

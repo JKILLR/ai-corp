@@ -41,6 +41,10 @@ from .llm import (
 from .processor import (
     MessageProcessor, MessageHandler, ProcessingResult, MessageAction
 )
+from .monitor import (
+    SystemMonitor, SystemMetrics, AgentStatus, HealthAlert,
+    AlertSeverity, HealthState
+)
 
 __all__ = [
     'Molecule', 'MoleculeStep', 'MoleculeStatus', 'MoleculeEngine',
@@ -65,4 +69,7 @@ __all__ = [
     'AgentLLMInterface', 'AgentThought', 'get_llm_interface',
     # Message processing
     'MessageProcessor', 'MessageHandler', 'ProcessingResult', 'MessageAction',
+    # System Monitoring
+    'SystemMonitor', 'SystemMetrics', 'AgentStatus', 'HealthAlert',
+    'AlertSeverity', 'HealthState',
 ]

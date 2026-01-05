@@ -8,6 +8,7 @@ Usage:
     ai-corp ceo <task> --discover   Submit task with discovery conversation
     ai-corp coo                     Start the COO orchestrator
     ai-corp status                  View system status
+    ai-corp status --health         View health monitoring with alerts
     ai-corp org                     View organization structure
     ai-corp hire <type> <args>      Hire new agents
     ai-corp templates               List industry templates
@@ -139,6 +140,57 @@ def cmd_status(args):
 
     if args.report:
         print(coo.report_to_ceo())
+    elif args.health:
+        # Show health monitoring status
+        from src.core.monitor import SystemMonitor, AlertSeverity
+        monitor = SystemMonitor(corp_path)
+
+        print("AI Corp Health Status")
+        print("=" * 50)
+        print()
+        print(f"Status: {monitor.get_status_summary()}")
+        print()
+
+        # Collect and show metrics
+        metrics = monitor.collect_metrics()
+
+        print("Agent Health:")
+        print("-" * 40)
+        for agent_id, status in metrics.agents.items():
+            health_icon = {"healthy": "[OK]", "slow": "[!]", "unresponsive": "[X]", "unknown": "[?]"}
+            icon = health_icon.get(status.health.value, "[?]")
+            work = status.current_work or "idle"
+            print(f"  {icon} {agent_id}: {work} (queue: {status.queue_depth})")
+
+        if not metrics.agents:
+            print("  No agents registered yet")
+
+        print()
+        print("Active Projects:")
+        print("-" * 40)
+        for mol_id, progress in metrics.molecules.items():
+            bar_filled = int(progress / 5)
+            bar = "█" * bar_filled + "░" * (20 - bar_filled)
+            print(f"  [{bar}] {progress:.0f}% - {mol_id}")
+
+        if not metrics.molecules:
+            print("  No active projects")
+
+        # Show alerts
+        alerts = monitor.get_active_alerts()
+        if alerts:
+            print()
+            print("Active Alerts:")
+            print("-" * 40)
+            for alert in alerts:
+                severity_icon = {"critical": "[CRITICAL]", "warning": "[WARNING]", "info": "[INFO]"}
+                icon = severity_icon.get(alert.severity.value, "[ALERT]")
+                print(f"  {icon} {alert.message}")
+                print(f"    Action: {alert.suggested_action}")
+        else:
+            print()
+            print("No active alerts")
+
     else:
         status = coo.get_organization_status()
         print(f"AI Corp Status")
@@ -638,6 +690,8 @@ def main():
     status_parser = subparsers.add_parser('status', help='View system status')
     status_parser.add_argument('-r', '--report', action='store_true',
                               help='Generate full report')
+    status_parser.add_argument('--health', action='store_true',
+                              help='Show health monitoring status with alerts')
     status_parser.set_defaults(func=cmd_status)
 
     # Molecules command
