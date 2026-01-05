@@ -1,0 +1,54 @@
+id: CH-E8F086F8
+channel_type: upchain
+name: vp_product-001-to-coo
+owner_id: vp_product-001
+participants:
+- vp_product-001
+- coo
+messages:
+- id: MSG-2929D756
+  channel_type: upchain
+  sender_id: vp_product-001
+  sender_role: vp_product
+  recipient_id: coo
+  recipient_role: coo
+  subject: 'Status Update: MOL-B3936C6E'
+  body: 'Completed: Design & Planning'
+  priority: 2
+  status: pending
+  message_type: status_update
+  molecule_id: MOL-B3936C6E
+  step_id: step-5bcd4c05
+  references: []
+  attachments:
+    status: completed
+    blockers: []
+  created_at: '2026-01-05T07:10:38.294983'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+- id: MSG-35226897
+  channel_type: upchain
+  sender_id: vp_product-001
+  sender_role: vp_product
+  recipient_id: coo
+  recipient_role: coo
+  subject: 'Status Update: MOL-7B996222'
+  body: 'Completed: Design & Planning'
+  priority: 2
+  status: pending
+  message_type: status_update
+  molecule_id: MOL-7B996222
+  step_id: step-6da89889
+  references: []
+  attachments:
+    status: completed
+    blockers: []
+  created_at: '2026-01-05T07:11:29.057773'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+created_at: '2026-01-05T07:10:38.294156'
+updated_at: '2026-01-05T07:11:29.057786'

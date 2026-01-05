@@ -1,0 +1,18 @@
+action: completed_execution
+agent_id: worker_test_01-001
+data:
+  artifacts: []
+  summary: 'Mock response for: You are Test Worker 1. Summarize the results of this
+    task execution.
+
+
+    TASK: Recovery test task
+
+
+    EXEC...'
+entity_id: WI-EE26DA2F
+entity_type: work_item
+id: BEAD-846A62CAC458
+message: 'Completed: Recovery test task'
+parent_entry_id: null
+timestamp: '2026-01-05T07:12:19.835157'

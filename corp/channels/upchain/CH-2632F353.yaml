@@ -1,0 +1,32 @@
+id: CH-2632F353
+channel_type: upchain
+name: dir_product-001-to-vp_product
+owner_id: dir_product-001
+participants:
+- dir_product-001
+- vp_product
+messages:
+- id: MSG-CBD853FD
+  channel_type: upchain
+  sender_id: dir_product-001
+  sender_role: dir_product
+  recipient_id: vp_product
+  recipient_role: vp_product
+  subject: 'Status Update: '
+  body: 'Completed: Design & Planning'
+  priority: 2
+  status: pending
+  message_type: status_update
+  molecule_id: ''
+  step_id: null
+  references: []
+  attachments:
+    status: completed
+    blockers: []
+  created_at: '2026-01-05T07:10:38.433967'
+  delivered_at: null
+  read_at: null
+  acknowledged_at: null
+  response_id: null
+created_at: '2026-01-05T07:10:38.433014'
+updated_at: '2026-01-05T07:10:38.433979'

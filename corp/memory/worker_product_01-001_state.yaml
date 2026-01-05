@@ -1,0 +1,20 @@
+agent_id: worker_product_01-001
+buffers: []
+updated_at: '2026-01-05T07:09:36.980551'
+variables:
+- context_type: molecule
+  created_at: '2026-01-05T07:09:36.978609'
+  id: ctx-35c8b95d
+  metadata: {}
+  name: current_work_WI-1C27ABF7
+  size: 603
+  summary: 'Current work: Create login page mockup'
+  updated_at: '2026-01-05T07:09:36.978609'
+- context_type: artifact
+  created_at: '2026-01-05T07:09:36.980248'
+  id: ctx-12437719
+  metadata: {}
+  name: output_WI-1C27ABF7
+  size: 348
+  summary: Output for Create login page mockup
+  updated_at: '2026-01-05T07:09:36.980248'

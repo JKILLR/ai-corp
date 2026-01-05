@@ -1,0 +1,41 @@
+action: checkpoint
+agent_id: vp_product-001
+data:
+  checkpoint_data:
+    delegations:
+    - director: dir_product
+      subtask: Design & Planning
+      work_item_id: WI-49E8DE20
+  work_item:
+    assigned_to: vp_product-001
+    claimed_at: '2026-01-05T07:10:38.157695'
+    completed_at: null
+    context:
+      gate_id: null
+      is_gate: false
+      molecule_description: Build a hello world web app
+      molecule_name: Build a hello world web app
+    created_at: '2026-01-05T06:48:09.306119'
+    description: Create design specifications and plans
+    error: null
+    hook_id: HOOK-293B9F9E
+    id: WI-647793A2
+    max_retries: 3
+    molecule_id: MOL-B3936C6E
+    priority: 2
+    required_capabilities:
+    - design
+    - planning
+    required_skills: []
+    result: null
+    retry_count: 0
+    status: in_progress
+    step_id: step-5bcd4c05
+    title: Design & Planning
+    updated_at: '2026-01-05T07:10:38.161780'
+entity_id: WI-647793A2
+entity_type: work_item
+id: BEAD-9B71A7DCBB6C
+message: Delegated to directors
+parent_entry_id: null
+timestamp: '2026-01-05T07:10:38.222787'
