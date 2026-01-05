@@ -146,6 +146,9 @@ class ClaudeCodeBackend(LLMBackend):
         # Build command
         cmd = [self._claude_path]
 
+        # Add print mode (non-interactive)
+        cmd.append('--print')
+
         # Add model
         cmd.extend(['--model', request.model])
 
@@ -153,16 +156,16 @@ class ClaudeCodeBackend(LLMBackend):
         if request.system_prompt:
             cmd.extend(['--system-prompt', request.system_prompt])
 
-        # Add skills
+        # Add skills/allowed tools
         for skill in request.skills:
             cmd.extend(['--allowedTools', skill])
 
-        # Add working directory
+        # Add working directory access
         if request.working_directory:
-            cmd.extend(['--cwd', str(request.working_directory)])
+            cmd.extend(['--add-dir', str(request.working_directory)])
 
-        # Add the prompt
-        cmd.extend(['--print', '--message', request.prompt])
+        # Add the prompt as positional argument (must be last)
+        cmd.append(request.prompt)
 
         # Set up environment
         env = os.environ.copy()
