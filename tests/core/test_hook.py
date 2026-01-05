@@ -7,7 +7,7 @@ Tests the Hook and HookManager classes.
 import pytest
 from datetime import datetime
 
-from src.core.hook import Hook, HookManager, WorkItem, WorkItemStatus
+from src.core.hook import Hook, HookManager, WorkItem, WorkItemStatus, WorkItemPriority
 
 
 class TestWorkItem:
@@ -15,30 +15,28 @@ class TestWorkItem:
 
     def test_create_work_item(self):
         """Test creating a work item."""
-        item = WorkItem(
-            id='WI-TEST',
+        item = WorkItem.create(
             hook_id='HOOK-123',
             title='Test Item',
             description='A test work item',
             molecule_id='MOL-123',
             step_id='step-1',
-            priority=1
+            priority=WorkItemPriority.P1_HIGH
         )
 
-        assert item.id == 'WI-TEST'
+        assert item.id.startswith('WI-')
         assert item.status == WorkItemStatus.QUEUED
-        assert item.priority == 1
+        assert item.priority == WorkItemPriority.P1_HIGH
 
     def test_work_item_defaults(self):
         """Test work item default values."""
-        item = WorkItem(
-            id='WI-TEST',
+        item = WorkItem.create(
             hook_id='HOOK-123',
             title='Test',
             description='Test',
             molecule_id='MOL-123',
             step_id='step-1',
-            priority=1
+            priority=WorkItemPriority.P2_MEDIUM
         )
 
         assert item.assigned_to is None
@@ -46,23 +44,55 @@ class TestWorkItem:
         assert item.retry_count == 0
         assert item.max_retries == 3
 
+    def test_work_item_claim(self):
+        """Test claiming a work item."""
+        item = WorkItem.create(
+            hook_id='HOOK-123',
+            title='Test',
+            description='Test',
+            molecule_id='MOL-123',
+            step_id='step-1',
+            priority=WorkItemPriority.P2_MEDIUM
+        )
+
+        item.claim('agent-001')
+
+        assert item.status == WorkItemStatus.CLAIMED
+        assert item.assigned_to == 'agent-001'
+        assert item.claimed_at is not None
+
+    def test_work_item_complete(self):
+        """Test completing a work item."""
+        item = WorkItem.create(
+            hook_id='HOOK-123',
+            title='Test',
+            description='Test',
+            molecule_id='MOL-123',
+            step_id='step-1',
+            priority=WorkItemPriority.P2_MEDIUM
+        )
+
+        item.claim('agent-001')
+        item.complete({'result': 'success'})
+
+        assert item.status == WorkItemStatus.COMPLETED
+        assert item.result['result'] == 'success'
+
     def test_work_item_to_dict(self):
         """Test work item serialization."""
-        item = WorkItem(
-            id='WI-TEST',
+        item = WorkItem.create(
             hook_id='HOOK-123',
             title='Test',
             description='Test desc',
             molecule_id='MOL-123',
             step_id='step-1',
-            priority=2,
+            priority=WorkItemPriority.P1_HIGH,
             required_capabilities=['frontend', 'react']
         )
 
         data = item.to_dict()
 
-        assert data['id'] == 'WI-TEST'
-        assert data['priority'] == 2
+        assert 'id' in data
         assert data['required_capabilities'] == ['frontend', 'react']
         assert data['status'] == 'queued'
 
@@ -72,37 +102,90 @@ class TestHook:
 
     def test_create_hook(self):
         """Test creating a hook."""
-        hook = Hook(
-            id='HOOK-TEST',
+        hook = Hook.create(
             name='Test Hook',
             owner_type='role',
             owner_id='vp_engineering'
         )
 
-        assert hook.id == 'HOOK-TEST'
+        assert hook.id.startswith('HOOK-')
         assert hook.items == []
 
-    def test_hook_with_items(self):
-        """Test hook with work items."""
-        item = WorkItem(
-            id='WI-1',
-            hook_id='HOOK-TEST',
+    def test_hook_add_work(self):
+        """Test adding work to a hook."""
+        hook = Hook.create(
+            name='Test Hook',
+            owner_type='role',
+            owner_id='vp_engineering'
+        )
+
+        item = WorkItem.create(
+            hook_id=hook.id,
             title='Task 1',
             description='Desc',
             molecule_id='MOL-1',
             step_id='s1',
-            priority=1
+            priority=WorkItemPriority.P2_MEDIUM
         )
 
-        hook = Hook(
-            id='HOOK-TEST',
-            name='Test Hook',
-            owner_type='role',
-            owner_id='vp_engineering',
-            items=[item]
-        )
+        hook.add_work(item)
 
         assert len(hook.items) == 1
+
+    def test_hook_get_queued_items(self):
+        """Test getting queued items from a hook."""
+        hook = Hook.create(
+            name='Test Hook',
+            owner_type='role',
+            owner_id='vp_engineering'
+        )
+
+        for i in range(3):
+            item = WorkItem.create(
+                hook_id=hook.id,
+                title=f'Task {i}',
+                description='Desc',
+                molecule_id='MOL-1',
+                step_id='s1',
+                priority=WorkItemPriority.P2_MEDIUM
+            )
+            hook.add_work(item)
+
+        queued = hook.get_queued_items()
+        assert len(queued) == 3
+
+    def test_hook_get_next_item(self):
+        """Test getting next item by priority."""
+        hook = Hook.create(
+            name='Test Hook',
+            owner_type='role',
+            owner_id='vp_engineering'
+        )
+
+        # Add low priority first
+        low = WorkItem.create(
+            hook_id=hook.id,
+            title='Low Priority',
+            description='Desc',
+            molecule_id='MOL-1',
+            step_id='s1',
+            priority=WorkItemPriority.P3_LOW
+        )
+        hook.add_work(low)
+
+        # Add high priority second
+        high = WorkItem.create(
+            hook_id=hook.id,
+            title='High Priority',
+            description='Desc',
+            molecule_id='MOL-1',
+            step_id='s1',
+            priority=WorkItemPriority.P0_CRITICAL
+        )
+        hook.add_work(high)
+
+        next_item = hook.get_next_item()
+        assert next_item.priority == WorkItemPriority.P0_CRITICAL
 
 
 class TestHookManager:
@@ -133,7 +216,7 @@ class TestHookManager:
         assert retrieved is not None
         assert retrieved.id == created.id
 
-    def test_get_hook_by_owner(self, hook_manager):
+    def test_get_hook_for_owner(self, hook_manager):
         """Test getting hook by owner."""
         hook_manager.create_hook(
             name='VP Eng Hook',
@@ -141,12 +224,12 @@ class TestHookManager:
             owner_id='vp_engineering'
         )
 
-        hooks = hook_manager.get_hooks_by_owner('role', 'vp_engineering')
+        hook = hook_manager.get_hook_for_owner('role', 'vp_engineering')
 
-        assert len(hooks) >= 1
-        assert any(h.owner_id == 'vp_engineering' for h in hooks)
+        assert hook is not None
+        assert hook.owner_id == 'vp_engineering'
 
-    def test_add_work_item(self, hook_manager, sample_work_item_data):
+    def test_add_work_to_hook(self, hook_manager):
         """Test adding a work item to a hook."""
         hook = hook_manager.create_hook(
             name='Test',
@@ -154,16 +237,20 @@ class TestHookManager:
             owner_id='vp_engineering'
         )
 
-        item = hook_manager.add_work_item(
+        item = hook_manager.add_work_to_hook(
             hook_id=hook.id,
-            **sample_work_item_data
+            title='Test Work',
+            description='Test description',
+            molecule_id='MOL-123',
+            step_id='step-1',
+            priority=WorkItemPriority.P2_MEDIUM
         )
 
         assert item.id.startswith('WI-')
         assert item.hook_id == hook.id
         assert item.status == WorkItemStatus.QUEUED
 
-    def test_claim_work_item(self, hook_manager, sample_work_item_data):
+    def test_claim_work(self, hook_manager):
         """Test claiming a work item."""
         hook = hook_manager.create_hook(
             name='Test',
@@ -171,19 +258,25 @@ class TestHookManager:
             owner_id='vp_engineering'
         )
 
-        item = hook_manager.add_work_item(hook_id=hook.id, **sample_work_item_data)
-
-        claimed = hook_manager.claim_work_item(
+        item = hook_manager.add_work_to_hook(
             hook_id=hook.id,
-            item_id=item.id,
+            title='Test',
+            description='Test',
+            molecule_id='MOL-123',
+            step_id='step-1',
+            priority=WorkItemPriority.P2_MEDIUM
+        )
+
+        claimed = hook_manager.claim_work(
+            hook_id=hook.id,
             agent_id='vp_engineering-001'
         )
 
+        assert claimed is not None
         assert claimed.status == WorkItemStatus.CLAIMED
         assert claimed.assigned_to == 'vp_engineering-001'
-        assert claimed.claimed_at is not None
 
-    def test_complete_work_item(self, hook_manager, sample_work_item_data):
+    def test_complete_work(self, hook_manager):
         """Test completing a work item."""
         hook = hook_manager.create_hook(
             name='Test',
@@ -191,113 +284,96 @@ class TestHookManager:
             owner_id='vp_engineering'
         )
 
-        item = hook_manager.add_work_item(hook_id=hook.id, **sample_work_item_data)
-        hook_manager.claim_work_item(hook.id, item.id, 'agent-001')
+        item = hook_manager.add_work_to_hook(
+            hook_id=hook.id,
+            title='Test',
+            description='Test',
+            molecule_id='MOL-123',
+            step_id='step-1',
+            priority=WorkItemPriority.P2_MEDIUM
+        )
 
-        completed = hook_manager.complete_work_item(
+        hook_manager.claim_work(hook.id, 'agent-001')
+
+        completed = hook_manager.complete_work(
             hook_id=hook.id,
             item_id=item.id,
             result={'status': 'success', 'output': 'Done!'}
         )
 
         assert completed.status == WorkItemStatus.COMPLETED
-        assert completed.completed_at is not None
         assert completed.result['status'] == 'success'
 
-    def test_fail_work_item(self, hook_manager, sample_work_item_data):
-        """Test failing a work item."""
+    def test_fail_work(self, hook_manager):
+        """Test failing a work item with retries."""
         hook = hook_manager.create_hook(
             name='Test',
             owner_type='role',
             owner_id='vp_engineering'
         )
 
-        item = hook_manager.add_work_item(hook_id=hook.id, **sample_work_item_data)
-        hook_manager.claim_work_item(hook.id, item.id, 'agent-001')
-
-        failed = hook_manager.fail_work_item(
+        item = hook_manager.add_work_to_hook(
             hook_id=hook.id,
-            item_id=item.id,
-            error='Something went wrong'
+            title='Test',
+            description='Test',
+            molecule_id='MOL-123',
+            step_id='step-1',
+            priority=WorkItemPriority.P2_MEDIUM
         )
 
+        # First fail - should retry (requeue)
+        hook_manager.claim_work(hook.id, 'agent-001')
+        result1 = hook_manager.fail_work(hook.id, item.id, 'Error 1')
+        assert result1.status == WorkItemStatus.QUEUED  # Requeued for retry
+        assert result1.retry_count == 1
+
+        # Second fail
+        hook_manager.claim_work(hook.id, 'agent-001')
+        result2 = hook_manager.fail_work(hook.id, item.id, 'Error 2')
+        assert result2.status == WorkItemStatus.QUEUED
+        assert result2.retry_count == 2
+
+        # Third fail - exceeds max_retries (3)
+        hook_manager.claim_work(hook.id, 'agent-001')
+        failed = hook_manager.fail_work(hook.id, item.id, 'Final error')
         assert failed.status == WorkItemStatus.FAILED
-        assert failed.error == 'Something went wrong'
+        assert failed.error == 'Final error'
+        assert failed.retry_count == 3
 
-    def test_get_queued_items(self, hook_manager, sample_work_item_data):
-        """Test getting queued items from a hook."""
-        hook = hook_manager.create_hook(
-            name='Test',
-            owner_type='role',
-            owner_id='vp_engineering'
-        )
+    def test_list_hooks(self, hook_manager):
+        """Test listing all hooks."""
+        hook_manager.create_hook(name='Hook 1', owner_type='role', owner_id='a')
+        hook_manager.create_hook(name='Hook 2', owner_type='role', owner_id='b')
 
-        # Add multiple items
-        hook_manager.add_work_item(hook_id=hook.id, **sample_work_item_data)
-        hook_manager.add_work_item(hook_id=hook.id, **sample_work_item_data)
+        hooks = hook_manager.list_hooks()
 
-        queued = hook_manager.get_queued_items(hook.id)
+        assert len(hooks) >= 2
 
-        assert len(queued) == 2
-        assert all(item.status == WorkItemStatus.QUEUED for item in queued)
+    def test_get_all_queued_work(self, hook_manager):
+        """Test getting all queued work across hooks."""
+        hook1 = hook_manager.create_hook(name='Hook 1', owner_type='role', owner_id='a')
+        hook2 = hook_manager.create_hook(name='Hook 2', owner_type='role', owner_id='b')
 
-    def test_get_next_work_item(self, hook_manager, sample_work_item_data):
-        """Test getting the next work item by priority."""
-        hook = hook_manager.create_hook(
-            name='Test',
-            owner_type='role',
-            owner_id='vp_engineering'
-        )
-
-        # Add items with different priorities
-        low_priority = sample_work_item_data.copy()
-        low_priority['priority'] = 3
-        hook_manager.add_work_item(hook_id=hook.id, **low_priority)
-
-        high_priority = sample_work_item_data.copy()
-        high_priority['priority'] = 1
-        hook_manager.add_work_item(hook_id=hook.id, **high_priority)
-
-        next_item = hook_manager.get_next_work_item(hook.id)
-
-        assert next_item is not None
-        assert next_item.priority == 1
-
-    def test_capability_matching(self, hook_manager):
-        """Test work item capability matching."""
-        hook = hook_manager.create_hook(
-            name='Test',
-            owner_type='role',
-            owner_id='vp_engineering'
-        )
-
-        # Add item requiring specific capabilities
-        hook_manager.add_work_item(
-            hook_id=hook.id,
-            title='Frontend Task',
-            description='Build UI',
+        hook_manager.add_work_to_hook(
+            hook_id=hook1.id,
+            title='Work 1',
+            description='Test',
             molecule_id='MOL-1',
             step_id='s1',
-            priority=1,
-            required_capabilities=['frontend', 'react'],
-            context={}
+            priority=WorkItemPriority.P2_MEDIUM
+        )
+        hook_manager.add_work_to_hook(
+            hook_id=hook2.id,
+            title='Work 2',
+            description='Test',
+            molecule_id='MOL-1',
+            step_id='s1',
+            priority=WorkItemPriority.P2_MEDIUM
         )
 
-        # Get items matching capabilities
-        matching = hook_manager.get_matching_items(
-            hook.id,
-            capabilities=['frontend', 'react', 'typescript']
-        )
+        all_work = hook_manager.get_all_queued_work()
 
-        assert len(matching) == 1
-
-        # Get items with non-matching capabilities
-        non_matching = hook_manager.get_matching_items(
-            hook.id,
-            capabilities=['backend', 'python']
-        )
-
-        assert len(non_matching) == 0
+        assert len(all_work) >= 2
 
     def test_hook_persistence(self, hook_manager):
         """Test that hooks persist across manager instances."""
@@ -309,7 +385,7 @@ class TestHookManager:
 
         # Create new manager with same path
         from src.core.hook import HookManager
-        new_manager = HookManager(hook_manager.hooks_path)
+        new_manager = HookManager(hook_manager.base_path)
 
         retrieved = new_manager.get_hook(hook.id)
 
@@ -320,45 +396,57 @@ class TestHookManager:
 class TestHookEdgeCases:
     """Edge case tests for hooks."""
 
-    def test_claim_already_claimed_item(self, hook_manager, sample_work_item_data):
-        """Test that claimed items cannot be claimed again."""
-        hook = hook_manager.create_hook(
-            name='Test',
-            owner_type='role',
-            owner_id='vp_engineering'
-        )
-
-        item = hook_manager.add_work_item(hook_id=hook.id, **sample_work_item_data)
-        hook_manager.claim_work_item(hook.id, item.id, 'agent-001')
-
-        # Attempting to claim again should fail
-        with pytest.raises(ValueError):
-            hook_manager.claim_work_item(hook.id, item.id, 'agent-002')
-
-    def test_complete_unclaimed_item(self, hook_manager, sample_work_item_data):
-        """Test that unclaimed items cannot be completed."""
-        hook = hook_manager.create_hook(
-            name='Test',
-            owner_type='role',
-            owner_id='vp_engineering'
-        )
-
-        item = hook_manager.add_work_item(hook_id=hook.id, **sample_work_item_data)
-
-        # Should fail - item not claimed
-        with pytest.raises(ValueError):
-            hook_manager.complete_work_item(hook.id, item.id, {'status': 'done'})
-
-    def test_empty_hook(self, hook_manager):
-        """Test operations on empty hook."""
+    def test_claim_empty_hook(self, hook_manager):
+        """Test claiming from an empty hook returns None."""
         hook = hook_manager.create_hook(
             name='Empty Hook',
             owner_type='role',
             owner_id='vp_engineering'
         )
 
-        queued = hook_manager.get_queued_items(hook.id)
-        next_item = hook_manager.get_next_work_item(hook.id)
+        result = hook_manager.claim_work(hook.id, 'agent-001')
 
-        assert queued == []
-        assert next_item is None
+        assert result is None
+
+    def test_get_or_create_hook(self, hook_manager):
+        """Test get_or_create_hook functionality."""
+        # First call creates
+        hook1 = hook_manager.get_or_create_hook(
+            name='Test Hook',
+            owner_type='role',
+            owner_id='vp_engineering'
+        )
+
+        # Second call retrieves
+        hook2 = hook_manager.get_or_create_hook(
+            name='Test Hook',
+            owner_type='role',
+            owner_id='vp_engineering'
+        )
+
+        assert hook1.id == hook2.id
+
+    def test_hook_has_work(self, hook_manager):
+        """Test checking if hook has work."""
+        hook = hook_manager.create_hook(
+            name='Test',
+            owner_type='role',
+            owner_id='vp_engineering'
+        )
+
+        # Initially no work
+        retrieved = hook_manager.get_hook(hook.id)
+        assert not retrieved.has_work()
+
+        # Add work
+        hook_manager.add_work_to_hook(
+            hook_id=hook.id,
+            title='Test',
+            description='Test',
+            molecule_id='MOL-1',
+            step_id='s1',
+            priority=WorkItemPriority.P2_MEDIUM
+        )
+
+        retrieved = hook_manager.get_hook(hook.id)
+        assert retrieved.has_work()

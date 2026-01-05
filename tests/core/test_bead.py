@@ -82,7 +82,7 @@ class TestBeadLedger:
         assert entry.id.startswith('BEAD-')
         assert entry.agent_id == 'coo-001'
 
-    def test_get_bead(self, bead_ledger):
+    def test_get_entry(self, bead_ledger):
         """Test retrieving a bead by ID."""
         recorded = bead_ledger.record(
             agent_id='test-agent',
@@ -92,20 +92,20 @@ class TestBeadLedger:
             data={'result': 'success'}
         )
 
-        retrieved = bead_ledger.get_bead(recorded.id)
+        retrieved = bead_ledger.get_entry(recorded.id)
 
         assert retrieved is not None
         assert retrieved.id == recorded.id
         assert retrieved.data['result'] == 'success'
 
-    def test_get_beads_by_agent(self, bead_ledger):
+    def test_get_entries_by_agent(self, bead_ledger):
         """Test getting all beads for an agent."""
         # Record multiple beads for same agent
         bead_ledger.record(agent_id='agent-001', action='execution', entity_type='wi', entity_id='1', data={'n': 1})
         bead_ledger.record(agent_id='agent-001', action='execution', entity_type='wi', entity_id='2', data={'n': 2})
         bead_ledger.record(agent_id='agent-002', action='execution', entity_type='wi', entity_id='3', data={'n': 3})
 
-        agent_beads = bead_ledger.get_beads_by_agent('agent-001')
+        agent_beads = bead_ledger.get_entries_by_agent('agent-001')
 
         assert len(agent_beads) == 2
         assert all(b.agent_id == 'agent-001' for b in agent_beads)
@@ -158,11 +158,11 @@ class TestBeadLedger:
             data={'persistent': True}
         )
 
-        # Create new ledger with same path
+        # Create new ledger with same base path
         from src.core.bead import BeadLedger
-        new_ledger = BeadLedger(bead_ledger.beads_path)
+        new_ledger = BeadLedger(bead_ledger.base_path)
 
-        retrieved = new_ledger.get_bead(entry.id)
+        retrieved = new_ledger.get_entry(entry.id)
 
         assert retrieved is not None
         assert retrieved.data['persistent'] == True
@@ -185,29 +185,40 @@ class TestBeadLedger:
         )
 
         # Reload to verify serialization worked
-        retrieved = bead_ledger.get_bead(entry.id)
+        retrieved = bead_ledger.get_entry(entry.id)
 
         # Enums should be converted to strings
         assert retrieved.data['role'] == 'responsible'
         assert retrieved.data['nested']['role'] == 'accountable'
 
-    def test_all_beads(self, bead_ledger):
-        """Test getting all beads."""
+    def test_get_recent_entries(self, bead_ledger):
+        """Test getting recent beads."""
         bead_ledger.record(agent_id='a', action='execution', entity_type='t', entity_id='1', data={})
         bead_ledger.record(agent_id='b', action='delegation', entity_type='t', entity_id='2', data={})
         bead_ledger.record(agent_id='c', action='checkpoint', entity_type='t', entity_id='3', data={})
 
-        all_beads = bead_ledger.get_all_beads()
+        recent = bead_ledger.get_recent_entries()
 
-        assert len(all_beads) >= 3
+        assert len(recent) >= 3
+
+    def test_get_entries_for_entity(self, bead_ledger):
+        """Test getting entries for a specific entity."""
+        bead_ledger.record(agent_id='a', action='create', entity_type='molecule', entity_id='MOL-1', data={})
+        bead_ledger.record(agent_id='a', action='update', entity_type='molecule', entity_id='MOL-1', data={})
+        bead_ledger.record(agent_id='a', action='create', entity_type='molecule', entity_id='MOL-2', data={})
+
+        entries = bead_ledger.get_entries_for_entity('molecule', 'MOL-1')
+
+        assert len(entries) == 2
+        assert all(e.entity_id == 'MOL-1' for e in entries)
 
 
 class TestBeadLedgerEdgeCases:
     """Edge case tests for bead ledger."""
 
-    def test_get_nonexistent_bead(self, bead_ledger):
-        """Test getting a bead that doesn't exist."""
-        result = bead_ledger.get_bead('BEAD-NONEXISTENT')
+    def test_get_nonexistent_entry(self, bead_ledger):
+        """Test getting an entry that doesn't exist."""
+        result = bead_ledger.get_entry('BEAD-NONEXISTENT')
         assert result is None
 
     def test_complex_nested_data(self, bead_ledger):
@@ -228,7 +239,7 @@ class TestBeadLedgerEdgeCases:
             }
         )
 
-        retrieved = bead_ledger.get_bead(entry.id)
+        retrieved = bead_ledger.get_entry(entry.id)
 
         assert retrieved.data['list'] == [1, 2, 3]
         assert retrieved.data['nested']['deep']['value'] == 'test'
@@ -246,3 +257,38 @@ class TestBeadLedgerEdgeCases:
         )
 
         assert entry.message == 'Task completed successfully'
+
+    def test_checkpoint_convenience_method(self, bead_ledger):
+        """Test the checkpoint convenience method."""
+        entry = bead_ledger.checkpoint(
+            agent_id='worker-001',
+            entity_type='molecule',
+            entity_id='MOL-123',
+            checkpoint_data={'progress': 75},
+            description='Progress checkpoint'
+        )
+
+        assert entry.action == 'checkpoint'
+        assert entry.data['progress'] == 75
+
+    def test_get_latest_checkpoint(self, bead_ledger):
+        """Test getting the latest checkpoint for an entity."""
+        bead_ledger.checkpoint(
+            agent_id='worker-001',
+            entity_type='molecule',
+            entity_id='MOL-123',
+            checkpoint_data={'progress': 25},
+            description='First checkpoint'
+        )
+        bead_ledger.checkpoint(
+            agent_id='worker-001',
+            entity_type='molecule',
+            entity_id='MOL-123',
+            checkpoint_data={'progress': 75},
+            description='Second checkpoint'
+        )
+
+        latest = bead_ledger.get_latest_checkpoint('molecule', 'MOL-123')
+
+        assert latest is not None
+        assert latest.data['progress'] == 75

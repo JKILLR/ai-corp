@@ -57,9 +57,8 @@ def bead_ledger(temp_corp_path):
     """Create a BeadLedger instance."""
     from src.core.bead import BeadLedger
 
-    beads_path = os.path.join(temp_corp_path, 'beads')
-    os.makedirs(beads_path, exist_ok=True)
-    return BeadLedger(beads_path)
+    # BeadLedger creates beads/ subdir automatically
+    return BeadLedger(temp_corp_path)
 
 
 @pytest.fixture
