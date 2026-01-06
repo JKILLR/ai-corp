@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+/* =============================================================================
+   NEURAL GLASS DESIGN TOKENS
+   AI Corp Visual Design System
+   ============================================================================= */
+
+:root {
+  /* ---------------------------------------------------------------------------
+     DARK MODE COLORS (Default)
+     --------------------------------------------------------------------------- */
+  --color-void: #0A0A0F;
+  --color-cosmos: #12121A;
+  --color-neural: #3B82F6;
+  --color-synapse: #22D3EE;
+  --color-plasma: #F8FAFC;
+  --color-muted: #64748B;
+
+  /* Status Colors */
+  --color-ok: #10B981;
+  --color-ok-glow: rgba(16, 185, 129, 0.25);
+  --color-proc: #F59E0B;
+  --color-proc-glow: rgba(245, 158, 11, 0.25);
+  --color-warn: #EF4444;
+  --color-warn-glow: rgba(239, 68, 68, 0.25);
+  --color-wait: #8B5CF6;
+  --color-wait-glow: rgba(139, 92, 246, 0.25);
+  --color-idle: #94A3B8;
+  --color-off: #475569;
+
+  /* Glass System */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-bg-hover: rgba(255, 255, 255, 0.08);
+  --glass-bg-active: rgba(255, 255, 255, 0.12);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: 24px;
+
+  /* ---------------------------------------------------------------------------
+     LIGHT MODE COLORS
+     --------------------------------------------------------------------------- */
+  --light-color-base: #FAFBFC;
+  --light-color-surface: #F1F3F5;
+  --light-color-card: #FFFFFF;
+  --light-color-neural: #2563EB;
+  --light-color-synapse: #0D9488;
+  --light-color-text: #1E293B;
+  --light-color-muted: #64748B;
+
+  /* Light Status */
+  --light-ok-bg: #DCFCE7;
+  --light-ok-border: #22C55E;
+  --light-ok-text: #166534;
+  --light-proc-bg: #FEF3C7;
+  --light-proc-border: #F59E0B;
+  --light-proc-text: #92400E;
+  --light-warn-bg: #FEE2E2;
+  --light-warn-border: #EF4444;
+  --light-warn-text: #991B1B;
+
+  /* Light Glass */
+  --light-glass-bg: rgba(255, 255, 255, 0.8);
+  --light-glass-border: rgba(0, 0, 0, 0.06);
+  --light-glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+
+  /* ---------------------------------------------------------------------------
+     TYPOGRAPHY
+     --------------------------------------------------------------------------- */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-display: 'Outfit', var(--font-sans);
+
+  /* ---------------------------------------------------------------------------
+     SPACING
+     --------------------------------------------------------------------------- */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* ---------------------------------------------------------------------------
+     RADII
+     --------------------------------------------------------------------------- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* ---------------------------------------------------------------------------
+     SHADOWS
+     --------------------------------------------------------------------------- */
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --shadow-glow-neural: 0 0 20px rgba(59, 130, 246, 0.3);
+  --shadow-glow-success: 0 0 20px rgba(16, 185, 129, 0.3);
+  --shadow-glow-warn: 0 0 20px rgba(239, 68, 68, 0.3);
+
+  /* ---------------------------------------------------------------------------
+     Z-INDEX LAYERS
+     --------------------------------------------------------------------------- */
+  --z-base: 0;
+  --z-card: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 500;
+  --z-modal: 510;
+  --z-command-palette: 600;
+  --z-toast: 700;
+}
+
+/* Light mode theme */
+[data-theme="light"] {
+  --color-void: var(--light-color-base);
+  --color-cosmos: var(--light-color-surface);
+  --color-neural: var(--light-color-neural);
+  --color-synapse: var(--light-color-synapse);
+  --color-plasma: var(--light-color-text);
+  --glass-bg: var(--light-glass-bg);
+  --glass-border: var(--light-glass-border);
+  --shadow-card: var(--light-glass-shadow);
+}
+
+/* =============================================================================
+   BASE STYLES
+   ============================================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-void);
+  color: var(--color-plasma);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =============================================================================
+   TYPOGRAPHY
+   ============================================================================= */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+}
+
+code, pre, .mono {
+  font-family: var(--font-mono);
+}
+
+/* =============================================================================
+   SCROLLBAR (Dark theme)
+   ============================================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-cosmos);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
+
+/* =============================================================================
+   FOCUS STYLES
+   ============================================================================= */
+
+:focus-visible {
+  outline: 2px solid var(--color-neural);
+  outline-offset: 2px;
+}
+
+/* =============================================================================
+   REDUCED MOTION
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
