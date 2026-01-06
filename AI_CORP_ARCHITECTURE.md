@@ -32,17 +32,22 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 | Director Agent Class | ✅ Done | Team managers with worker pool integration |
 | Worker Agent Class | ✅ Done | Task executors with full Claude Code capabilities |
 | Agent Executor | ✅ Done | Parallel/sequential/pool execution modes |
-| Test Suite | ✅ Done | 273 tests, 65% coverage (CLI 94%, LLM 75%) |
+| Success Contract System | ✅ Done | Measurable success criteria with bead/gate integration |
+| Discovery Conversation | ✅ Done | COO gathers requirements through natural conversation |
+| System Monitor | ✅ Done | Metrics collection, health checks, alerts |
+| Terminal Dashboard | ✅ Done | Real-time visibility with live mode |
+| Knowledge Base | ✅ Done | Scoped document management (Foundation/Project/Task) |
+| Document Ingestion | ✅ Done | RLM-inspired document processing pipeline |
+| **Skill System** | ✅ Done | Role-based skill discovery from SKILL.md files |
+| **Work Scheduler** | ✅ Done | CapabilityMatcher + LoadBalancer + DependencyResolver |
+| **Executor Integration** | ✅ Done | CorporationExecutor uses WorkScheduler + SkillRegistry |
+| Test Suite | ✅ Done | 451+ tests passing |
 
 ### Planned Components (P1)
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
-| **Success Contract System** | P1 | Measurable success criteria defined before work begins |
-| **Discovery Conversation** | P1 | COO gathers requirements through natural conversation |
-| **System Monitor** | P1 | Lightweight service for metrics, health checks, alerts |
-| **Terminal Dashboard** | P1 | Real-time visibility into system state |
-| Skill Loading | P1 | Load Claude Code skills for agents |
+| Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
 | Async Gate Approvals | P1 | Auto-approve when criteria met |
 
 ### Future Components (P2)
@@ -392,7 +397,92 @@ contract = coo._extract_contract(conversation)
 - `SuccessCriterion` - Single measurable criterion (boolean checklist)
 - `ContractManager` - CRUD operations for contracts
 
-### 10. System Monitoring (P1)
+### 10. Skill System
+
+Role-based skill discovery with 5-layer inheritance for dynamic capability matching.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SKILL DISCOVERY LAYERS                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Layer 5: User Skills (~/.claude/SKILL.md)                  │
+│  └── Personal skills applied to all corps                   │
+│                                                             │
+│  Layer 4: Corp Skills (corp/SKILL.md)                       │
+│  └── Organization-wide skills for all agents                │
+│                                                             │
+│  Layer 3: Department Skills (corp/org/departments/X/SKILL.md)│
+│  └── Department-specific skills                             │
+│                                                             │
+│  Layer 2: Role Skills (corp/org/roles/X/SKILL.md)           │
+│  └── Role-specific skills                                   │
+│                                                             │
+│  Layer 1: Project Skills (project/SKILL.md)                 │
+│  └── Project-specific skills                                │
+│                                                             │
+│  Resolution: Higher layers override lower layers            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Capability-to-Skill Mapping:**
+
+| Capability | Skills |
+|------------|--------|
+| frontend | frontend-design |
+| testing | webapp-testing |
+| security | security-bluebook-builder |
+| infrastructure | aws-skills, terraform-skills |
+| documentation | docx, pdf |
+
+**Implementation:** `src/core/skills.py`
+- `SkillRegistry` - Central registry with 5-layer discovery
+- `Skill` - Individual skill with name and description
+- `CAPABILITY_SKILL_MAP` - Maps capabilities to skills
+- `SKILL_CAPABILITY_MAP` - Reverse mapping for discovery
+
+### 11. Work Scheduler
+
+Intelligent task assignment with capability matching, load balancing, and dependency resolution.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    WORK SCHEDULER FLOW                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. Task Arrives                                            │
+│     └── WorkScheduler.schedule_work(task, required_caps)    │
+│                                                             │
+│  2. Capability Matching                                     │
+│     └── CapabilityMatcher.find_capable_agents(caps)         │
+│         • Returns agents with required capabilities         │
+│         • Filters by agent level if specified               │
+│                                                             │
+│  3. Load Balancing                                          │
+│     └── LoadBalancer.select_agent(candidates)               │
+│         • Checks current work queue depth                   │
+│         • Prefers agents with lighter loads                 │
+│                                                             │
+│  4. Dependency Resolution                                   │
+│     └── DependencyResolver.check_ready(task)                │
+│         • Verifies all dependencies completed               │
+│         • Blocks if dependencies pending                    │
+│                                                             │
+│  5. Assignment                                              │
+│     └── Places WorkItem in selected agent's hook queue      │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:** `src/core/scheduler.py`
+- `WorkScheduler` - Central coordinator
+- `CapabilityMatcher` - Matches tasks to capable agents
+- `LoadBalancer` - Distributes work evenly
+- `DependencyResolver` - Ensures correct execution order
+- `AgentInfo` - Agent metadata (role_id, department, level, capabilities)
+
+### 12. System Monitoring
 
 A lightweight **SystemMonitor** service provides visibility into system health without adding organizational overhead.
 
@@ -628,8 +718,10 @@ ai-corp/
 │   │   ├── memory.py               # RLM-inspired memory
 │   │   ├── llm.py                  # Swappable LLM backends
 │   │   ├── processor.py            # Message processing
-│   │   ├── contract.py             # [P1] Success contracts
-│   │   └── monitor.py              # [P1] System monitoring
+│   │   ├── contract.py             # Success contracts
+│   │   ├── monitor.py              # System monitoring
+│   │   ├── skills.py               # Role-based skill discovery
+│   │   └── scheduler.py            # Intelligent task scheduling
 │   ├── agents/
 │   │   ├── base.py                 # Base agent (all capabilities)
 │   │   ├── coo.py                  # COO agent (+ discovery)
@@ -867,36 +959,30 @@ ai-corp status                                  # Quick health check summary
 3. ~~Implement Worker agent classes~~ ✅
 4. ~~Connect agents to actual Claude Code execution~~ ✅
 5. ~~Enable parallel agent execution~~ ✅
-6. ~~Add pytest test suite (273 tests, 65% coverage)~~ ✅
+6. ~~Add pytest test suite (451+ tests)~~ ✅
 7. ~~Fix Claude Code CLI integration~~ ✅
 
-### Current Priority (P1) - Phased Implementation
+### ✅ Completed (P1) - All Phases Done
+1. ~~Phase 1: Success Contract System~~ ✅
+   - SuccessContract, ContractManager with bead/gate integration
+2. ~~Phase 2: Discovery Conversation~~ ✅
+   - COO run_discovery() method with structured extraction
+3. ~~Phase 3: System Monitoring~~ ✅
+   - SystemMonitor with metrics, health checks, alerts
+4. ~~Phase 4: Terminal Dashboard~~ ✅
+   - Real-time dashboard with live mode
+5. ~~Skill System (Role-based skill discovery)~~ ✅
+   - 5-layer skill discovery from SKILL.md files
+   - Capability-to-skill mapping
+6. ~~Work Scheduler (Intelligent task assignment)~~ ✅
+   - CapabilityMatcher + LoadBalancer + DependencyResolver
+7. ~~Executor Integration~~ ✅
+   - CorporationExecutor uses WorkScheduler + SkillRegistry
+   - Session startup protocol for long-running agents
 
-**Phase 1: Contract Foundation (~2-3 days)**
-- [ ] Create `src/core/contract.py` (SuccessContract, ContractManager)
-- [ ] Add `contract_id` field to Molecule dataclass
-- [ ] Add unit tests for contract module
-- [ ] Add `corp/contracts/` directory initialization
-
-**Phase 2: Discovery Conversation (~2-3 days)**
-- [ ] Add `run_discovery()` method to COOAgent
-- [ ] Add `_extract_contract()` for structured extraction
-- [ ] Add CLI `--discover` flag to `ceo` command
-- [ ] Add integration tests for discovery flow
-
-**Phase 3: System Monitoring (~2-3 days)**
-- [ ] Create `src/core/monitor.py` (SystemMonitor, HealthAlert)
-- [ ] Add agent heartbeat integration to BaseAgent
-- [ ] Add `corp/metrics/` directory initialization
-- [ ] Add unit tests for monitoring module
-
-**Phase 4: Terminal Dashboard (~1-2 days)**
-- [ ] Create `src/cli/dashboard.py`
-- [ ] Add `dashboard` and `status` CLI commands
-- [ ] Add `contract` CLI commands
-- [ ] Add integration tests for dashboard
-
-**Total: ~10 days of implementation**
+### Current Priority (P1)
+1. **Real Claude Testing** - End-to-end test with ClaudeCodeBackend
+2. **Async Gate Approvals** - Auto-approve when criteria met
 
 ### Future (P2)
 1. Web UI with discovery onboarding chat

@@ -1,8 +1,8 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-05
-> **Current Phase:** P1 - Success Contracts & Monitoring
-> **Status:** Phase 4 (Terminal Dashboard) COMPLETE
+> **Current Phase:** P1 - Skills & Orchestration Complete
+> **Status:** Skills System & Work Scheduler INTEGRATED
 
 ---
 
@@ -20,14 +20,76 @@
 | **Monitoring** | ✅ Complete | Phase 3: System monitoring |
 | **Knowledge Base** | ✅ Complete | Scoped document management + ingestion |
 | **Dashboard** | ✅ Complete | Phase 4: Terminal dashboard with live mode |
+| **Skills System** | ✅ Complete | Role-based skill discovery from SKILL.md files |
+| **Work Scheduler** | ✅ Complete | Capability matching, load balancing, dependency resolution |
+| **Executor Integration** | ✅ Complete | CorporationExecutor ↔ WorkScheduler ↔ SkillRegistry |
 | Tests | ✅ Complete | 451+ tests passing |
-| End-to-End Test | ✅ Basic | CLI flow works with mock backend |
+| End-to-End Test | ⏳ Ready | CLI flow works with mock backend, ready for real testing |
 
 ---
 
 ## Recent Changes
 
-### 2026-01-05: Phase 4 - Terminal Dashboard Complete
+### 2026-01-05: Skills System & Work Scheduler Integration Complete
+
+**Added - Skills System (Phase 1):**
+- `src/core/skills.py` - Role-based skill discovery
+  - `Skill` - Dataclass for skill metadata + lazy content loading
+  - `SkillLoader` - 5-layer skill discovery (User → Corp → Department → Role → Project)
+  - `SkillRegistry` - Central registry mapping roles to skills
+  - `CAPABILITY_SKILL_MAP` / `SKILL_CAPABILITY_MAP` - Bidirectional mappings
+- `templates/corp/skills/` - Example skill templates
+  - `code-review/SKILL.md`, `internal-comms/SKILL.md`
+  - `architecture-patterns/SKILL.md`, `security-review/SKILL.md`
+- `tests/core/test_skills.py` - 35 unit tests
+
+**Added - Work Scheduler (Phase 2):**
+- `src/core/scheduler.py` - Intelligent work scheduling
+  - `WorkScheduler` - Central scheduling combining capability matching + load balancing
+  - `CapabilityMatcher` - Match work requirements to agent capabilities/skills
+  - `LoadBalancer` - Track agent workloads, health-aware distribution
+  - `DependencyResolver` - Resolve molecule step dependencies, parallel execution waves
+  - `SchedulingDecision` - Result of scheduling with alternatives
+- `tests/core/test_scheduler.py` - 37 unit tests
+
+**Added - Integration:**
+- `CorporationExecutor` now creates and uses `SkillRegistry` and `WorkScheduler`
+- All agents registered with scheduler for capability-based work assignment
+- All agents have `skill_registry` attached for role-based skill discovery
+- `get_status()` includes scheduler metrics
+
+**Added - Anthropic Blog Insights:**
+- `BaseAgent.on_session_start()` - Session startup protocol
+  - Verifies environment
+  - Loads recent bead context
+  - Detects interrupted work from previous sessions
+  - Checks hook health
+- `Molecule.get_progress_summary()` - Rich progress snapshots for session bridging
+  - Completed steps, current step, next steps, blockers
+  - Supports dashboard displays and decision making
+
+**Code Cleanup:**
+- Removed unused `role_id` parameter from `ClaudeCodeBackend.execute()`
+- Removed unused `skill_registry` from `ClaudeCodeBackend`
+- Documented primary skill flow through `LLMRequest.skills`
+- Updated `COOAgent` to accept `skill_registry` parameter
+
+**Architecture After Integration:**
+```
+CorporationExecutor
+├── SkillRegistry ←────────────────────────────────┐
+│   └── Discovers skills per role                  │
+├── WorkScheduler ─────────────────────────────────┤
+│   ├── CapabilityMatcher (uses SkillRegistry)     │
+│   ├── LoadBalancer (uses HookManager)            │
+│   └── DependencyResolver (uses MoleculeEngine)   │
+└── Agents (COO, VPs, Directors, Workers)          │
+    ├── Each has skill_registry attached ──────────┘
+    ├── on_session_start() for startup protocol
+    └── get_available_skills() for LLM execution
+```
+
+**Tests:** 72 new tests (35 skills + 37 scheduler) all passing
 
 **Added:**
 - `src/cli/dashboard.py` - Terminal dashboard module
@@ -325,8 +387,10 @@
 | `processor.py` | ✅ Stable | Message processing |
 | `contract.py` | ✅ Stable | Success contracts |
 | `monitor.py` | ✅ Stable | System monitoring |
-| `knowledge.py` | ✅ New | Scoped knowledge base |
-| `ingest.py` | ✅ New | Document ingestion pipeline |
+| `knowledge.py` | ✅ Stable | Scoped knowledge base |
+| `ingest.py` | ✅ Stable | Document ingestion pipeline |
+| `skills.py` | ✅ New | Role-based skill discovery |
+| `scheduler.py` | ✅ New | Work scheduling with capability matching |
 
 ### Agents (`src/agents/`)
 
@@ -353,25 +417,27 @@
 | Issue | Severity | Notes |
 |-------|----------|-------|
 | No async support | Low | Could improve performance |
-| ClaudeCodeBackend untested with real Claude | Medium | Need live test |
-| No terminal dashboard | Low | Phase 4 next |
+| ClaudeCodeBackend untested with real Claude | Medium | Ready for testing with Max subscription |
 
 ---
 
 ## Next Actions
 
-### P1 Priority
+### P1 Priority (Ready)
 1. ~~Create pytest test suite~~ ✅ Complete (451+ tests)
 2. ~~Add monitoring~~ ✅ Complete (Phase 3)
 3. ~~Add terminal dashboard~~ ✅ Complete (Phase 4)
-4. End-to-end test with real Claude Code
-5. Implement skill loading
+4. ~~Implement skill loading~~ ✅ Complete (Skills System)
+5. ~~Implement work scheduling~~ ✅ Complete (WorkScheduler)
+6. ~~Integrate executor with scheduler~~ ✅ Complete
+7. **End-to-end test with real Claude Code** ← NEXT
 
 ### P2 Future
 1. Chapters & Guilds
 2. Fitness functions
 3. Cross-department claiming
 4. Performance optimization
+5. Dashboard: capability/skill view
 
 ---
 
@@ -379,10 +445,11 @@
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Core modules | 16 | - |
+| Core modules | 18 | - |
 | Agent types | 5 | 5+ |
-| Lines of code | ~8500 | - |
-| Test coverage | 62% | 80% |
+| Lines of code | ~9500 | - |
+| Test count | 451+ | - |
+| Test coverage | ~40% | 80% |
 | Integration tests | Comprehensive | Comprehensive |
 
 ---
