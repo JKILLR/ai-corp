@@ -21,9 +21,9 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/', icon: LayoutDashboard, showOrb: true },
+  { label: 'COO Channel', path: '/coo', icon: MessageSquarePlus },
   { label: 'Projects', path: '/projects', icon: FolderKanban },
   { label: 'Agents', path: '/agents', icon: Users },
-  { label: 'Discovery', path: '/discovery', icon: MessageSquarePlus },
   { label: 'Gates', path: '/gates', icon: ShieldCheck, badge: 2 },
   { label: 'Integrations', path: '/integrations', icon: Plug },
 ];

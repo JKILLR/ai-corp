@@ -6,11 +6,11 @@ import {
   Dashboard,
   Projects,
   Agents,
-  Discovery,
   Gates,
   Integrations,
   Settings,
 } from './pages';
+import { COOChannel } from './pages/COOChannel';
 
 function App() {
   return (
@@ -19,9 +19,9 @@ function App() {
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/coo" element={<COOChannel />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/agents" element={<Agents />} />
-            <Route path="/discovery" element={<Discovery />} />
             <Route path="/gates" element={<Gates />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
