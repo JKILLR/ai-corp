@@ -2,11 +2,11 @@
 
 ## AI Corp Design Concept - Round 2
 
-> **🎨 This is the VISUAL DESIGN SYSTEM** — defining *how* it looks and moves (colors, glass effects, animations, motion physics).
+> **This is the VISUAL DESIGN SYSTEM** - defining *how* it looks and moves (colors, glass effects, animations, motion physics).
 >
-> **📐 For FUNCTIONAL SPEC** — features, wireframes, APIs, data models — see **[FRONTEND_DESIGN_SPEC.md](./FRONTEND_DESIGN_SPEC.md)**
+> **For FUNCTIONAL SPEC** - features, wireframes, APIs, data models - see **[FRONTEND_DESIGN_SPEC.md](./FRONTEND_DESIGN_SPEC.md)**
 >
-> Together: The functional spec defines what features exist → This doc defines how they appear and animate.
+> Together: The functional spec defines what features exist. This doc defines how they appear and animate.
 
 ---
 
