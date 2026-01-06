@@ -9,8 +9,10 @@ import {
   Gates,
   Integrations,
   Settings,
+  Files,
 } from './pages';
 import { COOChannel } from './pages/COOChannel';
+import { Forge } from './pages/Forge';
 
 function App() {
   return (
@@ -20,10 +22,12 @@ function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/coo" element={<COOChannel />} />
+            <Route path="/forge" element={<Forge />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/gates" element={<Gates />} />
             <Route path="/integrations" element={<Integrations />} />
+            <Route path="/files" element={<Files />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>
