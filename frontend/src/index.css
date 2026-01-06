@@ -8,31 +8,32 @@
 :root {
   /* ---------------------------------------------------------------------------
      DARK MODE COLORS (Default)
+     Darker theme with purple gradient background
      --------------------------------------------------------------------------- */
-  --color-void: #0A0A0F;
-  --color-cosmos: #12121A;
-  --color-neural: #3B82F6;
-  --color-synapse: #22D3EE;
+  --color-void: #050507;
+  --color-cosmos: #0A0A0F;
+  --color-neural: #8B5CF6;       /* Deep purple as primary accent */
+  --color-synapse: #A78BFA;      /* Lighter purple for secondary */
   --color-plasma: #F8FAFC;
-  --color-muted: #64748B;
+  --color-muted: #6B7280;
 
-  /* Status Colors */
-  --color-ok: #10B981;
-  --color-ok-glow: rgba(16, 185, 129, 0.25);
-  --color-proc: #F59E0B;
-  --color-proc-glow: rgba(245, 158, 11, 0.25);
-  --color-warn: #EF4444;
+  /* Status Colors - Terminal Green & Deep Purple palette */
+  --color-ok: #22C55E;           /* Terminal green */
+  --color-ok-glow: rgba(34, 197, 94, 0.25);
+  --color-proc: #8B5CF6;         /* Deep purple for processing */
+  --color-proc-glow: rgba(139, 92, 246, 0.25);
+  --color-warn: #EF4444;         /* Red for warnings */
   --color-warn-glow: rgba(239, 68, 68, 0.25);
-  --color-wait: #8B5CF6;
-  --color-wait-glow: rgba(139, 92, 246, 0.25);
-  --color-idle: #94A3B8;
-  --color-off: #475569;
+  --color-wait: #A78BFA;         /* Light purple for waiting */
+  --color-wait-glow: rgba(167, 139, 250, 0.25);
+  --color-idle: #4B5563;
+  --color-off: #374151;
 
-  /* Glass System */
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-bg-hover: rgba(255, 255, 255, 0.08);
-  --glass-bg-active: rgba(255, 255, 255, 0.12);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  /* Glass System - More transparent for background to show through */
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-bg-hover: rgba(255, 255, 255, 0.05);
+  --glass-bg-active: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.06);
   --glass-blur: 24px;
 
   /* ---------------------------------------------------------------------------
@@ -141,7 +142,12 @@ html {
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--color-void);
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(88, 28, 135, 0.03) 0%, transparent 70%),
+    var(--color-void);
+  background-attachment: fixed;
   color: var(--color-plasma);
   min-height: 100vh;
 }

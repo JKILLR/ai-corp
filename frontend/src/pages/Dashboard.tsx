@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Zap,
@@ -189,8 +190,21 @@ const toolIcons: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 export function Dashboard() {
-  const [isNetworkExpanded, setIsNetworkExpanded] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Initialize network expanded state from URL parameter
+  const shouldOpenNetwork = searchParams.get('network') === 'open';
+  const [isNetworkExpanded, setIsNetworkExpanded] = useState(shouldOpenNetwork);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+
+  // Clear URL parameter if it was used (only on initial mount)
+  useEffect(() => {
+    if (shouldOpenNetwork) {
+      searchParams.delete('network');
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally only run on mount
 
   return (
     <div className="flex gap-6 h-full">

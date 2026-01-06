@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, X, MessageSquare, Pause, Play, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Filter, X, MessageSquare, Pause, Play, ChevronDown, ChevronRight, Network, ExternalLink } from 'lucide-react';
 import { GlassCard, Button, StatusOrb, Badge } from '../components/ui';
 import type { Status } from '../components/ui/StatusOrb';
 
@@ -85,6 +86,7 @@ const orgChart: Agent = {
 };
 
 export function Agents() {
+  const navigate = useNavigate();
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['ceo', 'coo', 'head-eng', 'head-design', 'head-research']));
 
@@ -100,6 +102,20 @@ export function Agents() {
     });
   };
 
+  // Count agents by status
+  const countByStatus = (node: Agent): Record<Status, number> => {
+    const counts: Record<Status, number> = { ok: 0, processing: 0, warning: 0, waiting: 0, idle: 0, off: 0 };
+    const traverse = (n: Agent) => {
+      if (n.id !== 'ceo') counts[n.status]++;
+      n.children?.forEach(traverse);
+    };
+    traverse(node);
+    return counts;
+  };
+
+  const statusCounts = countByStatus(orgChart);
+  const totalAgents = Object.values(statusCounts).reduce((a, b) => a + b, 0);
+
   return (
     <div className="flex gap-6 h-full">
       {/* Main Content */}
@@ -111,9 +127,23 @@ export function Agents() {
               Agent Network
             </h2>
             <p className="text-sm text-[var(--color-muted)] mt-1">
-              12 agents active across 3 departments
+              {totalAgents} agents across 3 departments
             </p>
           </div>
+          <Button variant="secondary" size="md" onClick={() => navigate('/?network=open')}>
+            <Network className="w-4 h-4 mr-2" />
+            View Visual Network
+            <ExternalLink className="w-3 h-3 ml-2 opacity-60" />
+          </Button>
+        </div>
+
+        {/* Status Summary */}
+        <div className="grid grid-cols-5 gap-3">
+          <StatusSummaryCard status="ok" count={statusCounts.ok} label="Active" />
+          <StatusSummaryCard status="processing" count={statusCounts.processing} label="Processing" />
+          <StatusSummaryCard status="warning" count={statusCounts.warning} label="Attention" />
+          <StatusSummaryCard status="waiting" count={statusCounts.waiting} label="Waiting" />
+          <StatusSummaryCard status="idle" count={statusCounts.idle} label="Idle" />
         </div>
 
         {/* Filters */}
@@ -363,5 +393,28 @@ function AgentDetailPanel({ agent, onClose }: { agent: Agent; onClose: () => voi
         </div>
       </div>
     </GlassCard>
+  );
+}
+
+/* Status Summary Card */
+function StatusSummaryCard({ status, count, label }: { status: Status; count: number; label: string }) {
+  const bgClass = status === 'ok' ? 'bg-[var(--color-ok)]/10'
+    : status === 'processing' ? 'bg-[var(--color-proc)]/10'
+    : status === 'warning' ? 'bg-[var(--color-warn)]/10'
+    : status === 'waiting' ? 'bg-[var(--color-wait)]/10'
+    : 'bg-[var(--glass-bg)]';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`p-3 rounded-[var(--radius-md)] ${bgClass}`}
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <StatusOrb status={status} size="sm" pulse={count > 0} />
+        <span className="text-xs text-[var(--color-muted)]">{label}</span>
+      </div>
+      <p className="text-2xl font-semibold text-[var(--color-plasma)]">{count}</p>
+    </motion.div>
   );
 }
