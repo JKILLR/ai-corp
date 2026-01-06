@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Plug,
   Settings,
+  Hexagon,
 } from 'lucide-react';
 
 interface NavItem {
@@ -15,10 +16,11 @@ interface NavItem {
   path: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: number;
+  showOrb?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { label: 'Dashboard', path: '/', icon: LayoutDashboard, showOrb: true },
   { label: 'Projects', path: '/projects', icon: FolderKanban },
   { label: 'Agents', path: '/agents', icon: Users },
   { label: 'Discovery', path: '/discovery', icon: MessageSquarePlus },
@@ -34,8 +36,9 @@ export function Sidebar() {
   return (
     <aside className="w-56 h-screen bg-[var(--color-cosmos)] border-r border-[var(--glass-border)] flex flex-col">
       {/* Logo */}
-      <div className="h-16 px-4 flex items-center border-b border-[var(--glass-border)]">
-        <span className="text-[var(--color-neural)] text-xl font-semibold tracking-tight">
+      <div className="h-16 px-4 flex items-center gap-2 border-b border-[var(--glass-border)]">
+        <Hexagon className="w-6 h-6 text-[var(--color-synapse)]" />
+        <span className="text-[var(--color-plasma)] text-lg font-semibold tracking-tight">
           AI CORP
         </span>
       </div>
@@ -43,21 +46,21 @@ export function Sidebar() {
       {/* Main Navigation */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {navItems.map((item) => (
-          <NavItem key={item.path} {...item} />
+          <SidebarNavItem key={item.path} {...item} />
         ))}
       </nav>
 
       {/* Bottom Navigation */}
       <div className="py-4 px-2 border-t border-[var(--glass-border)]">
         {bottomNavItems.map((item) => (
-          <NavItem key={item.path} {...item} />
+          <SidebarNavItem key={item.path} {...item} />
         ))}
       </div>
     </aside>
   );
 }
 
-function NavItem({ label, path, icon: Icon, badge }: NavItem) {
+function SidebarNavItem({ label, path, icon: Icon, badge, showOrb }: NavItem) {
   return (
     <NavLink
       to={path}
@@ -73,7 +76,13 @@ function NavItem({ label, path, icon: Icon, badge }: NavItem) {
     >
       {({ isActive }) => (
         <>
-          <Icon className="w-5 h-5" />
+          {showOrb && isActive ? (
+            <span className="w-5 h-5 flex items-center justify-center">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-ok)]" />
+            </span>
+          ) : (
+            <Icon className="w-5 h-5" />
+          )}
           <span className="flex-1">{label}</span>
           {badge !== undefined && (
             <motion.span
