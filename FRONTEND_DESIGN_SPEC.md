@@ -2,6 +2,12 @@
 
 A design framework for building a web UI around the AI Corp autonomous agent system.
 
+> **📐 This is the FUNCTIONAL SPEC** — defining *what* to build (features, flows, APIs, data models).
+>
+> **🎨 For VISUAL DESIGN** — colors, animations, glass effects, motion physics — see **[NEURAL_GLASS_UI.md](./NEURAL_GLASS_UI.md)**
+>
+> Together: This spec defines the features → Neural Glass defines how they look and move.
+
 ---
 
 ## Executive Summary
