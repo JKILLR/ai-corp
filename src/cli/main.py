@@ -3,22 +3,36 @@
 AI Corp CLI - Main Entry Point
 
 Usage:
-    ai-corp init <industry>         Initialize AI Corp for an industry
-    ai-corp ceo <task>              Submit a task as CEO
-    ai-corp ceo <task> --discover   Submit task with discovery conversation
-    ai-corp coo                     Start the COO orchestrator
-    ai-corp status                  View system status
-    ai-corp status --health         View health monitoring with alerts
-    ai-corp dashboard               View terminal dashboard
-    ai-corp dashboard --live        Live-updating dashboard
-    ai-corp org                     View organization structure
-    ai-corp hire <type> <args>      Hire new agents
-    ai-corp templates               List industry templates
-    ai-corp molecules [list|show]   Manage molecules
-    ai-corp hooks [list|show]       Manage hooks
-    ai-corp gates [list|show]       Manage quality gates
+    ai-corp init [path] --preset=X --name=Y   Initialize AI Corp from a preset
+    ai-corp presets [list|show]               List or show available presets
+    ai-corp ceo <task>                        Submit a task as CEO
+    ai-corp ceo <task> --discover             Submit task with discovery conversation
+    ai-corp coo                               Start the COO orchestrator
+    ai-corp status                            View system status
+    ai-corp status --health                   View health monitoring with alerts
+    ai-corp dashboard                         View terminal dashboard
+    ai-corp dashboard --live                  Live-updating dashboard
+    ai-corp org                               View organization structure
+    ai-corp hire <type> <args>                Hire new agents
+    ai-corp templates                         List industry templates (legacy)
+    ai-corp molecules [list|show]             Manage molecules
+    ai-corp hooks [list|show]                 Manage hooks
+    ai-corp gates [list|show]                 Manage quality gates
     ai-corp contracts [list|show|create|check|link|activate]  Manage success contracts
     ai-corp knowledge [list|show|add|search|stats|remove]     Manage knowledge base
+
+Examples:
+    # Initialize a new AI Corp with default software-company preset
+    ai-corp init ~/projects/my-startup
+
+    # Initialize with a specific preset and name
+    ai-corp init --preset=software-company --name="Acme Dev Studio" ~/projects/acme
+
+    # List available presets
+    ai-corp presets list
+
+    # Show details of a preset
+    ai-corp presets show software-company
 """
 
 import argparse
@@ -36,6 +50,7 @@ from src.core.gate import GateKeeper
 from src.core.bead import BeadLedger
 from src.core.hiring import HiringManager
 from src.core.templates import IndustryTemplateManager, init_corp, INDUSTRY_TEMPLATES
+from src.core.preset import PresetManager, init_from_preset
 from src.core.contract import ContractManager, SuccessContract, ContractStatus
 from src.core.knowledge import KnowledgeBase, KnowledgeScope, KnowledgeType
 from src.core.ingest import DocumentProcessor, ingest_file
@@ -497,7 +512,123 @@ def cmd_contracts(args):
 
 
 def cmd_init(args):
-    """Initialize AI Corp for an industry"""
+    """Initialize AI Corp from a preset"""
+    from pathlib import Path
+
+    # Determine target path
+    if args.path:
+        target_path = Path(args.path).resolve()
+    else:
+        target_path = Path.cwd()
+
+    # Get preset
+    preset_id = args.preset or 'software-company'
+
+    print(f"Initializing AI Corp")
+    print(f"  Preset: {preset_id}")
+    print(f"  Name: {args.name or '(default)'}")
+    print(f"  Path: {target_path}")
+    print()
+
+    try:
+        aicorp_path = init_from_preset(
+            preset_id=preset_id,
+            target_path=target_path,
+            name=args.name
+        )
+
+        # Get preset info for display
+        manager = PresetManager()
+        preset = manager.get_preset(preset_id)
+
+        print(f"AI Corp initialized successfully!")
+        print(f"  Location: {aicorp_path}")
+        print(f"  Industry: {preset.metadata.industry if preset else 'unknown'}")
+        print()
+        print("Next steps:")
+        print(f"  cd {target_path}")
+        print("  ai-corp ceo 'Your first task'")
+
+    except ValueError as e:
+        print(f"Error: {e}")
+        return
+    except FileExistsError as e:
+        print(f"Error: {e}")
+        print("Use --force to overwrite existing configuration.")
+        return
+
+
+def cmd_presets(args):
+    """List or show available presets"""
+    manager = PresetManager()
+
+    if args.action == 'list':
+        presets = manager.list_presets()
+        if not presets:
+            print("No presets found.")
+            return
+
+        print("Available Presets:")
+        print("-" * 60)
+        for preset in presets:
+            print(f"  {preset.id}")
+            print(f"    {preset.name}")
+            print(f"    Industry: {preset.industry}")
+            print(f"    Complexity: {'*' * preset.complexity}")
+            print(f"    Team size: {preset.team_size_min}-{preset.team_size_max}")
+            print()
+
+    elif args.action == 'show':
+        if not args.preset_id:
+            print("Error: preset ID required for show")
+            return
+
+        preset = manager.get_preset(args.preset_id)
+        if not preset:
+            print(f"Preset '{args.preset_id}' not found")
+            return
+
+        print(f"Preset: {preset.metadata.name}")
+        print("=" * 60)
+        print(f"ID:          {preset.metadata.id}")
+        print(f"Industry:    {preset.metadata.industry}")
+        print(f"Version:     {preset.metadata.version}")
+        print(f"Author:      {preset.metadata.author}")
+        print(f"Complexity:  {'*' * preset.metadata.complexity} ({preset.metadata.complexity}/5)")
+        print()
+        print(f"Description:")
+        print(f"  {preset.metadata.description}")
+        print()
+        print(f"Team Size:   {preset.metadata.team_size_min}-{preset.metadata.team_size_max} (default: {preset.metadata.team_size_default})")
+        if preset.metadata.tags:
+            print(f"Tags:        {', '.join(preset.metadata.tags)}")
+        print()
+
+        # Show includes
+        includes = preset.includes
+        if includes:
+            print("Includes:")
+            if 'org' in includes:
+                print("  Organization:")
+                print(f"    - {includes['org'].get('hierarchy', 'N/A')}")
+                for role in includes['org'].get('roles', []):
+                    print(f"    - {role}")
+                for dept in includes['org'].get('departments', []):
+                    print(f"    - {dept}")
+
+            if includes.get('workflows'):
+                print("  Workflows:")
+                for wf in includes['workflows']:
+                    print(f"    - {wf}")
+
+            if includes.get('gates'):
+                print("  Gates:")
+                for gate in includes['gates']:
+                    print(f"    - {gate}")
+
+
+def cmd_init_legacy(args):
+    """Initialize AI Corp for an industry (legacy)"""
     corp_path = get_corp_path()
 
     print(f"Initializing AI Corp for: {args.industry}")
@@ -859,14 +990,24 @@ def main():
     )
     subparsers = parser.add_subparsers(dest='command', help='Commands')
 
-    # Init command
-    init_parser = subparsers.add_parser('init', help='Initialize AI Corp for an industry')
-    init_parser.add_argument('industry', choices=list(INDUSTRY_TEMPLATES.keys()),
-                            help='Industry template to use')
+    # Init command (new preset-based)
+    init_parser = subparsers.add_parser('init', help='Initialize AI Corp from a preset')
+    init_parser.add_argument('path', nargs='?', help='Target directory (default: current directory)')
+    init_parser.add_argument('-p', '--preset', default='software-company',
+                            help='Preset to use (default: software-company)')
+    init_parser.add_argument('-n', '--name', help='Custom name for this AI Corp instance')
+    init_parser.add_argument('-f', '--force', action='store_true',
+                            help='Overwrite existing .aicorp directory')
     init_parser.set_defaults(func=cmd_init)
 
-    # Templates command
-    templates_parser = subparsers.add_parser('templates', help='List industry templates')
+    # Presets command
+    presets_parser = subparsers.add_parser('presets', help='List or show available presets')
+    presets_parser.add_argument('action', choices=['list', 'show'], default='list', nargs='?')
+    presets_parser.add_argument('preset_id', nargs='?', help='Preset ID for show')
+    presets_parser.set_defaults(func=cmd_presets)
+
+    # Templates command (legacy)
+    templates_parser = subparsers.add_parser('templates', help='List industry templates (legacy)')
     templates_parser.add_argument('action', choices=['list', 'show'], default='list', nargs='?')
     templates_parser.add_argument('template_name', nargs='?', help='Template name for show')
     templates_parser.set_defaults(func=cmd_templates)

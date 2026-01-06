@@ -1,0 +1,228 @@
+# Capabilities Configuration
+# Defines what capabilities exist and how they're assigned
+
+version: "1.0"
+
+# Core capability categories for software development
+categories:
+  - id: programming
+    name: Programming Languages
+    description: "Ability to write code in specific languages"
+
+  - id: frameworks
+    name: Frameworks & Libraries
+    description: "Knowledge of specific frameworks and tools"
+
+  - id: infrastructure
+    name: Infrastructure & DevOps
+    description: "Cloud, deployment, and operations capabilities"
+
+  - id: design
+    name: Design & UX
+    description: "User experience and visual design"
+
+  - id: quality
+    name: Quality & Security
+    description: "Testing, security, and quality assurance"
+
+  - id: management
+    name: Management & Process
+    description: "Project management and organizational skills"
+
+# Available capabilities
+capabilities:
+  # Programming Languages
+  - id: python
+    name: Python
+    category: programming
+    description: "Python programming including async, typing, and ecosystem"
+
+  - id: javascript
+    name: JavaScript
+    category: programming
+    description: "Modern JavaScript including ES6+, async/await"
+
+  - id: typescript
+    name: TypeScript
+    category: programming
+    description: "TypeScript with strong typing patterns"
+
+  - id: go
+    name: Go
+    category: programming
+    description: "Go programming including concurrency patterns"
+
+  - id: rust
+    name: Rust
+    category: programming
+    description: "Rust programming with memory safety"
+
+  - id: sql
+    name: SQL
+    category: programming
+    description: "SQL queries and database design"
+
+  # Frameworks
+  - id: react
+    name: React
+    category: frameworks
+    description: "React including hooks, context, and patterns"
+
+  - id: vue
+    name: Vue.js
+    category: frameworks
+    description: "Vue.js including composition API"
+
+  - id: nextjs
+    name: Next.js
+    category: frameworks
+    description: "Next.js with SSR, API routes, app router"
+
+  - id: fastapi
+    name: FastAPI
+    category: frameworks
+    description: "FastAPI including dependency injection"
+
+  - id: django
+    name: Django
+    category: frameworks
+    description: "Django including ORM, REST framework"
+
+  - id: nodejs
+    name: Node.js
+    category: frameworks
+    description: "Node.js backend development"
+
+  # Infrastructure
+  - id: docker
+    name: Docker
+    category: infrastructure
+    description: "Containerization with Docker"
+
+  - id: kubernetes
+    name: Kubernetes
+    category: infrastructure
+    description: "Kubernetes orchestration"
+
+  - id: aws
+    name: AWS
+    category: infrastructure
+    description: "Amazon Web Services"
+
+  - id: gcp
+    name: GCP
+    category: infrastructure
+    description: "Google Cloud Platform"
+
+  - id: terraform
+    name: Terraform
+    category: infrastructure
+    description: "Infrastructure as code with Terraform"
+
+  - id: ci_cd
+    name: CI/CD
+    category: infrastructure
+    description: "Continuous integration and deployment"
+
+  # Design
+  - id: ui_design
+    name: UI Design
+    category: design
+    description: "User interface design principles"
+
+  - id: ux_research
+    name: UX Research
+    category: design
+    description: "User experience research and testing"
+
+  - id: accessibility
+    name: Accessibility
+    category: design
+    description: "WCAG compliance and accessible design"
+
+  - id: design_systems
+    name: Design Systems
+    category: design
+    description: "Component libraries and design tokens"
+
+  # Quality
+  - id: testing
+    name: Testing
+    category: quality
+    description: "Unit, integration, and E2E testing"
+
+  - id: security_review
+    name: Security Review
+    category: quality
+    description: "Security auditing and vulnerability assessment"
+
+  - id: code_review
+    name: Code Review
+    category: quality
+    description: "Code quality assessment and feedback"
+
+  - id: performance
+    name: Performance
+    category: quality
+    description: "Performance optimization and profiling"
+
+  # Management
+  - id: project_management
+    name: Project Management
+    category: management
+    description: "Planning, tracking, and coordination"
+
+  - id: technical_writing
+    name: Technical Writing
+    category: management
+    description: "Documentation and technical content"
+
+  - id: product_strategy
+    name: Product Strategy
+    category: management
+    description: "Product vision and roadmap planning"
+
+  - id: team_leadership
+    name: Team Leadership
+    category: management
+    description: "Managing and mentoring team members"
+
+# Capability requirements for role levels
+role_requirements:
+  executive:
+    required: [product_strategy, team_leadership]
+    recommended: [project_management]
+
+  vice_president:
+    required: [team_leadership]
+    recommended: [project_management, product_strategy]
+
+  director:
+    required: []  # Department-specific
+    recommended: [team_leadership, code_review]
+
+  worker:
+    required: []  # Role-specific
+    recommended: []
+
+# Department capability profiles
+department_capabilities:
+  engineering:
+    core: [python, typescript, testing, code_review]
+    extended: [react, fastapi, docker, aws, ci_cd]
+
+  research:
+    core: [technical_writing]
+    extended: [python, product_strategy]
+
+  product:
+    core: [product_strategy, ui_design]
+    extended: [ux_research, technical_writing]
+
+  quality:
+    core: [testing, security_review, code_review]
+    extended: [performance, accessibility]
+
+  operations:
+    core: [project_management, technical_writing]
+    extended: [docker, ci_cd]
