@@ -17,27 +17,27 @@ const sizeClasses = {
 
 const statusColors: Record<Status, { bg: string; glow: string }> = {
   ok: {
-    bg: 'var(--color-ok)',
-    glow: 'var(--color-ok-glow)',
+    bg: '#22D3EE', // Cyan/teal
+    glow: 'rgba(34, 211, 238, 0.4)',
   },
   processing: {
-    bg: 'var(--color-proc)',
-    glow: 'var(--color-proc-glow)',
+    bg: '#8B5CF6', // Deep purple
+    glow: 'rgba(139, 92, 246, 0.4)',
   },
   warning: {
-    bg: 'var(--color-warn)',
-    glow: 'var(--color-warn-glow)',
+    bg: '#FB923C', // Soft orange/coral
+    glow: 'rgba(251, 146, 60, 0.4)',
   },
   waiting: {
-    bg: 'var(--color-wait)',
-    glow: 'var(--color-wait-glow)',
+    bg: '#6366F1', // Indigo
+    glow: 'rgba(99, 102, 241, 0.4)',
   },
   idle: {
-    bg: 'var(--color-idle)',
+    bg: '#64748B', // Muted slate
     glow: 'transparent',
   },
   off: {
-    bg: 'var(--color-off)',
+    bg: '#475569', // Darker slate
     glow: 'transparent',
   },
 };
