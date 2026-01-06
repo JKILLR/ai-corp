@@ -18,26 +18,26 @@ const sizeClasses = {
 const statusColors: Record<Status, { bg: string; glow: string }> = {
   ok: {
     bg: '#22C55E', // Terminal green
-    glow: 'rgba(34, 197, 94, 0.4)',
+    glow: 'rgba(34, 197, 94, 0.5)',
   },
   processing: {
     bg: '#8B5CF6', // Deep purple
-    glow: 'rgba(139, 92, 246, 0.4)',
+    glow: 'rgba(139, 92, 246, 0.5)',
   },
   warning: {
     bg: '#EF4444', // Red
-    glow: 'rgba(239, 68, 68, 0.4)',
+    glow: 'rgba(239, 68, 68, 0.5)',
   },
   waiting: {
-    bg: '#6366F1', // Indigo
-    glow: 'rgba(99, 102, 241, 0.4)',
+    bg: '#A78BFA', // Light purple
+    glow: 'rgba(167, 139, 250, 0.4)',
   },
   idle: {
-    bg: '#64748B', // Muted slate
+    bg: '#4B5563', // Dark gray
     glow: 'transparent',
   },
   off: {
-    bg: '#475569', // Darker slate
+    bg: '#374151', // Darker gray
     glow: 'transparent',
   },
 };

@@ -8,7 +8,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ title }: AppLayoutProps) {
   return (
-    <div className="flex h-screen bg-[var(--color-void)]">
+    <div className="flex h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title={title} />

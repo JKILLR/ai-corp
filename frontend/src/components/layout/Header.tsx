@@ -7,7 +7,7 @@ interface HeaderProps {
 
 export function Header({ title = 'Neural Command Center' }: HeaderProps) {
   return (
-    <header className="h-16 px-6 flex items-center justify-between border-b border-[var(--glass-border)] bg-[var(--color-cosmos)]">
+    <header className="h-16 px-6 flex items-center justify-between border-b border-[var(--glass-border)] bg-[rgba(10,10,15,0.4)] backdrop-blur-md">
       {/* Left: Page Title */}
       <h1 className="text-xl font-semibold text-[var(--color-plasma)]">
         {title}

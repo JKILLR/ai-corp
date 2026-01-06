@@ -34,10 +34,10 @@ const bottomNavItems: NavItem[] = [
 
 export function Sidebar() {
   return (
-    <aside className="w-56 h-screen bg-[var(--color-cosmos)] border-r border-[var(--glass-border)] flex flex-col">
+    <aside className="w-56 h-screen bg-[rgba(10,10,15,0.6)] backdrop-blur-xl border-r border-[var(--glass-border)] flex flex-col">
       {/* Logo */}
       <div className="h-16 px-4 flex items-center gap-2 border-b border-[var(--glass-border)]">
-        <Hexagon className="w-6 h-6 text-[var(--color-synapse)]" />
+        <Hexagon className="w-6 h-6 text-[var(--color-neural)]" />
         <span className="text-[var(--color-plasma)] text-lg font-semibold tracking-tight">
           AI CORP
         </span>
