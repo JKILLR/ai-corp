@@ -543,6 +543,10 @@ class EntityStore:
         }
         self.alias_index_file.write_text(yaml.dump(alias_data, default_flow_style=False))
 
+    def _save_relationships(self) -> None:
+        """Alias for _save - saves all data including relationships"""
+        self._save()
+
     def _rebuild_alias_index(self) -> None:
         """Rebuild the alias lookup index"""
         self.alias_index = {}
@@ -559,6 +563,28 @@ class EntityStore:
     # Entity Operations
     # =========================================================================
 
+    def create_entity(
+        self,
+        name: str,
+        entity_type: EntityType,
+        source: EntitySource = EntitySource.MANUAL,
+        description: str = "",
+        **kwargs
+    ) -> Entity:
+        """Create and store a new entity"""
+        entity = Entity.create(
+            entity_type=entity_type,
+            name=name,
+            description=description,
+            source=source
+        )
+
+        # Apply any additional kwargs as attributes
+        for key, value in kwargs.items():
+            entity.attributes[key] = value
+
+        return self.add_entity(entity)
+
     def add_entity(self, entity: Entity) -> Entity:
         """Add an entity to the store"""
         self.entities[entity.id] = entity
@@ -571,6 +597,29 @@ class EntityStore:
         self._save()
         logger.info(f"Added entity: {entity.id} ({entity.name})")
         return entity
+
+    def add_alias(
+        self,
+        entity_id: str,
+        value: str,
+        alias_type: str,
+        source: EntitySource,
+        confidence: ConfidenceLevel = ConfidenceLevel.MEDIUM,
+        is_primary: bool = False
+    ) -> Optional[EntityAlias]:
+        """Add an alias to an entity"""
+        entity = self.get_entity(entity_id)
+        if not entity:
+            return None
+
+        alias = entity.add_alias(value, alias_type, source, confidence, is_primary)
+
+        # Update alias index
+        key = self._alias_key(value, alias_type)
+        self.alias_index[key] = entity_id
+
+        self._save()
+        return alias
 
     def get_entity(self, entity_id: str) -> Optional[Entity]:
         """Get an entity by ID"""
@@ -684,6 +733,32 @@ class EntityStore:
     # Relationship Operations
     # =========================================================================
 
+    def create_relationship(
+        self,
+        source_id: str,
+        target_id: str,
+        relationship_type: RelationshipType,
+        source: EntitySource = EntitySource.INFERRED,
+        context: str = "",
+        confidence: ConfidenceLevel = ConfidenceLevel.MEDIUM
+    ) -> Optional[Relationship]:
+        """Create and store a new relationship"""
+        # Verify both entities exist
+        if source_id not in self.entities or target_id not in self.entities:
+            logger.warning(f"Cannot create relationship: entity not found")
+            return None
+
+        relationship = Relationship.create(
+            source_id=source_id,
+            target_id=target_id,
+            relationship_type=relationship_type,
+            context=context,
+            source=source,
+            confidence=confidence
+        )
+
+        return self.add_relationship(relationship)
+
     def add_relationship(self, relationship: Relationship) -> Relationship:
         """Add a relationship to the store"""
         self.relationships[relationship.id] = relationship
@@ -733,14 +808,32 @@ class EntityStore:
         results.sort(key=lambda r: r.strength, reverse=True)
         return results
 
+    # Alias for convenience
+    def get_entity_relationships(
+        self,
+        entity_id: str,
+        direction: str = "both",
+        relationship_type: Optional[RelationshipType] = None,
+        active_only: bool = True
+    ) -> List[Relationship]:
+        """Alias for get_relationships_for_entity"""
+        return self.get_relationships_for_entity(
+            entity_id, direction, relationship_type, active_only
+        )
+
     def get_connected_entities(
         self,
         entity_id: str,
         relationship_type: Optional[RelationshipType] = None,
         depth: int = 1
-    ) -> List[Tuple[Entity, Relationship]]:
-        """Get entities connected to this entity"""
-        results = []
+    ) -> Dict[str, Relationship]:
+        """
+        Get entities connected to this entity.
+
+        Returns:
+            Dict mapping entity_id -> Relationship for each connected entity
+        """
+        results: Dict[str, Relationship] = {}
         visited = {entity_id}
 
         def traverse(current_id: str, current_depth: int):
@@ -753,7 +846,7 @@ class EntityStore:
                     visited.add(other_id)
                     other_entity = self.entities.get(other_id)
                     if other_entity:
-                        results.append((other_entity, rel))
+                        results[other_id] = rel
                         if current_depth < depth:
                             traverse(other_id, current_depth + 1)
 

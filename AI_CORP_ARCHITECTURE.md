@@ -41,7 +41,10 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 | **Skill System** | ✅ Done | Role-based skill discovery from SKILL.md files |
 | **Work Scheduler** | ✅ Done | CapabilityMatcher + LoadBalancer + DependencyResolver |
 | **Executor Integration** | ✅ Done | CorporationExecutor uses WorkScheduler + SkillRegistry |
-| Test Suite | ✅ Done | 451+ tests passing |
+| **Entity Graph** | ✅ Done | Unified entity management with temporal tracking (Mem0/Graphiti-inspired) |
+| **File Storage** | ✅ Done | Internal storage + Google Drive integration |
+| **The Forge** | ✅ Done | Intention incubation system for idea development |
+| Test Suite | ✅ Done | 630+ tests passing |
 
 ### Planned Components (P1)
 
@@ -338,6 +341,91 @@ Based on [Recursive Language Models (arXiv:2512.24601)](https://arxiv.org/abs/25
 - `RecursiveMemoryManager` - Spawn sub-agents with focused context
 - `ContextCompressor` - Create navigable summaries
 - `OrganizationalMemory` - Long-term decisions and lessons
+- `EntityAwareMemory` - Memory system with Entity Graph integration
+
+### 8.5. Entity Graph System (Personal Edition)
+
+A unified entity management system for tracking people, organizations, and relationships across all data sources. Inspired by Mem0's hybrid architecture and Graphiti's temporal knowledge graphs.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ENTITY GRAPH ARCHITECTURE                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  EntityStore (entities.py)                                  │
+│  ├── Entities[]            # People, orgs, projects        │
+│  │   ├── EntityAlias[]     # Cross-source identity         │
+│  │   ├── Temporal tracking # first_seen, last_seen         │
+│  │   └── Source tracking   # gmail, calendar, imessage     │
+│  └── Relationships[]       # Edges with temporal validity  │
+│      ├── strength          # 0-1, decays over time         │
+│      └── evidence[]        # Interaction IDs               │
+│                                                             │
+│  InteractionStore (interactions.py)                         │
+│  ├── Interactions[]        # Emails, messages, meetings    │
+│  ├── by_participant index  # Fast lookup by entity         │
+│  ├── by_thread index       # Conversation grouping         │
+│  └── by_date index         # Time-based retrieval          │
+│                                                             │
+│  EntityResolver (entity_resolver.py)                        │
+│  └── Cross-source identity resolution & merge              │
+│                                                             │
+│  EntitySummarizer (entity_summarizer.py)                    │
+│  ├── Entity summaries      # Who is this person?           │
+│  ├── Relationship summaries # How do they relate?          │
+│  └── Period summaries      # What happened this week?      │
+│                                                             │
+│  EntityGraph (graph.py)                                     │
+│  └── Main integration layer - process_email/message/event  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Features:**
+- Multi-source entity resolution (same person across email, iMessage, calendar)
+- Temporal validity tracking (when relationships started/changed/ended)
+- Relationship strength with automatic decay over time
+- Context generation for Claude conversations
+- Hierarchical summaries (entity, relationship, period, network)
+
+**Implementation:**
+- `src/core/entities.py` - Entity, Relationship, EntityStore
+- `src/core/interactions.py` - Interaction, InteractionStore, InteractionProcessor
+- `src/core/entity_resolver.py` - EntityResolver, ResolutionCandidate, MergeDecision
+- `src/core/entity_summarizer.py` - EntitySummarizer, SummaryStore, EntityProfile
+- `src/core/graph.py` - EntityGraph (main entry point)
+
+**Usage:**
+```python
+# Initialize entity graph
+from src.core import EntityGraph, EntityAwareMemory
+
+graph = EntityGraph(corp_path)
+graph.create_user_entity("John", email="john@example.com")
+
+# Process interactions
+graph.process_email(
+    from_email="tim@example.com",
+    from_name="Tim",
+    to_emails=["john@example.com"],
+    subject="Project update",
+    body="...",
+    timestamp="2026-01-06T10:00:00Z"
+)
+
+# Get context for Claude
+context = graph.get_context_for_entities([entity_id])
+prompt_context = context.to_prompt()
+
+# Or use EntityAwareMemory for automatic context management
+memory = EntityAwareMemory(corp_path, agent_id="coo")
+context_var = memory.prepare_context_for_message("Email from Tim about the project")
+```
+
+**References:**
+- Mem0 (26% accuracy boost, 90% lower latency)
+- Graphiti (temporal knowledge graphs)
+- arXiv:2512.13564 "Memory in the Age of AI Agents"
 
 ### 9. Success Contracts (P1)
 
@@ -721,7 +809,14 @@ ai-corp/
 │   │   ├── contract.py             # Success contracts
 │   │   ├── monitor.py              # System monitoring
 │   │   ├── skills.py               # Role-based skill discovery
-│   │   └── scheduler.py            # Intelligent task scheduling
+│   │   ├── scheduler.py            # Intelligent task scheduling
+│   │   ├── entities.py             # Entity/Relationship storage
+│   │   ├── interactions.py         # Interaction logging
+│   │   ├── entity_resolver.py      # Cross-source identity resolution
+│   │   ├── entity_summarizer.py    # Hierarchical summaries
+│   │   ├── graph.py                # EntityGraph main entry point
+│   │   ├── filestore.py            # Internal + Drive file storage
+│   │   └── forge.py                # Intention incubation system
 │   ├── agents/
 │   │   ├── base.py                 # Base agent (all capabilities)
 │   │   ├── coo.py                  # COO agent (+ discovery)

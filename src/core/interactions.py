@@ -512,6 +512,60 @@ class InteractionStore:
             return True
         return False
 
+    # =========================================================================
+    # Alias methods for consistent API
+    # =========================================================================
+
+    def create_interaction(
+        self,
+        interaction_type: InteractionType,
+        source: 'EntitySource',
+        timestamp: str,
+        participants: List[str],
+        summary: str = "",
+        content: str = "",
+        **kwargs
+    ) -> Interaction:
+        """Create and add a new interaction"""
+        from .entities import EntitySource as ES
+
+        interaction = Interaction.create(
+            interaction_type=interaction_type,
+            source=source if isinstance(source, ES) else ES(source),
+            timestamp=timestamp,
+            participants=participants,
+            summary=summary,
+            content=content
+        )
+
+        # Apply kwargs to metadata
+        for key, value in kwargs.items():
+            if key == 'metadata' and isinstance(value, dict):
+                interaction.metadata.update(value)
+            elif key == 'thread_id':
+                interaction.thread_id = value
+            elif key == 'subject':
+                interaction.subject = value
+            elif key == 'topics' and isinstance(value, list):
+                interaction.topics = value
+            else:
+                interaction.metadata[key] = value
+
+        return self.add(interaction)
+
+    def get_interaction(self, interaction_id: str) -> Optional[Interaction]:
+        """Alias for get() - Get an interaction by ID"""
+        return self.get(interaction_id)
+
+    def get_interactions_by_participant(
+        self,
+        entity_id: str,
+        limit: int = 50,
+        interaction_type: Optional[InteractionType] = None
+    ) -> List[Interaction]:
+        """Alias for get_for_participant"""
+        return self.get_for_participant(entity_id, limit, interaction_type)
+
     def get_stats(self) -> Dict[str, Any]:
         """Get interaction store statistics"""
         type_counts = {}
