@@ -9,6 +9,7 @@ import {
   Gates,
   Integrations,
   Settings,
+  Files,
 } from './pages';
 import { COOChannel } from './pages/COOChannel';
 import { Forge } from './pages/Forge';
@@ -26,6 +27,7 @@ function App() {
             <Route path="/agents" element={<Agents />} />
             <Route path="/gates" element={<Gates />} />
             <Route path="/integrations" element={<Integrations />} />
+            <Route path="/files" element={<Files />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>

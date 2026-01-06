@@ -10,6 +10,7 @@ import {
   Settings,
   Hexagon,
   Flame,
+  HardDrive,
 } from 'lucide-react';
 
 interface NavItem {
@@ -27,6 +28,7 @@ const navItems: NavItem[] = [
   { label: 'Projects', path: '/projects', icon: FolderKanban },
   { label: 'Agents', path: '/agents', icon: Users },
   { label: 'Gates', path: '/gates', icon: ShieldCheck, badge: 2 },
+  { label: 'Files', path: '/files', icon: HardDrive },
   { label: 'Integrations', path: '/integrations', icon: Plug },
 ];
 
