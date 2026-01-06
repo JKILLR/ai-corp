@@ -25,6 +25,148 @@ Create a system where a human CEO can submit high-level tasks ("Build a user das
 
 ---
 
+## Apex Vision: The AI Holding Company
+
+> **The meta-goal:** One ultimate parent AI Corp (Apex) that can research, develop, deploy, and manage other AI Corps across any industry - creating a portfolio of self-sustaining, revenue-generating entities.
+
+### The Three-Tier Model
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              YOU (Human CEO)                                 │
+│                         Strategic Direction & Oversight                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                            APEX AI CORP                                     │
+│                      (The Ultimate Parent Entity)                           │
+│                                                                             │
+│  The AI holding company that builds, deploys, and manages other AI Corps    │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  VENTURE STUDIO          │  CUSTOMER SUCCESS    │  PLATFORM OPS    │   │
+│  │  • Market research       │  • Sales & onboard   │  • Infrastructure│   │
+│  │  • Template R&D          │  • Support           │  • Billing       │   │
+│  │  • Corp incubation       │  • Expansion         │  • Security      │   │
+│  │  • Portfolio mgmt        │  • Managed services  │  • Compliance    │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│                         SPAWNED AI CORPS                                    │
+│                                                                             │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│   │   OWNED     │  │   OWNED     │  │  CUSTOMER   │  │  CUSTOMER   │      │
+│   │   CORP A    │  │   CORP B    │  │   CORP X    │  │   CORP Y    │      │
+│   │             │  │             │  │             │  │             │      │
+│   │  Dev Studio │  │  Agency     │  │  Law Firm   │  │  Consulting │      │
+│   │  (revenue)  │  │  (revenue)  │  │  (licensed) │  │  (licensed) │      │
+│   └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Two Business Lines
+
+| Business Line | Description | Revenue Model |
+|---------------|-------------|---------------|
+| **Venture Portfolio** | AI Corps that Apex owns and operates, pursuing market opportunities | Work product sold to end customers |
+| **Customer Deployments** | AI Corps deployed and managed for paying customers | License fees + managed services |
+
+### Communication Model: Hub-and-Spoke
+
+All spawned corps communicate with Apex through a **hub-and-spoke model** (not peer-to-peer):
+
+```
+                              ┌─────────┐
+                    ┌────────►│  APEX   │◄────────┐
+                    │         │  (Hub)  │         │
+                    │         └────┬────┘         │
+                    │              │              │
+              ┌─────┴─────┐  ┌─────┴─────┐  ┌─────┴─────┐
+              │  Corp A   │  │  Corp B   │  │  Corp C   │
+              │  (Spoke)  │  │  (Spoke)  │  │  (Spoke)  │
+              └───────────┘  └───────────┘  └───────────┘
+
+Communication Flows:
+• Corps → Apex: Status reports, metrics, escalations
+• Apex → Corps: Directives, configuration changes, shutdown commands
+• Corps ↔ Corps: NOT ALLOWED (all coordination through Apex)
+```
+
+### Corp Autonomy Levels
+
+Each spawned corp operates with configurable autonomy:
+
+```yaml
+autonomy:
+  level: "high"  # high | medium | low
+
+  # What can this corp do without Apex approval?
+  permissions:
+    accept_clients: true
+    hire_workers: true
+    modify_workflows: true
+    spend_limit_monthly: 10000
+
+  # What requires Apex approval?
+  gates:
+    - new_department
+    - contract_over_50k
+    - shutdown_request
+
+  # Reporting requirements
+  reporting:
+    frequency: "daily"
+    metrics: [revenue, costs, active_projects, client_satisfaction]
+```
+
+### Why This Architecture Works
+
+1. **No Capability Loss**: The "frontier" software-company preset remains fully optimized - it's just one preset among many
+2. **Core Engine is Generic**: Molecules, Hooks, Beads, Channels, Gates - all 100% domain-agnostic
+3. **Presets Are Domain-Specific**: Each industry gets optimized prompts, workflows, skills, and gates
+4. **Single Codebase**: Bug fixes and improvements benefit all corps automatically
+5. **Scalable**: Add new industries by creating presets, not code
+
+### The Self-Spawning Loop
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  APEX receives request: "Create AI Corp for consulting firm"   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. VENTURE STUDIO researches consulting industry               │
+│     • What are typical workflows?                               │
+│     • What roles exist in consulting firms?                     │
+│     • What quality gates are needed?                            │
+│     • What skills do consultants need?                          │
+│                                                                 │
+│  2. VENTURE STUDIO develops consulting preset                   │
+│     • Define hierarchy (Partners → Consultants → Analysts)     │
+│     • Define workflows (Engagement → Analysis → Delivery)      │
+│     • Define gates (Partner Review, Client Approval)           │
+│     • Optimize system prompts for consulting domain             │
+│                                                                 │
+│  3. PLATFORM OPS deploys new corp instance                      │
+│     • Initialize from consulting preset                         │
+│     • Configure autonomy levels                                 │
+│     • Set up board channel to Apex                             │
+│     • Allocate resource budgets                                 │
+│                                                                 │
+│  4. APEX monitors and manages                                   │
+│     • Daily status reports                                      │
+│     • Revenue/cost tracking                                     │
+│     • Optimization recommendations                              │
+│     • Scale up/down based on performance                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Why This Approach?
 
 ### Problem with Flat Agent Systems
