@@ -22,7 +22,7 @@ const navItems: NavItem[] = [
   { label: 'Projects', path: '/projects', icon: FolderKanban },
   { label: 'Agents', path: '/agents', icon: Users },
   { label: 'Discovery', path: '/discovery', icon: MessageSquarePlus },
-  { label: 'Gates', path: '/gates', icon: ShieldCheck },
+  { label: 'Gates', path: '/gates', icon: ShieldCheck, badge: 2 },
   { label: 'Integrations', path: '/integrations', icon: Plug },
 ];
 
