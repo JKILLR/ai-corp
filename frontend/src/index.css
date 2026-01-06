@@ -200,17 +200,17 @@ code, pre, .mono {
 
 /* =============================================================================
    STATUS GLOW ANIMATIONS
-   Cohesive palette: Teal (ok), Deep Purple (processing), Coral (warning)
+   Palette: Terminal Green (ok), Deep Purple (processing), Red (warning)
    ============================================================================= */
 
 @keyframes glow-pulse-ok {
   0%, 100% {
-    box-shadow: 0 0 8px 2px rgba(34, 211, 238, 0.12),
-                inset 0 0 16px rgba(34, 211, 238, 0.04);
+    box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.12),
+                inset 0 0 16px rgba(34, 197, 94, 0.04);
   }
   50% {
-    box-shadow: 0 0 16px 4px rgba(34, 211, 238, 0.22),
-                inset 0 0 24px rgba(34, 211, 238, 0.08);
+    box-shadow: 0 0 16px 4px rgba(34, 197, 94, 0.22),
+                inset 0 0 24px rgba(34, 197, 94, 0.08);
   }
 }
 
@@ -227,12 +227,12 @@ code, pre, .mono {
 
 @keyframes glow-pulse-warning {
   0%, 100% {
-    box-shadow: 0 0 8px 2px rgba(251, 146, 60, 0.12),
-                inset 0 0 16px rgba(251, 146, 60, 0.04);
+    box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.12),
+                inset 0 0 16px rgba(239, 68, 68, 0.04);
   }
   50% {
-    box-shadow: 0 0 14px 4px rgba(251, 146, 60, 0.22),
-                inset 0 0 20px rgba(251, 146, 60, 0.08);
+    box-shadow: 0 0 14px 4px rgba(239, 68, 68, 0.22),
+                inset 0 0 20px rgba(239, 68, 68, 0.08);
   }
 }
 
@@ -288,8 +288,8 @@ code, pre, .mono {
 
 /* Subtle glow for agent rows */
 .agent-glow-ok {
-  background: linear-gradient(90deg, rgba(34, 211, 238, 0.06) 0%, transparent 100%);
-  border-left: 2px solid rgba(34, 211, 238, 0.4);
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.06) 0%, transparent 100%);
+  border-left: 2px solid rgba(34, 197, 94, 0.4);
 }
 
 .agent-glow-processing {
@@ -299,8 +299,8 @@ code, pre, .mono {
 }
 
 .agent-glow-warning {
-  background: linear-gradient(90deg, rgba(251, 146, 60, 0.06) 0%, transparent 100%);
-  border-left: 2px solid rgba(251, 146, 60, 0.4);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.06) 0%, transparent 100%);
+  border-left: 2px solid rgba(239, 68, 68, 0.4);
   animation: glow-pulse-warning 2s ease-in-out infinite;
 }
 

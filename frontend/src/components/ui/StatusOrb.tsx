@@ -17,16 +17,16 @@ const sizeClasses = {
 
 const statusColors: Record<Status, { bg: string; glow: string }> = {
   ok: {
-    bg: '#22D3EE', // Cyan/teal
-    glow: 'rgba(34, 211, 238, 0.4)',
+    bg: '#22C55E', // Terminal green
+    glow: 'rgba(34, 197, 94, 0.4)',
   },
   processing: {
     bg: '#8B5CF6', // Deep purple
     glow: 'rgba(139, 92, 246, 0.4)',
   },
   warning: {
-    bg: '#FB923C', // Soft orange/coral
-    glow: 'rgba(251, 146, 60, 0.4)',
+    bg: '#EF4444', // Red
+    glow: 'rgba(239, 68, 68, 0.4)',
   },
   waiting: {
     bg: '#6366F1', // Indigo
