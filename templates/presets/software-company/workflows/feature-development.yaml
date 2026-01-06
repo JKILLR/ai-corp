@@ -1,0 +1,154 @@
+# Feature Development Workflow
+# Standard workflow for developing new features
+
+version: "1.0"
+id: feature-development
+name: "Feature Development"
+description: "End-to-end workflow for implementing new product features"
+
+# Workflow phases
+phases:
+  - id: research
+    name: Research & Analysis
+    description: "Understand requirements and explore solutions"
+    department: research
+    required_capabilities: [product_strategy]
+
+    steps:
+      - id: requirements_analysis
+        name: Analyze Requirements
+        owner: dir_product
+        outputs: [requirements_doc]
+
+      - id: technical_research
+        name: Technical Research
+        owner: dir_technical_research
+        inputs: [requirements_doc]
+        outputs: [technical_analysis]
+
+    gate: null  # No gate for research phase
+
+  - id: design
+    name: Design
+    description: "Create technical and UX designs"
+    department: product
+    required_capabilities: [ui_design, product_strategy]
+
+    steps:
+      - id: ux_design
+        name: UX Design
+        owner: dir_design
+        inputs: [requirements_doc]
+        outputs: [wireframes, user_flows]
+
+      - id: technical_design
+        name: Technical Design
+        owner: dir_architecture
+        inputs: [requirements_doc, technical_analysis]
+        outputs: [architecture_doc, api_spec]
+
+    gate:
+      type: design_review
+      reviewers: [vp_product, vp_engineering]
+      criteria:
+        - UX meets accessibility standards
+        - Architecture is scalable
+        - API contracts are defined
+
+  - id: build
+    name: Implementation
+    description: "Build the feature"
+    department: engineering
+    required_capabilities: [typescript, python, testing]
+
+    steps:
+      - id: backend_implementation
+        name: Backend Development
+        owner: dir_backend
+        inputs: [architecture_doc, api_spec]
+        outputs: [backend_code, api_tests]
+        parallel: true
+
+      - id: frontend_implementation
+        name: Frontend Development
+        owner: dir_frontend
+        inputs: [wireframes, api_spec]
+        outputs: [frontend_code, ui_tests]
+        parallel: true
+
+    gate:
+      type: code_review
+      reviewers: [dir_architecture]
+      criteria:
+        - All tests pass
+        - Code review approved
+        - Documentation updated
+
+  - id: quality
+    name: Quality Assurance
+    description: "Test and validate"
+    department: quality
+    required_capabilities: [testing, security_review]
+
+    steps:
+      - id: qa_testing
+        name: QA Testing
+        owner: dir_qa
+        inputs: [backend_code, frontend_code]
+        outputs: [test_report]
+
+      - id: security_review
+        name: Security Review
+        owner: dir_security
+        inputs: [backend_code, frontend_code]
+        outputs: [security_report]
+
+    gate:
+      type: qa_gate
+      reviewers: [vp_quality]
+      criteria:
+        - All tests pass
+        - No critical security issues
+        - Performance benchmarks met
+
+  - id: deploy
+    name: Deployment
+    description: "Deploy to production"
+    department: engineering
+    required_capabilities: [ci_cd, docker]
+
+    steps:
+      - id: staging_deploy
+        name: Deploy to Staging
+        owner: dir_devops
+        inputs: [backend_code, frontend_code]
+        outputs: [staging_url]
+
+      - id: production_deploy
+        name: Deploy to Production
+        owner: dir_devops
+        inputs: [staging_url]
+        outputs: [production_url]
+        requires_approval: true
+
+    gate:
+      type: deployment_gate
+      reviewers: [vp_engineering, vp_operations]
+      criteria:
+        - Staging verified
+        - Rollback plan documented
+        - Monitoring in place
+
+# Workflow settings
+settings:
+  # Maximum time for entire workflow
+  max_duration_hours: 168  # 1 week
+
+  # Allow parallel execution where marked
+  parallel_execution: true
+
+  # Notification settings
+  notifications:
+    on_phase_complete: [accountable]
+    on_gate_failed: [accountable, coo]
+    on_workflow_complete: [ceo, coo]

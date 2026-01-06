@@ -1,0 +1,76 @@
+# Code Review Gate
+# Quality gate for code review approval
+
+version: "1.0"
+id: code_review
+name: "Code Review Gate"
+description: "Ensures all code meets quality standards before proceeding"
+
+# Who can be a reviewer
+reviewers:
+  required_roles: [director, vp]
+  departments: [engineering, quality]
+  min_reviewers: 1
+  max_reviewers: 3
+
+# What to check
+criteria:
+  automated:
+    - id: tests_pass
+      name: All Tests Pass
+      type: ci_check
+      required: true
+
+    - id: lint_pass
+      name: Linting Passes
+      type: ci_check
+      required: true
+
+    - id: coverage
+      name: Test Coverage
+      type: threshold
+      required: true
+      threshold: 80
+      metric: percent
+
+  manual:
+    - id: correctness
+      name: Correctness Review
+      description: "Code does what it's supposed to do"
+      required: true
+
+    - id: maintainability
+      name: Maintainability Review
+      description: "Code is readable and well-organized"
+      required: true
+
+    - id: security_basics
+      name: Basic Security Check
+      description: "No obvious security issues"
+      required: true
+
+    - id: performance
+      name: Performance Review
+      description: "No obvious performance issues"
+      required: false
+
+# Gate behavior
+behavior:
+  # What happens when gate fails
+  on_failure:
+    action: return_to_owner
+    notify: [accountable, reviewer]
+    message_template: |
+      Code review failed. Please address the following:
+      {{#each failed_criteria}}
+      - {{this.name}}: {{this.reason}}
+      {{/each}}
+
+  # What happens when gate passes
+  on_success:
+    action: proceed_to_next_phase
+    notify: [accountable]
+
+  # Maximum review attempts before escalation
+  max_attempts: 3
+  escalate_to: vp_engineering

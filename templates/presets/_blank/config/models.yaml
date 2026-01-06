@@ -1,0 +1,35 @@
+# Model Configuration
+# Defines AI models for different roles
+
+version: "1.0"
+
+default_model: "claude-opus-4-5-20251101"
+
+role_models:
+  executive:
+    model: "claude-opus-4-5-20251101"
+    max_tokens: 16000
+    temperature: 0.7
+
+  manager:
+    model: "claude-opus-4-5-20251101"
+    max_tokens: 8000
+    temperature: 0.5
+
+  worker:
+    model: "claude-sonnet-4-20250514"
+    max_tokens: 8000
+    temperature: 0.3
+
+backend:
+  type: "claude_code"
+
+  claude_code:
+    timeout_seconds: 300
+    max_retries: 3
+
+cost_optimization:
+  enabled: true
+  cache_responses: true
+  cache_ttl_hours: 24
+  daily_budget_usd: null

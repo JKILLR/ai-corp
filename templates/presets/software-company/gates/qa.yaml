@@ -1,0 +1,62 @@
+# QA Gate
+# Quality gate for QA approval
+
+version: "1.0"
+id: qa_gate
+name: "QA Gate"
+description: "Ensures all functionality meets quality standards"
+
+reviewers:
+  required_roles: [director]
+  departments: [quality]
+  min_reviewers: 1
+
+criteria:
+  automated:
+    - id: unit_tests
+      name: Unit Tests Pass
+      type: ci_check
+      required: true
+
+    - id: integration_tests
+      name: Integration Tests Pass
+      type: ci_check
+      required: true
+
+    - id: e2e_tests
+      name: E2E Tests Pass
+      type: ci_check
+      required: true
+
+    - id: performance_tests
+      name: Performance Tests Pass
+      type: ci_check
+      required: false
+
+  manual:
+    - id: acceptance
+      name: Acceptance Criteria Met
+      description: "All acceptance criteria verified"
+      required: true
+
+    - id: regression
+      name: No Regressions
+      description: "Existing functionality still works"
+      required: true
+
+    - id: ux_review
+      name: UX Quality
+      description: "User experience meets standards"
+      required: true
+
+behavior:
+  on_failure:
+    action: return_to_owner
+    notify: [accountable, dir_qa]
+
+  on_success:
+    action: proceed_to_next_phase
+    notify: [accountable, vp_quality]
+
+  max_attempts: 3
+  escalate_to: vp_quality

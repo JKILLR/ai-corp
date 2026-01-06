@@ -1,0 +1,97 @@
+# Model Configuration
+# Defines which AI models are used for different roles and tasks
+
+version: "1.0"
+
+# Default model for all agents if not specified
+default_model: "claude-opus-4-5-20251101"
+
+# Model assignments by role level
+role_models:
+  executive:
+    model: "claude-opus-4-5-20251101"
+    max_tokens: 16000
+    temperature: 0.7
+    reasoning: "Executives need maximum capability for strategic decisions"
+
+  vice_president:
+    model: "claude-opus-4-5-20251101"
+    max_tokens: 12000
+    temperature: 0.6
+    reasoning: "VPs handle complex department-level decisions"
+
+  director:
+    model: "claude-opus-4-5-20251101"
+    max_tokens: 8000
+    temperature: 0.5
+    reasoning: "Directors manage teams and make tactical decisions"
+
+  worker:
+    model: "claude-sonnet-4-20250514"
+    max_tokens: 8000
+    temperature: 0.3
+    reasoning: "Workers execute specific tasks with precision"
+
+# Override models for specific task types
+task_models:
+  code_generation:
+    model: "claude-sonnet-4-20250514"
+    temperature: 0.2
+    reasoning: "Lower temperature for consistent code output"
+
+  code_review:
+    model: "claude-opus-4-5-20251101"
+    temperature: 0.4
+    reasoning: "Higher capability for nuanced review"
+
+  creative_writing:
+    model: "claude-opus-4-5-20251101"
+    temperature: 0.8
+    reasoning: "Higher temperature for creative tasks"
+
+  research:
+    model: "claude-opus-4-5-20251101"
+    temperature: 0.6
+    reasoning: "Balanced for exploration and accuracy"
+
+  security_review:
+    model: "claude-opus-4-5-20251101"
+    temperature: 0.3
+    reasoning: "Low temperature for thorough security analysis"
+
+# Backend configuration
+backend:
+  # Which backend to use: claude_code | claude_api | mock
+  type: "claude_code"
+
+  # Claude Code specific settings
+  claude_code:
+    timeout_seconds: 300
+    max_retries: 3
+
+  # Claude API specific settings
+  claude_api:
+    api_key_env: "ANTHROPIC_API_KEY"
+    base_url: null  # Use default
+
+  # Mock backend for testing
+  mock:
+    response_delay_ms: 100
+    simulate_failures: false
+    failure_rate: 0.0
+
+# Cost optimization settings
+cost_optimization:
+  enabled: true
+
+  # Use cheaper models for simple tasks
+  simple_task_model: "claude-sonnet-4-20250514"
+  simple_task_threshold: "low_complexity"
+
+  # Caching settings
+  cache_responses: true
+  cache_ttl_hours: 24
+
+  # Budget limits (per day)
+  daily_budget_usd: null  # No limit if null
+  warn_at_percent: 80

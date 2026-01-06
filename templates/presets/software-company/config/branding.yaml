@@ -1,0 +1,58 @@
+# Branding Configuration
+# Defines the identity and appearance of this AI Corp instance
+
+version: "1.0"
+
+identity:
+  name: "AI Corp"
+  tagline: "Autonomous Software Development"
+  industry: "software"
+
+  # Customize for specific deployments
+  legal_name: "AI Corp Software Studio"
+  short_name: "AIC"
+
+description: |
+  A fully autonomous AI corporation specialized in software development.
+  Features a complete organizational structure with Engineering, Research,
+  Product, Quality, and Operations departments working together to deliver
+  high-quality software products.
+
+theme:
+  primary_color: "#2563eb"      # Blue
+  secondary_color: "#7c3aed"    # Purple
+  accent_color: "#10b981"       # Green
+
+  # Status colors
+  success_color: "#22c55e"
+  warning_color: "#f59e0b"
+  error_color: "#ef4444"
+
+  # UI preferences
+  dark_mode_default: true
+  font_family: "Inter, system-ui, sans-serif"
+  monospace_font: "JetBrains Mono, monospace"
+
+logos:
+  # Paths relative to project root, or URLs
+  full: null           # Full logo with text
+  icon: null           # Square icon only
+  favicon: null        # Browser favicon
+
+terminology:
+  # Customize terms used in the UI
+  project: "Project"
+  task: "Task"
+  molecule: "Workflow"
+  hook: "Work Queue"
+  bead: "Action Log"
+  channel: "Message"
+  gate: "Quality Gate"
+
+communication:
+  # How the AI Corp refers to itself
+  self_reference: "the team"
+  greeting: "Hello from your AI development team!"
+
+  # Tone for external communications
+  tone: "professional"  # professional | casual | formal
