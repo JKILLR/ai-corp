@@ -996,6 +996,284 @@ ai-corp status                                  # Quick health check summary
 
 ---
 
+## Apex Roadmap: Multi-Corp Platform
+
+> **Strategic Goal:** Transform AI Corp into a platform (Apex) that can spawn, deploy, and manage multiple AI Corps across any industry.
+
+### Architecture Layers
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         INSTANCE LAYER                                       │
+│  Running corps with their own state, work, and clients                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │ Dev Studio  │  │ Law Firm    │  │ Agency      │  │ Consulting  │        │
+│  │ (owned)     │  │ (customer)  │  │ (owned)     │  │ (customer)  │        │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
+├─────────┼────────────────┼────────────────┼────────────────┼────────────────┤
+│         └────────────────┴────────────────┴────────────────┘                │
+│                                    │                                         │
+│                         APEX MANAGEMENT LAYER                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Corp Registry │ Board Channels │ Metrics Rollup │ Directive System │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                         │
+├────────────────────────────────────┼────────────────────────────────────────┤
+│                         PRESET LAYER                                        │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
+│  │ software-company│  │    law-firm     │  │ creative-agency │             │
+│  │   (FRONTIER)    │  │                 │  │                 │             │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
+│                                    │                                         │
+├────────────────────────────────────┼────────────────────────────────────────┤
+│                         CORE ENGINE (Immutable)                             │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐        │
+│  │Molecule│ │ Hook   │ │ Bead   │ │Channel │ │ Gate   │ │ Memory │        │
+│  └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ └────────┘        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Implementation Phases
+
+#### Phase 1: Template Foundation (Current)
+**Goal:** Formalize the preset system so AI Corp can be instantiated for any industry.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| Preset directory structure | `/templates/presets/{industry}/` | Pending |
+| Configuration externalization | `branding.yaml`, `models.yaml`, `capabilities.yaml` | Pending |
+| Software-company reference | Extract current AI Corp as the "frontier" preset | Pending |
+| Init command update | `ai-corp init --preset=X --name=Y` | Pending |
+
+**Deliverables:**
+```
+/templates/
+├── presets/
+│   ├── software-company/      # Current AI Corp (frontier)
+│   │   ├── org/
+│   │   │   ├── hierarchy.yaml
+│   │   │   ├── roles/
+│   │   │   └── departments/
+│   │   ├── workflows/
+│   │   ├── skills/
+│   │   ├── gates/
+│   │   └── config/
+│   │       ├── branding.yaml
+│   │       ├── models.yaml
+│   │       └── capabilities.yaml
+│   └── _blank/                # Minimal starting point
+```
+
+#### Phase 2: Multi-Corp Management
+**Goal:** Enable Apex to track and communicate with multiple spawned corps.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| Corp Registry | Track all spawned corps with metadata | Pending |
+| Board Channel | Apex ↔ Corp communication channel | Pending |
+| Health Monitoring | Dashboard showing all corps | Pending |
+| Rollup Reporting | Aggregate metrics from all corps | Pending |
+| Directive System | Apex → Corp command interface | Pending |
+
+**Corp Registry Schema:**
+```yaml
+# /apex/registry/corps.yaml
+corps:
+  - id: corp_dev_studio_alpha
+    name: "Dev Studio Alpha"
+    preset: software-company
+    status: active
+    deployed_at: "2025-01-06T00:00:00Z"
+    ownership: owned  # owned | customer
+    autonomy_level: high
+    board_channel: /apex/channels/boards/dev_studio_alpha
+    metrics:
+      revenue_mtd: 45000
+      costs_mtd: 5000
+      active_projects: 3
+      health: healthy
+```
+
+**Board Channel Protocol:**
+```yaml
+# Messages FROM corp TO apex
+- type: status_report
+  frequency: daily
+  content: {metrics, alerts, blockers}
+
+- type: escalation
+  trigger: on_demand
+  content: {issue, context, recommended_action}
+
+- type: gate_request
+  trigger: on_demand
+  content: {action, justification}
+
+# Messages FROM apex TO corp
+- type: directive
+  content: {command, parameters}
+  commands: [scale_up, scale_down, pause, resume, shutdown, config_change]
+
+- type: query
+  content: {question}
+  response_required: true
+```
+
+#### Phase 3: Self-Spawning Capability
+**Goal:** Apex can research industries and create new presets autonomously.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| Industry Research Workflow | Molecule template for researching new industries | Pending |
+| Template Generation | System for creating preset files from research | Pending |
+| Preset Validation | Automated testing of new presets | Pending |
+| Deployment Automation | Spawn new corp from validated preset | Pending |
+| Incubation Protocol | Monitoring and optimization of new corps | Pending |
+
+**Industry Research Molecule Template:**
+```yaml
+# /apex/molecules/templates/industry_research.yaml
+steps:
+  - id: market_analysis
+    name: "Analyze Target Industry"
+    description: "Research industry structure, workflows, roles"
+    gate: research_review
+
+  - id: preset_design
+    name: "Design Industry Preset"
+    description: "Define hierarchy, workflows, skills, gates"
+    depends_on: [market_analysis]
+    gate: design_review
+
+  - id: preset_implementation
+    name: "Implement Preset Files"
+    description: "Generate YAML configurations"
+    depends_on: [preset_design]
+
+  - id: preset_testing
+    name: "Test Preset"
+    description: "Validate with mock scenarios"
+    depends_on: [preset_implementation]
+    gate: qa_review
+
+  - id: deployment
+    name: "Deploy First Instance"
+    description: "Spawn corp and begin incubation"
+    depends_on: [preset_testing]
+    gate: deployment_approval
+```
+
+#### Phase 4: Revenue Operations
+**Goal:** Track costs, revenue, and profitability across all corps.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| Cost Tracking | LLM costs, compute, storage per corp | Pending |
+| Revenue Attribution | Link revenue to corps and projects | Pending |
+| Billing System | Invoice customers for licensed corps | Pending |
+| Profitability Analysis | P&L per corp | Pending |
+| Portfolio Optimization | Recommendations for scale/sunset | Pending |
+
+**Financial Schema:**
+```yaml
+# /apex/finance/corps/{corp_id}.yaml
+corp_id: corp_dev_studio_alpha
+period: "2025-01"
+
+revenue:
+  total: 50000
+  by_project:
+    - project_id: MOL-XXX
+      client: "Acme Inc"
+      amount: 30000
+    - project_id: MOL-YYY
+      client: "Beta Corp"
+      amount: 20000
+
+costs:
+  total: 5500
+  llm_usage: 4000
+  compute: 1000
+  storage: 500
+
+profit:
+  gross: 44500
+  margin: 89%
+```
+
+#### Phase 5: Customer Platform
+**Goal:** Enable self-service onboarding and management for customers.
+
+| Task | Description | Status |
+|------|-------------|--------|
+| Self-Service Onboarding | Web UI for customers to deploy corps | Pending |
+| Template Marketplace | Browse and select industry presets | Pending |
+| Customer Portal | Dashboard for customer corps | Pending |
+| Usage-Based Billing | Metered billing integration | Pending |
+| Support Escalation | Route issues to Apex | Pending |
+
+### Hub-and-Spoke Communication (DECIDED)
+
+All inter-corp communication goes through Apex (no peer-to-peer):
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  WHY HUB-AND-SPOKE?                                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ✓ Centralized visibility - Apex sees all communication        │
+│  ✓ Audit trail - All messages logged at Apex                   │
+│  ✓ Access control - Apex can filter/block messages             │
+│  ✓ Simpler architecture - No N×N connection mesh               │
+│  ✓ Isolation - Corps can't interfere with each other          │
+│                                                                 │
+│  Trade-off: Slightly higher latency for cross-corp requests    │
+│  Mitigation: Most corps operate independently anyway           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Preset Structure (Final Design)
+
+```
+/templates/presets/{industry}/
+├── org/
+│   ├── hierarchy.yaml           # Levels, reporting structure
+│   ├── roles/
+│   │   ├── {role_id}.yaml       # Role definition with prompts
+│   │   └── ...
+│   └── departments/
+│       ├── {dept_id}.yaml       # Department definition
+│       └── ...
+├── workflows/
+│   ├── {workflow_id}.yaml       # Molecule templates
+│   └── ...
+├── skills/
+│   ├── {skill_id}/
+│   │   └── SKILL.md             # Skill definition
+│   └── ...
+├── gates/
+│   ├── {gate_id}.yaml           # Gate definitions
+│   └── ...
+└── config/
+    ├── branding.yaml            # Name, logo, terminology
+    ├── models.yaml              # LLM model assignments
+    └── capabilities.yaml        # Capability-skill mappings
+```
+
+### Success Criteria for Apex
+
+| Metric | Target | How Measured |
+|--------|--------|--------------|
+| Spawn new corp | < 1 hour | Time from request to operational |
+| Corps running concurrently | 10+ | Registry count |
+| Preset creation | < 1 week | Time from industry research to validated preset |
+| Corp autonomy | 95%+ | % of decisions not requiring Apex approval |
+| Revenue tracking | Real-time | Dashboard accuracy |
+| Cross-corp isolation | 100% | No data leakage between corps |
+
+---
+
 ## References
 
 - [Recursive Language Models (arXiv:2512.24601)](https://arxiv.org/abs/2512.24601)
