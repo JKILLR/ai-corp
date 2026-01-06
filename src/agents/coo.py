@@ -25,6 +25,10 @@ from ..core.gate import GateKeeper
 from ..core.contract import ContractManager, SuccessContract
 from ..core.llm import LLMRequest
 from ..core.skills import SkillRegistry
+from ..core.forge import (
+    TheForge, Intention, IntentionType, IntentionStatus,
+    ForgeSession, ForgeSynthesis, IncubationPhase
+)
 
 
 class COOAgent(BaseAgent):
@@ -71,6 +75,9 @@ class COOAgent(BaseAgent):
 
         # Initialize contract manager
         self.contract_manager = ContractManager(self.corp_path, bead_ledger=self.bead)
+
+        # Initialize The Forge (intention incubation system)
+        self.forge = TheForge(self.corp_path)
 
     def process_work(self, work_item: WorkItem) -> Dict[str, Any]:
         """Process a work item (CEO task)"""
@@ -1677,6 +1684,339 @@ IMPORTANT:
         summary_parts.append("=== END CONTEXT ===")
 
         return "\n".join(summary_parts)
+
+    # =========================================================================
+    # The Forge - Intention Incubation Integration
+    # =========================================================================
+
+    def capture_intention(
+        self,
+        title: str,
+        description: str,
+        intention_type: str = "idea",
+        priority: int = 3,
+        from_thread: Optional[str] = None,
+        tags: Optional[List[str]] = None
+    ) -> Intention:
+        """
+        Capture a new intention into The Forge.
+
+        Can be called directly or from conversation context.
+
+        Args:
+            title: Short title for the intention
+            description: Full description
+            intention_type: 'idea', 'goal', 'vision', 'problem', 'wish'
+            priority: 1 (highest) to 5 (lowest)
+            from_thread: Thread ID if captured from conversation
+            tags: Optional categorization tags
+        """
+        type_map = {
+            'idea': IntentionType.IDEA,
+            'goal': IntentionType.GOAL,
+            'vision': IntentionType.VISION,
+            'problem': IntentionType.PROBLEM,
+            'wish': IntentionType.WISH
+        }
+
+        int_type = type_map.get(intention_type.lower(), IntentionType.IDEA)
+
+        intention = self.forge.capture(
+            title=title,
+            description=description,
+            intention_type=int_type,
+            source="ceo" if not from_thread else "ceo_conversation",
+            priority=priority,
+            captured_in_thread=from_thread,
+            tags=tags
+        )
+
+        # Record in bead
+        self.bead.create(
+            entity_type='intention',
+            entity_id=intention.id,
+            data={'action': 'captured', 'title': title, 'type': intention_type},
+            message=f"Captured intention: {title}"
+        )
+
+        return intention
+
+    def triage_intention(
+        self,
+        intention_id: str,
+        passed: bool,
+        notes: str = "",
+        adjusted_priority: Optional[int] = None
+    ) -> Intention:
+        """
+        Triage an intention - quick COO assessment.
+
+        Determines if intention is ready for incubation or needs
+        to be discarded/clarified.
+        """
+        intention = self.forge.triage(
+            intention_id=intention_id,
+            passed=passed,
+            notes=notes,
+            adjusted_priority=adjusted_priority
+        )
+
+        # Record decision
+        self.record_decision(
+            decision_id=f"triage-{intention_id}",
+            title=f"Triage: {intention.title}",
+            context=f"Assessed intention for Forge incubation",
+            options_considered=[
+                {'option': 'pass', 'description': 'Ready for incubation'},
+                {'option': 'fail', 'description': 'Discard or needs work'}
+            ],
+            chosen_option='pass' if passed else 'fail',
+            rationale=notes or "Standard triage assessment"
+        )
+
+        return intention
+
+    def start_forge_session(
+        self,
+        intention_id: str,
+        time_budget_minutes: int = 120
+    ) -> ForgeSession:
+        """
+        Start a Forge incubation session for an intention.
+
+        Assembles the incubator team based on intention type.
+        """
+        intention = self.forge.get_intention(intention_id)
+        if not intention:
+            raise ValueError(f"Intention {intention_id} not found")
+
+        # Determine team based on intention type
+        team = self._assemble_forge_team(intention)
+
+        session = self.forge.start_session(
+            intention_id=intention_id,
+            assigned_agents=list(team.keys()),
+            agent_roles=team,
+            time_budget_minutes=time_budget_minutes
+        )
+
+        # Record in bead
+        self.bead.create(
+            entity_type='forge_session',
+            entity_id=session.id,
+            data={
+                'action': 'started',
+                'intention_id': intention_id,
+                'team': team
+            },
+            message=f"Started Forge session for: {intention.title}"
+        )
+
+        return session
+
+    def _assemble_forge_team(self, intention: Intention) -> Dict[str, str]:
+        """
+        Assemble the incubator team based on intention type.
+
+        Returns dict of agent_id -> role.
+        """
+        team = {}
+
+        # Always include research for exploration
+        team['research-001'] = 'Explorer'
+
+        # Add based on intention type
+        if intention.intention_type == IntentionType.IDEA:
+            team['product-001'] = 'Feasibility Analyst'
+            team['devils-advocate-001'] = 'Critical Reviewer'
+
+        elif intention.intention_type == IntentionType.GOAL:
+            team['product-001'] = 'Strategy Planner'
+            team['engineering-001'] = 'Technical Assessor'
+
+        elif intention.intention_type == IntentionType.VISION:
+            team['product-001'] = 'Vision Architect'
+            team['research-002'] = 'Trend Analyst'
+
+        elif intention.intention_type == IntentionType.PROBLEM:
+            team['engineering-001'] = 'Root Cause Analyst'
+            team['product-001'] = 'Solution Designer'
+
+        elif intention.intention_type == IntentionType.WISH:
+            team['product-001'] = 'Requirements Translator'
+            team['design-001'] = 'Experience Designer'
+
+        return team
+
+    def relay_to_forge(
+        self,
+        content: str,
+        input_type: str = "direction"
+    ) -> bool:
+        """
+        Relay CEO input to the active Forge session.
+
+        Called when CEO discusses the incubating intention in chat.
+        """
+        session = self.forge.get_active_session()
+        if not session:
+            return False
+
+        self.forge.add_ceo_input(
+            session_id=session.id,
+            content=content,
+            input_type=input_type
+        )
+
+        return True
+
+    def get_forge_status(self) -> Dict[str, Any]:
+        """Get current Forge status for reporting."""
+        return self.forge.get_status()
+
+    def get_forge_workspace(self) -> Dict[str, Any]:
+        """Get the current workspace view for UI display."""
+        return self.forge.get_workspace_view()
+
+    def approve_intention(
+        self,
+        intention_id: str,
+        notes: str = ""
+    ) -> tuple[Intention, Optional[Molecule]]:
+        """
+        Approve an intention and optionally create a project.
+
+        Returns the approved intention and resulting molecule if created.
+        """
+        intention = self.forge.approve(
+            intention_id=intention_id,
+            approved_by="ceo",
+            notes=notes
+        )
+
+        # Get the synthesis if available
+        session = None
+        if intention.forge_session_id:
+            session = self.forge.get_session(intention.forge_session_id)
+
+        molecule = None
+        if session and session.synthesis:
+            # Create molecule from synthesis
+            molecule = self.receive_ceo_task(
+                title=intention.title,
+                description=session.synthesis.approach_summary,
+                priority="P2_MEDIUM",
+                context={
+                    'from_forge': True,
+                    'intention_id': intention.id,
+                    'synthesis': session.synthesis.to_dict()
+                }
+            )
+
+            # Link back
+            intention.resulting_molecule_id = molecule.id
+            self.forge._save_intention(intention)
+
+        # Record
+        self.bead.create(
+            entity_type='intention',
+            entity_id=intention.id,
+            data={
+                'action': 'approved',
+                'molecule_id': molecule.id if molecule else None
+            },
+            message=f"Approved intention: {intention.title}"
+        )
+
+        return intention, molecule
+
+    def hold_intention(
+        self,
+        intention_id: str,
+        reason: str,
+        until: Optional[str] = None,
+        trigger: Optional[str] = None
+    ) -> Intention:
+        """Put an intention on hold."""
+        intention = self.forge.hold(
+            intention_id=intention_id,
+            reason=reason,
+            until=until,
+            trigger=trigger
+        )
+
+        self.bead.create(
+            entity_type='intention',
+            entity_id=intention.id,
+            data={'action': 'on_hold', 'reason': reason, 'trigger': trigger},
+            message=f"Put intention on hold: {intention.title}"
+        )
+
+        return intention
+
+    def discard_intention(
+        self,
+        intention_id: str,
+        reason: str
+    ) -> Intention:
+        """Discard an intention with reasoning."""
+        intention = self.forge.discard(
+            intention_id=intention_id,
+            reason=reason
+        )
+
+        self.bead.create(
+            entity_type='intention',
+            entity_id=intention.id,
+            data={'action': 'discarded', 'reason': reason},
+            message=f"Discarded intention: {intention.title}"
+        )
+
+        # Record lesson if there was a session
+        if intention.forge_session_id:
+            session = self.forge.get_session(intention.forge_session_id)
+            if session:
+                self.record_lesson_learned(
+                    lesson_id=f"discard-{intention.id}",
+                    title=f"Discarded: {intention.title}",
+                    situation=f"Intention '{intention.title}' went through Forge",
+                    action_taken="Full incubation with team exploration",
+                    outcome=f"Discarded: {reason}",
+                    lesson=f"This type of {intention.intention_type.value} may not be viable",
+                    recommendations=[
+                        "Consider filtering similar intentions at triage",
+                        f"Key discard reason: {reason}"
+                    ],
+                    severity="info"
+                )
+
+        return intention
+
+    def get_forge_summary_for_llm(self) -> str:
+        """
+        Get Forge status formatted for LLM context.
+
+        Included in COO's context awareness.
+        """
+        status = self.forge.get_status()
+
+        lines = [
+            "=== THE FORGE STATUS ===",
+            f"Inbox: {status['inbox_count']} awaiting triage",
+            f"Queue: {status['queue_count']} awaiting incubation",
+            f"Ready for Review: {status['ready_for_review']}",
+            f"On Hold: {status['on_hold']}"
+        ]
+
+        if status['active_session']:
+            s = status['active_session']
+            lines.append(f"\nACTIVE INCUBATION:")
+            lines.append(f"  {s['intention_title']}")
+            lines.append(f"  Phase: {s['phase']}")
+            lines.append(f"  Workspace entries: {s['workspace_entries']}")
+            lines.append(f"  Agents: {', '.join(s['assigned_agents'])}")
+
+        return "\n".join(lines)
 
 
 # Need uuid for thread IDs

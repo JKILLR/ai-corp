@@ -9,6 +9,7 @@ import {
   Plug,
   Settings,
   Hexagon,
+  Flame,
 } from 'lucide-react';
 
 interface NavItem {
@@ -22,6 +23,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/', icon: LayoutDashboard, showOrb: true },
   { label: 'COO Channel', path: '/coo', icon: MessageSquarePlus },
+  { label: 'The Forge', path: '/forge', icon: Flame },
   { label: 'Projects', path: '/projects', icon: FolderKanban },
   { label: 'Agents', path: '/agents', icon: Users },
   { label: 'Gates', path: '/gates', icon: ShieldCheck, badge: 2 },
