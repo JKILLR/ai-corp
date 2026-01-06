@@ -410,7 +410,7 @@ function AgentNetworkModal({ onClose, selectedAgent, onSelectAgent }: AgentNetwo
           {/* Network Content */}
           <div className="flex-1 overflow-y-auto p-6">
             {/* CEO & COO with flowing connections */}
-            <div className="flex flex-col items-center mb-8 relative">
+            <div className="flex flex-col items-center">
               {/* CEO Node */}
               <div className="px-8 py-4 rounded-[var(--radius-md)] border-2 border-[var(--color-synapse)] bg-[var(--glass-bg)] text-center glow-ok relative z-10">
                 <StatusOrb status="ok" size="md" />
@@ -432,22 +432,31 @@ function AgentNetworkModal({ onClose, selectedAgent, onSelectAgent }: AgentNetwo
                 <p className="text-xs text-[var(--color-muted)]">47 tasks coordinated today</p>
               </div>
 
-              {/* Branch connection: COO to Departments */}
-              <BranchConnector departmentCount={departments.length} />
-            </div>
+              {/* Vertical line down from COO */}
+              <div className="w-0.5 h-6 bg-gradient-to-b from-[var(--color-synapse)] to-[var(--color-neural)] opacity-70" />
 
-            {/* Departments */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {departments.map((dept) => (
-                <DepartmentBlock
-                  key={dept.id}
-                  department={dept}
-                  isExpanded={expandedDepts.includes(dept.id)}
-                  onToggle={() => toggleDept(dept.id)}
-                  onSelectAgent={onSelectAgent}
-                  selectedAgentId={selectedAgent?.id}
-                />
-              ))}
+              {/* Horizontal distribution bar */}
+              <div className="w-full max-w-2xl h-0.5 bg-gradient-to-r from-transparent via-[var(--color-synapse)] to-transparent opacity-70" />
+
+              {/* Departments with integrated connectors */}
+              <div className="grid grid-cols-3 gap-4 w-full max-w-3xl">
+                {departments.map((dept) => (
+                  <div key={dept.id} className="flex flex-col items-center">
+                    {/* Vertical drop line to this department */}
+                    <div className="w-0.5 h-6 bg-gradient-to-b from-[var(--color-synapse)] to-[var(--color-neural)] opacity-70" />
+                    {/* Pulsing connector node */}
+                    <div className="w-3 h-3 rounded-full bg-[var(--color-neural)] mb-3 shadow-[0_0_8px_var(--color-neural)] animate-pulse" />
+                    {/* Department card */}
+                    <DepartmentBlock
+                      department={dept}
+                      isExpanded={expandedDepts.includes(dept.id)}
+                      onToggle={() => toggleDept(dept.id)}
+                      onSelectAgent={onSelectAgent}
+                      selectedAgentId={selectedAgent?.id}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -1019,94 +1028,3 @@ function PreviewBranchConnector({ count }: { count: number }) {
   );
 }
 
-// Branch connector from COO to departments
-function BranchConnector({ departmentCount }: { departmentCount: number }) {
-  const width = departmentCount === 1 ? 100 : departmentCount === 2 ? 200 : 400;
-  const spacing = width / (departmentCount + 1);
-
-  return (
-    <svg width={width} height="60" className="overflow-visible -mb-2">
-      <defs>
-        <linearGradient id="branchGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="var(--color-synapse)" stopOpacity="0.6" />
-          <stop offset="100%" stopColor="var(--color-neural)" stopOpacity="0.4" />
-        </linearGradient>
-        <filter id="branchGlow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
-          <feMerge>
-            <feMergeNode in="coloredBlur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-
-      {/* Main vertical line from COO */}
-      <line
-        x1={width / 2}
-        y1="0"
-        x2={width / 2}
-        y2="20"
-        stroke="url(#branchGradient)"
-        strokeWidth="2"
-        filter="url(#branchGlow)"
-      />
-
-      {/* Horizontal distribution line */}
-      <line
-        x1={spacing}
-        y1="20"
-        x2={width - spacing}
-        y2="20"
-        stroke="url(#branchGradient)"
-        strokeWidth="2"
-        filter="url(#branchGlow)"
-      >
-        <animate
-          attributeName="stroke-opacity"
-          values="0.4;0.7;0.4"
-          dur="2s"
-          repeatCount="indefinite"
-        />
-      </line>
-
-      {/* Vertical lines down to each department */}
-      {Array.from({ length: departmentCount }).map((_, i) => {
-        const x = spacing + i * spacing;
-        return (
-          <g key={i}>
-            <line
-              x1={x}
-              y1="20"
-              x2={x}
-              y2="55"
-              stroke="url(#branchGradient)"
-              strokeWidth="2"
-              filter="url(#branchGlow)"
-            />
-            {/* Node connector dot */}
-            <circle
-              cx={x}
-              cy="55"
-              r="4"
-              fill="var(--color-neural)"
-              filter="url(#branchGlow)"
-            >
-              <animate
-                attributeName="r"
-                values="3;5;3"
-                dur="2s"
-                repeatCount="indefinite"
-              />
-              <animate
-                attributeName="opacity"
-                values="0.6;1;0.6"
-                dur="2s"
-                repeatCount="indefinite"
-              />
-            </circle>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
