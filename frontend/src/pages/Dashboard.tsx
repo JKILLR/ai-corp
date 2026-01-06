@@ -18,6 +18,25 @@ import { StatusOrb } from '../components/ui/StatusOrb';
 import { Badge } from '../components/ui/Badge';
 import type { Status } from '../components/ui/StatusOrb';
 
+// Map status to glow class
+const statusGlowClass: Record<Status, string> = {
+  ok: 'glow-ok',
+  processing: 'glow-processing',
+  warning: 'glow-warning',
+  waiting: 'glow-waiting',
+  idle: 'glow-idle',
+  off: '',
+};
+
+const agentGlowClass: Record<Status, string> = {
+  ok: 'agent-glow-ok',
+  processing: 'agent-glow-processing',
+  warning: 'agent-glow-warning',
+  waiting: 'agent-glow-waiting',
+  idle: 'agent-glow-idle',
+  off: '',
+};
+
 // Agent data types
 interface Agent {
   id: string;
@@ -252,23 +271,25 @@ export function Dashboard() {
             {/* CEO Node */}
             <AgentNode label="YOU (CEO)" sublabel="Oversight" status="ok" />
 
-            {/* Connection line */}
-            <div className="w-px h-8 bg-[var(--color-synapse)] opacity-50" />
+            {/* Flowing connection to COO */}
+            <FlowingConnection height={32} />
 
             {/* COO Node */}
             <AgentNode label="COO" sublabel="47 tasks today" status="processing" isMulti />
 
-            {/* Connection lines */}
-            <div className="flex items-start justify-center w-full max-w-md mt-2">
-              <div className="flex-1 h-8 border-t border-r border-[var(--color-synapse)] opacity-50 rounded-tr-lg" />
-              <div className="w-px h-8 bg-[var(--color-synapse)] opacity-50" />
-              <div className="flex-1 h-8 border-t border-l border-[var(--color-synapse)] opacity-50 rounded-tl-lg" />
-            </div>
+            {/* Branch connections to departments */}
+            <PreviewBranchConnector count={departments.length} />
 
             {/* Department Heads */}
-            <div className="flex gap-4 mt-2">
+            <div className="flex gap-4">
               {departments.map((dept) => (
-                <AgentNodeSmall key={dept.id} status={dept.status} label={dept.name.slice(0, 3)} />
+                <div
+                  key={dept.id}
+                  className={`w-16 h-12 rounded-[var(--radius-sm)] border border-[var(--glass-border)] bg-[var(--glass-bg)] flex flex-col items-center justify-center gap-1 ${statusGlowClass[dept.status]}`}
+                >
+                  <StatusOrb status={dept.status} size="sm" />
+                  <span className="text-[8px] text-[var(--color-muted)] uppercase">{dept.name.slice(0, 3)}</span>
+                </div>
               ))}
             </div>
           </div>
@@ -388,17 +409,20 @@ function AgentNetworkModal({ onClose, selectedAgent, onSelectAgent }: AgentNetwo
 
           {/* Network Content */}
           <div className="flex-1 overflow-y-auto p-6">
-            {/* CEO & COO */}
-            <div className="flex flex-col items-center mb-8">
-              <div className="px-8 py-4 rounded-[var(--radius-md)] border-2 border-[var(--color-synapse)] bg-[var(--glass-bg)] text-center">
+            {/* CEO & COO with flowing connections */}
+            <div className="flex flex-col items-center">
+              {/* CEO Node */}
+              <div className="px-8 py-4 rounded-[var(--radius-md)] border-2 border-[var(--color-synapse)] bg-[var(--glass-bg)] text-center glow-ok relative z-10">
                 <StatusOrb status="ok" size="md" />
                 <p className="font-semibold text-[var(--color-plasma)] mt-2">YOU (CEO)</p>
                 <p className="text-xs text-[var(--color-muted)]">Strategic Oversight</p>
               </div>
 
-              <div className="w-px h-6 bg-[var(--color-synapse)]" />
+              {/* Connection: CEO to COO */}
+              <FlowingConnection height={40} />
 
-              <div className="px-8 py-4 rounded-[var(--radius-md)] border border-[var(--glass-border)] bg-[var(--glass-bg)] text-center">
+              {/* COO Node */}
+              <div className="px-8 py-4 rounded-[var(--radius-md)] border border-[var(--glass-border)] bg-[var(--glass-bg)] text-center glow-processing relative z-10">
                 <div className="flex justify-center gap-1 mb-2">
                   <StatusOrb status="processing" size="sm" />
                   <StatusOrb status="processing" size="sm" />
@@ -408,21 +432,31 @@ function AgentNetworkModal({ onClose, selectedAgent, onSelectAgent }: AgentNetwo
                 <p className="text-xs text-[var(--color-muted)]">47 tasks coordinated today</p>
               </div>
 
-              <div className="w-px h-6 bg-[var(--color-synapse)]" />
-            </div>
+              {/* Vertical line down from COO */}
+              <div className="w-0.5 h-6 bg-gradient-to-b from-[var(--color-synapse)] to-[var(--color-neural)] opacity-70" />
 
-            {/* Departments */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {departments.map((dept) => (
-                <DepartmentBlock
-                  key={dept.id}
-                  department={dept}
-                  isExpanded={expandedDepts.includes(dept.id)}
-                  onToggle={() => toggleDept(dept.id)}
-                  onSelectAgent={onSelectAgent}
-                  selectedAgentId={selectedAgent?.id}
-                />
-              ))}
+              {/* Horizontal distribution bar */}
+              <div className="w-full max-w-2xl h-0.5 bg-gradient-to-r from-transparent via-[var(--color-synapse)] to-transparent opacity-70" />
+
+              {/* Departments with integrated connectors */}
+              <div className="grid grid-cols-3 gap-4 w-full max-w-3xl">
+                {departments.map((dept) => (
+                  <div key={dept.id} className="flex flex-col items-center">
+                    {/* Vertical drop line to this department */}
+                    <div className="w-0.5 h-6 bg-gradient-to-b from-[var(--color-synapse)] to-[var(--color-neural)] opacity-70" />
+                    {/* Pulsing connector node */}
+                    <div className="w-3 h-3 rounded-full bg-[var(--color-neural)] mb-3 shadow-[0_0_8px_var(--color-neural)] animate-pulse" />
+                    {/* Department card */}
+                    <DepartmentBlock
+                      department={dept}
+                      isExpanded={expandedDepts.includes(dept.id)}
+                      onToggle={() => toggleDept(dept.id)}
+                      onSelectAgent={onSelectAgent}
+                      selectedAgentId={selectedAgent?.id}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -457,15 +491,17 @@ function DepartmentBlock({
   onSelectAgent,
   selectedAgentId,
 }: DepartmentBlockProps) {
+  const glowClass = statusGlowClass[department.status];
+
   return (
-    <GlassCard variant="elevated" padding="none" className="overflow-hidden">
+    <GlassCard variant="elevated" padding="none" className={`overflow-hidden ${glowClass}`}>
       {/* Department Header */}
       <button
         onClick={onToggle}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-[var(--glass-bg)] transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-[var(--glass-bg-hover)] transition-colors"
       >
         <div className="flex items-center gap-3">
-          <StatusOrb status={department.status} size="sm" />
+          <StatusOrb status={department.status} size="sm" pulse={department.status === 'processing'} />
           <div className="text-left">
             <p className="font-medium text-[var(--color-plasma)]">{department.name}</p>
             <p className="text-xs text-[var(--color-muted)]">
@@ -515,13 +551,15 @@ interface AgentRowProps {
 }
 
 function AgentRow({ agent, isSelected, onClick }: AgentRowProps) {
+  const glowClass = agentGlowClass[agent.status];
+
   return (
     <button
       onClick={onClick}
-      className={`w-full px-3 py-2 rounded-[var(--radius-sm)] flex items-center gap-3 transition-colors ${
+      className={`w-full px-3 py-2 rounded-[var(--radius-sm)] flex items-center gap-3 transition-all ${
         isSelected
           ? 'bg-[var(--color-neural)] bg-opacity-20 border border-[var(--color-neural)]'
-          : 'hover:bg-[var(--glass-bg)]'
+          : `hover:bg-[var(--glass-bg)] ${glowClass}`
       }`}
     >
       <StatusOrb status={agent.status} size="sm" pulse={agent.status === 'processing'} />
@@ -851,18 +889,6 @@ function AgentNode({ label, sublabel, status, isMulti }: AgentNodeProps) {
   );
 }
 
-function AgentNodeSmall({ status, label }: { status: Status; label?: string }) {
-  return (
-    <motion.div
-      whileHover={{ scale: 1.05 }}
-      className="w-16 h-12 rounded-[var(--radius-sm)] border border-[var(--glass-border)] bg-[var(--glass-bg)] flex flex-col items-center justify-center gap-1"
-    >
-      <StatusOrb status={status} size="sm" />
-      {label && <span className="text-[8px] text-[var(--color-muted)] uppercase">{label}</span>}
-    </motion.div>
-  );
-}
-
 interface ActivityItemProps {
   status: Status;
   message: string;
@@ -880,3 +906,125 @@ function ActivityItem({ status, message, time }: ActivityItemProps) {
     </div>
   );
 }
+
+// Flowing connection line with animated gradient
+function FlowingConnection({ height = 40 }: { height?: number }) {
+  return (
+    <svg width="4" height={height} className="overflow-visible">
+      <defs>
+        <linearGradient id="flowGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="var(--color-synapse)" stopOpacity="0.8">
+            <animate
+              attributeName="stopOpacity"
+              values="0.8;0.4;0.8"
+              dur="2s"
+              repeatCount="indefinite"
+            />
+          </stop>
+          <stop offset="50%" stopColor="var(--color-neural)" stopOpacity="1">
+            <animate
+              attributeName="stopOpacity"
+              values="1;0.6;1"
+              dur="2s"
+              repeatCount="indefinite"
+            />
+          </stop>
+          <stop offset="100%" stopColor="var(--color-synapse)" stopOpacity="0.8">
+            <animate
+              attributeName="stopOpacity"
+              values="0.8;0.4;0.8"
+              dur="2s"
+              repeatCount="indefinite"
+            />
+          </stop>
+        </linearGradient>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <line
+        x1="2"
+        y1="0"
+        x2="2"
+        y2={height}
+        stroke="url(#flowGradient)"
+        strokeWidth="2"
+        filter="url(#glow)"
+      />
+      {/* Animated particles flowing down */}
+      <circle r="2" fill="var(--color-synapse)" filter="url(#glow)">
+        <animate
+          attributeName="cy"
+          values={`0;${height}`}
+          dur="1.5s"
+          repeatCount="indefinite"
+        />
+        <animate
+          attributeName="opacity"
+          values="0;1;1;0"
+          dur="1.5s"
+          repeatCount="indefinite"
+        />
+      </circle>
+    </svg>
+  );
+}
+
+// Smaller preview branch connector for dashboard card
+function PreviewBranchConnector({ count }: { count: number }) {
+  const width = 200;
+  const spacing = width / (count + 1);
+
+  return (
+    <svg width={width} height="30" className="overflow-visible">
+      <defs>
+        <linearGradient id="previewGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="var(--color-synapse)" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="var(--color-neural)" stopOpacity="0.3" />
+        </linearGradient>
+      </defs>
+      {/* Vertical line from COO */}
+      <line
+        x1={width / 2}
+        y1="0"
+        x2={width / 2}
+        y2="10"
+        stroke="url(#previewGradient)"
+        strokeWidth="1.5"
+      />
+      {/* Horizontal line */}
+      <line
+        x1={spacing}
+        y1="10"
+        x2={width - spacing}
+        y2="10"
+        stroke="url(#previewGradient)"
+        strokeWidth="1.5"
+      >
+        <animate
+          attributeName="stroke-opacity"
+          values="0.3;0.6;0.3"
+          dur="2s"
+          repeatCount="indefinite"
+        />
+      </line>
+      {/* Vertical lines to departments */}
+      {Array.from({ length: count }).map((_, i) => (
+        <line
+          key={i}
+          x1={spacing + i * spacing}
+          y1="10"
+          x2={spacing + i * spacing}
+          y2="28"
+          stroke="url(#previewGradient)"
+          strokeWidth="1.5"
+        />
+      ))}
+    </svg>
+  );
+}
+
