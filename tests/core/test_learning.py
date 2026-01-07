@@ -882,8 +882,14 @@ class TestLearningSystem:
             attempt=2
         )
 
-        assert context.attempt_number == 2
-        assert len(context.previous_failures) == 1
+        # Returns dict with relevant_patterns, suggestions, and failure_context
+        assert isinstance(context, dict)
+        assert 'relevant_patterns' in context
+        assert 'suggestions' in context
+        assert 'failure_context' in context
+        # The actual FailureContext object is in failure_context
+        assert context['failure_context'].attempt_number == 2
+        assert len(context['failure_context'].previous_failures) == 1
 
     def test_get_stats(self, learning_system):
         """Test getting system statistics"""

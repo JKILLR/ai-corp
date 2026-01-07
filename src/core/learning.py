@@ -1411,13 +1411,67 @@ class LearningSystem:
 
         logger.info(f"Learning System initialized at {learning_path}")
 
-    def on_molecule_complete(self, molecule_data: Dict[str, Any]) -> List[Insight]:
-        """Handle molecule completion - extract insights"""
+    def on_molecule_complete(self, molecule_or_data: Any) -> List[Insight]:
+        """
+        Handle molecule completion - extract insights.
+
+        Args:
+            molecule_or_data: Either a Molecule object or a Dict with molecule data
+        """
+        # Handle both Molecule objects and dicts
+        if hasattr(molecule_or_data, 'to_dict'):
+            molecule_data = molecule_or_data.to_dict()
+        elif isinstance(molecule_or_data, dict):
+            molecule_data = molecule_or_data
+        else:
+            # Try to extract what we can
+            molecule_data = {
+                'id': getattr(molecule_or_data, 'id', 'unknown'),
+                'type': getattr(molecule_or_data, 'type', 'unknown'),
+                'status': 'completed'
+            }
         return self.distiller.distill(molecule_data)
 
-    def on_molecule_fail(self, molecule_data: Dict[str, Any]) -> List[Insight]:
-        """Handle molecule failure - extract failure insights"""
+    def on_molecule_fail(
+        self,
+        molecule_or_data: Any,
+        step: Any = None,
+        error: str = "",
+        error_type: Optional[str] = None
+    ) -> List[Insight]:
+        """
+        Handle molecule failure - extract failure insights.
+
+        Args:
+            molecule_or_data: Either a Molecule object or a Dict with molecule data
+            step: Optional failed MoleculeStep object
+            error: Error message string
+            error_type: Type of error (e.g., 'timeout', 'validation', etc.)
+        """
+        # Handle both Molecule objects and dicts
+        if hasattr(molecule_or_data, 'to_dict'):
+            molecule_data = molecule_or_data.to_dict()
+        elif isinstance(molecule_or_data, dict):
+            molecule_data = molecule_or_data
+        else:
+            molecule_data = {
+                'id': getattr(molecule_or_data, 'id', 'unknown'),
+                'type': getattr(molecule_or_data, 'type', 'unknown'),
+            }
+
+        # Mark as failure
         molecule_data['success'] = False
+
+        # Add failure details if provided
+        if step:
+            step_id = step.id if hasattr(step, 'id') else str(step)
+            molecule_data['failed_step'] = step_id
+        if error or error_type:
+            molecule_data['error'] = {
+                'type': error_type or 'unknown',
+                'message': error or 'Unknown error'
+            }
+
         return self.distiller.distill(molecule_data)
 
     def get_context_for_task(
@@ -1492,20 +1546,104 @@ class LearningSystem:
 
     def get_ralph_context(
         self,
-        molecule_id: str,
-        molecule_type: str,
-        current_step: str,
-        attempt: int
-    ) -> FailureContext:
-        """Get failure context for Ralph Mode retry"""
+        molecule_id: Any,
+        molecule_type: Optional[str] = None,
+        current_step: Optional[str] = None,
+        attempt: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Get failure context for Ralph Mode retry.
+
+        Can be called with either:
+        - A Molecule object as first arg (extracts id, type, current step, attempt from it)
+        - Individual parameters (molecule_id, molecule_type, current_step, attempt)
+
+        Returns dict with relevant_patterns and suggestions for molecule.py compatibility.
+        """
+        # Handle Molecule object (when called with just a molecule)
+        if hasattr(molecule_id, 'id'):
+            molecule = molecule_id
+            molecule_id = molecule.id
+            # Only override if not explicitly provided
+            if molecule_type is None:
+                molecule_type = getattr(molecule, 'type', 'unknown')
+            if attempt is None:
+                attempt = getattr(molecule, 'retry_count', 0)
+            # Get current step if available and not provided
+            if current_step is None:
+                if hasattr(molecule, 'get_current_step'):
+                    current = molecule.get_current_step()
+                    current_step = current.id if current else ""
+                else:
+                    current_step = ""
+        else:
+            molecule_id = str(molecule_id)
+            molecule_type = molecule_type or 'unknown'
+            current_step = current_step or ""
+            attempt = attempt or 0
+
         failures = self.ralph.failure_store.get(molecule_id, [])
-        return self.ralph.build_failure_context(
+        context = self.ralph.build_failure_context(
             molecule_id=molecule_id,
             molecule_type=molecule_type,
             current_step=current_step,
             failures=failures,
             attempt=attempt
         )
+
+        # Return dict format that molecule.py expects
+        return {
+            'relevant_patterns': [p.to_dict() for p in context.relevant_patterns],
+            'suggestions': context.learned_suggestions,
+            'failure_context': context
+        }
+
+    def get_molecule_cost(self, molecule_id: str) -> float:
+        """
+        Get total cost incurred by a molecule.
+
+        Used by Ralph Mode to check cost caps.
+        """
+        return self.ralph.budget.get_spent(molecule_id)
+
+    def suggest_restart_point(self, molecule: Any) -> str:
+        """
+        Suggest optimal restart point for a molecule based on learning.
+
+        Analyzes failure patterns to determine where to restart.
+
+        Args:
+            molecule: Molecule object
+
+        Returns:
+            step_id to restart from
+        """
+        molecule_id = getattr(molecule, 'id', str(molecule))
+        failures = self.ralph.failure_store.get(molecule_id, [])
+
+        if not failures:
+            # No failures recorded, start from beginning
+            steps = getattr(molecule, 'steps', [])
+            if steps:
+                return steps[0].id if hasattr(steps[0], 'id') else str(steps[0])
+            return ""
+
+        # Find the step with most failures - that's the bottleneck
+        step_failures: Dict[str, int] = {}
+        for fb in failures:
+            step_id = fb.step_id if hasattr(fb, 'step_id') else fb.get('step_id', '')
+            step_failures[step_id] = step_failures.get(step_id, 0) + 1
+
+        if step_failures:
+            # Return the step that failed most - restart there to give it another try
+            bottleneck = max(step_failures.items(), key=lambda x: x[1])
+            return bottleneck[0]
+
+        # Fallback: restart from first step
+        steps = getattr(molecule, 'steps', [])
+        if steps:
+            return steps[0].id if hasattr(steps[0], 'id') else str(steps[0])
+        return ""
 
     def get_stats(self) -> Dict[str, Any]:
         """Get learning system statistics"""

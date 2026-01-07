@@ -44,14 +44,15 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 | **Entity Graph** | ✅ Done | Unified entity management with temporal tracking (Mem0/Graphiti-inspired) |
 | **File Storage** | ✅ Done | Internal storage + Google Drive integration |
 | **The Forge** | ✅ Done | Intention incubation system for idea development |
-| Test Suite | ✅ Done | 630+ tests passing |
+| **Learning System** | ✅ Done | Knowledge Distiller, Meta-Learner, Pattern Library, Insight Store |
+| **Ralph Mode** | ✅ Done | Retry-with-failure-injection for persistent execution |
+| Test Suite | ✅ Done | 680+ tests passing |
 
 ### Planned Components (P1)
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
-| **Learning System** | P1 | Knowledge Distiller, Meta-Learner, Pattern Library |
-| **Ralph Mode** | P1 | Retry-with-failure-injection for persistent execution |
+| **Evolution Daemon** | P0 | Background learning cycles (hourly/daily/weekly) |
 | **Depth-Based Context** | P1 | Agent-level defaults for Entity Graph retrieval depth |
 | Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
 | Async Gate Approvals | P1 | Auto-approve when criteria met |
@@ -62,7 +63,7 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 |-----------|----------|-------------|
 | **Swarm Molecule Type** | P2 | Parallel research: scatter → cross-critique → converge |
 | **Composite Molecules** | P2 | Chain molecule types (Swarm → Ralph → escalate) |
-| Evolution Daemon | P2 | Background learning cycles (hourly/daily/weekly) |
+| **Context Synthesizer** | P2 | Transform raw context into actionable understanding |
 | Web UI | P2 | Browser-based dashboard and discovery chat |
 | Chapters & Guilds | P2 | Cross-team skill groups and communities |
 | Fitness Functions | P2 | Per-team success metrics |
