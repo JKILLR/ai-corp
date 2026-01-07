@@ -1,0 +1,174 @@
+# Foundation Corp - Quality Gates
+# Gates specific to platform development
+
+gates:
+  # Design Review Gate
+  - id: design_review
+    name: "Design Review"
+    description: "Ensure design is sound before implementation"
+    stage: design
+    required_for:
+      - core-feature
+      - learning-system
+      - platform-feature
+      - refactor
+
+    criteria:
+      - id: design_documented
+        name: "Design Documented"
+        description: "Design approach is written down"
+        required: true
+        automated: false
+
+      - id: architecture_consistent
+        name: "Architecture Consistent"
+        description: "Design follows existing patterns"
+        required: true
+        automated: false
+
+      - id: scope_clear
+        name: "Scope Clear"
+        description: "What's in/out of scope is defined"
+        required: true
+        automated: false
+
+    approvers:
+      required:
+        - vp_engineering
+      optional:
+        - dir_architecture
+
+    # Phase 2: Human must approve
+    phase_2_override:
+      additional_approvers:
+        - ceo_human
+
+  # QA Review Gate
+  - id: qa_review
+    name: "QA Review"
+    description: "Verify code quality and test coverage"
+    stage: qa
+    required_for:
+      - all
+
+    criteria:
+      - id: tests_pass
+        name: "All Tests Pass"
+        description: "pytest runs successfully"
+        required: true
+        automated: true
+        check_command: "pytest tests/ -v"
+
+      - id: coverage_maintained
+        name: "Coverage Maintained"
+        description: "Test coverage not decreased"
+        required: true
+        automated: true
+        check_command: "pytest --cov=src --cov-fail-under=80"
+
+      - id: no_syntax_errors
+        name: "No Syntax Errors"
+        description: "All Python files compile"
+        required: true
+        automated: true
+        check_command: "python -m py_compile"
+
+      - id: imports_work
+        name: "Imports Work"
+        description: "All modules can be imported"
+        required: true
+        automated: true
+
+    approvers:
+      required:
+        - dir_testing
+      optional:
+        - qa_workers
+
+  # Security Review Gate
+  - id: security_review
+    name: "Security Review"
+    description: "Check for security vulnerabilities"
+    stage: security
+    required_for:
+      - core-feature  # When touching auth, data, secrets
+      - platform-feature
+    conditional:
+      triggers:
+        - file_matches: "src/core/llm.py"
+        - file_matches: "src/platform/services/*"
+        - file_matches: "*auth*"
+        - file_matches: "*secret*"
+        - file_matches: "*credential*"
+
+    criteria:
+      - id: no_hardcoded_secrets
+        name: "No Hardcoded Secrets"
+        description: "No API keys or passwords in code"
+        required: true
+        automated: true
+        check_command: "grep -r 'api_key\\|password\\|secret' src/ --include='*.py' | grep -v 'Optional\\|str\\|None\\|#'"
+
+      - id: access_control_correct
+        name: "Access Control Correct"
+        description: "Permissions properly checked"
+        required: true
+        automated: false
+
+      - id: no_injection_vulnerabilities
+        name: "No Injection Vulnerabilities"
+        description: "Input properly sanitized"
+        required: true
+        automated: false
+
+    approvers:
+      required:
+        - dir_security
+
+  # Release Gate
+  - id: release_gate
+    name: "Release Gate"
+    description: "Final approval before merge to main"
+    stage: release
+    required_for:
+      - all
+
+    criteria:
+      - id: qa_passed
+        name: "QA Passed"
+        description: "QA review gate passed"
+        required: true
+        automated: true
+        depends_on: qa_review
+
+      - id: security_passed
+        name: "Security Passed"
+        description: "Security review gate passed (if required)"
+        required: false  # Only if security_review was triggered
+        automated: true
+        depends_on: security_review
+
+      - id: docs_updated
+        name: "Documentation Updated"
+        description: "Relevant docs updated"
+        required: true
+        automated: false
+
+      - id: changelog_updated
+        name: "Changelog Updated"
+        description: "Changes documented in changelog"
+        required: false
+        automated: false
+
+    approvers:
+      required:
+        - vp_quality
+        - ceo_human  # Human approval ALWAYS required for releases
+
+    # Phase 3+: Can remove ceo_human for minor releases
+    phase_3_override:
+      minor_releases:
+        approvers:
+          required:
+            - vp_quality
+          # CEO notified but not required

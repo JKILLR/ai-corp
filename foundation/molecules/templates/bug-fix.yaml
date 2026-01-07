@@ -1,0 +1,71 @@
+# Molecule Template: Bug Fix
+# Use this for fixing bugs in existing code
+
+template:
+  id: bug-fix
+  name: "Bug Fix"
+  description: "Fix a bug in existing functionality"
+  typical_duration: "2-8 hours"
+
+  variables:
+    - name: bug_description
+      description: "What's broken"
+    - name: affected_area
+      description: "Which system/file is affected"
+    - name: reproduction_steps
+      description: "How to reproduce the bug"
+
+  steps:
+    - id: investigate
+      name: "Investigation"
+      description: "Understand the bug and find root cause"
+      department: engineering
+      assigned_to: core_workers  # Or appropriate pool
+      estimated_duration: "1-2 hours"
+      outputs:
+        - root_cause_analysis
+        - proposed_fix
+
+    - id: implement_fix
+      name: "Implement Fix"
+      description: "Write the fix and regression test"
+      department: engineering
+      assigned_to: core_workers
+      depends_on: [investigate]
+      estimated_duration: "1-4 hours"
+      outputs:
+        - code_fix
+        - regression_test
+
+    - id: verify
+      name: "Verify Fix"
+      description: "Run tests, verify bug is fixed"
+      department: quality
+      assigned_to: qa_workers
+      depends_on: [implement_fix]
+      estimated_duration: "30 min"
+      criteria:
+        - bug_no_longer_reproduces: true
+        - regression_test_passes: true
+        - no_new_failures: true
+      gate: qa_review
+
+    - id: release
+      name: "Release"
+      description: "Merge fix"
+      department: quality
+      assigned_to: vp_quality
+      depends_on: [verify]
+      gate: release_gate
+      # Bug fixes may have expedited approval
+      expedited: true
+
+  success_contract_template:
+    objective: "Fix: {{bug_description}}"
+    criteria:
+      - description: "Bug no longer reproduces"
+        measurable: true
+      - description: "Regression test added"
+        measurable: true
+      - description: "All existing tests pass"
+        measurable: true
