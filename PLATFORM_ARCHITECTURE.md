@@ -408,9 +408,76 @@ Phase 4 (Steady):      Self-maintaining with human strategic direction
 
 ---
 
-## Open Questions
+## Decisions Made
 
-1. **Shared Services** - Should Identity/Auth/Billing be a 4th platform service?
-2. **Foundation Location** - Same repo or separate?
-3. **Personal Monetization** - Subscription? Free tier?
-4. **Foundation Autonomy Timeline** - How fast to reduce human oversight?
+### Decision: Shared Services → 4th Platform Service (CORE SERVICES)
+
+**Status:** TODO - Requires Anthropic API (not CLI) for user auth
+
+**Rationale:** Identity/Auth/Billing spans ALL services. Users log into Personal, corps authenticate to Apex, Foundation devs need access. Billing needs independence from other services.
+
+```
+CORE SERVICES
+├── Identity - User/Corp/Agent authentication
+├── Billing - Usage tracking, invoicing, payments
+├── Secrets - API keys, credentials vault
+└── Audit - Cross-platform audit log
+```
+
+**Note:** This service will need to use Anthropic API directly rather than Claude CLI for user authentication flows.
+
+### Decision: Foundation Location → Same Repo, Separate Directories
+
+**Rationale:** Monorepo benefits (atomic commits, simpler tooling) with clear boundaries.
+
+```
+ai-corp/
+├── core/                    # Core Engine primitives (src/core today)
+├── platform/                # Apex, Personal, Core Services
+├── foundation/              # Foundation Corp STATE (molecules, beads)
+├── presets/                 # Industry templates
+└── instances/               # Running corp states
+```
+
+Foundation's **code contributions** go into `core/` and `platform/`. Foundation's **corp state** (molecules, beads, hooks) lives in `foundation/`.
+
+### Decision: Personal Monetization → Freemium Model
+
+**Rationale:** Low barrier to entry, monetize power users.
+
+| Tier | Price | Features |
+|------|-------|----------|
+| **Free** | $0 | 100 entities, manual entry, single corp, 50 msg/day |
+| **Pro** | $19/month | Unlimited entities, data connectors, multi-corp, 500 msg/day |
+| **Pro+** | $39/month | Everything + priority, API access, unlimited |
+
+See [BUSINESS_MODEL.md](./BUSINESS_MODEL.md) for full pricing and unit economics.
+
+### Decision: Foundation Autonomy → 5-Phase Gradual Release, Start at Phase 2
+
+**Rationale:** Build trust incrementally, never remove human veto power.
+
+| Phase | Human Role | Foundation Can Do | Trigger to Advance |
+|-------|------------|-------------------|-------------------|
+| 1: Bootstrap | Human does everything | Just structure | Foundation exists |
+| 2: Assisted | Human approves all | Propose changes | 10+ molecules |
+| **→ START HERE** | | | |
+| 3: Supervised | Approves releases only | Autonomous dev | 50+ molecules, 0 critical bugs |
+| 4: Trusted | Strategic direction | Minor releases | 6 months clean |
+| 5: Autonomous | Board oversight | Full autonomy | Trust established |
+
+**Always require human approval for:**
+- Security-affecting Core Engine changes
+- Access control modifications
+- Billing/payment logic
+- Privileged access grants
+- User data handling changes
+
+**Goal:** Move quickly from Phase 2 → 3 → 4 as trust is established.
+
+---
+
+## Related Documents
+
+- [BUSINESS_MODEL.md](./BUSINESS_MODEL.md) - Pricing, unit economics, token optimization
+- [AI_CORP_ARCHITECTURE.md](./AI_CORP_ARCHITECTURE.md) - Core Engine technical details
