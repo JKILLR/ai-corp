@@ -46,13 +46,14 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 | **The Forge** | ✅ Done | Intention incubation system for idea development |
 | **Learning System** | ✅ Done | Knowledge Distiller, Meta-Learner, Pattern Library, Insight Store |
 | **Ralph Mode** | ✅ Done | Retry-with-failure-injection for persistent execution |
-| Test Suite | ✅ Done | 680+ tests passing |
+| **Evolution Daemon** | ✅ Done | Background learning cycles (hourly/daily/weekly) |
+| **Context Synthesizer** | ✅ Done | Transform raw context into actionable understanding |
+| Test Suite | ✅ Done | 700+ tests passing |
 
 ### Planned Components (P1)
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
-| **Evolution Daemon** | P0 | Background learning cycles (hourly/daily/weekly) |
 | **Depth-Based Context** | P1 | Agent-level defaults for Entity Graph retrieval depth |
 | Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
 | Async Gate Approvals | P1 | Auto-approve when criteria met |
@@ -63,7 +64,6 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 |-----------|----------|-------------|
 | **Swarm Molecule Type** | P2 | Parallel research: scatter → cross-critique → converge |
 | **Composite Molecules** | P2 | Chain molecule types (Swarm → Ralph → escalate) |
-| **Context Synthesizer** | P2 | Transform raw context into actionable understanding |
 | Web UI | P2 | Browser-based dashboard and discovery chat |
 | Chapters & Guilds | P2 | Cross-team skill groups and communities |
 | Fitness Functions | P2 | Per-team success metrics |
@@ -222,7 +222,7 @@ molecule:
 
 #### Molecule Execution Modes
 
-**Ralph Mode** (P1 - Planned)
+**Ralph Mode** (✅ Completed)
 Persistent execution with failure-as-context. Named after "Ralph Wiggum Mode" - keep going no matter what, feeding failure back as learning.
 
 ```yaml
@@ -722,6 +722,60 @@ A lightweight **SystemMonitor** service provides visibility into system health w
 **Implementation:** `src/cli/dashboard.py`
 - `Dashboard` - Terminal rendering of system status
 
+### 13. Learning System
+
+A two-phase system that extracts insights from completed work and continuously improves the organization.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    LEARNING SYSTEM ARCHITECTURE              │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Phase 1: Core Learning                                     │
+│  ├── InsightStore         # Persist and retrieve insights  │
+│  ├── OutcomeTracker       # Track success/failure outcomes │
+│  ├── PatternLibrary       # Store validated patterns       │
+│  ├── MetaLearner          # Learn what works, adjust       │
+│  ├── KnowledgeDistiller   # Extract insights from molecules│
+│  └── RalphModeExecutor    # Retry-with-failure-injection   │
+│                                                             │
+│  Phase 2: Continuous Learning                               │
+│  ├── EvolutionDaemon      # Background learning cycles     │
+│  │   ├── Fast (hourly)    # Process recent outcomes        │
+│  │   ├── Medium (daily)   # Pattern analysis               │
+│  │   └── Slow (weekly)    # Deep analysis, reports         │
+│  └── ContextSynthesizer   # Transform context to insight   │
+│      ├── Themes           # Cluster related context        │
+│      ├── Predictions      # What might happen              │
+│      └── Recommendations  # Actionable suggestions         │
+│                                                             │
+│  Integration Points:                                        │
+│  ├── MoleculeEngine.on_molecule_complete() → Distiller     │
+│  ├── MoleculeEngine.on_molecule_fail() → Distiller         │
+│  ├── MoleculeEngine.get_ralph_context() → PatternLibrary   │
+│  └── Agents get context → ContextSynthesizer               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:** `src/core/learning.py`
+- `LearningSystem` - Main interface coordinating all components
+- `InsightStore` - Persist insights with deduplication
+- `OutcomeTracker` - Track outcomes with metrics
+- `PatternLibrary` - Store, validate, promote patterns
+- `MetaLearner` - Confidence calibration, attention weights
+- `KnowledgeDistiller` - Extract insights from molecules
+- `RalphModeExecutor` - Failure context for retries
+- `EvolutionDaemon` - Background learning cycles
+- `ContextSynthesizer` - Transform context to understanding
+
+**Key Patterns:**
+- Insights have confidence scores that increase with validation
+- Patterns must be "promoted" (validated multiple times) before being used
+- Meta-learner tracks which sources are most effective
+- Evolution Daemon runs on three time scales (hourly/daily/weekly)
+- Context Synthesizer produces LLM-ready prompts with recommendations
+
 ---
 
 ## Agent Architecture
@@ -1184,9 +1238,17 @@ ai-corp status                                  # Quick health check summary
    - CorporationExecutor uses WorkScheduler + SkillRegistry
    - Session startup protocol for long-running agents
 
+### ✅ Completed (P1) - Learning System
+8. ~~Learning System Phase 1~~ ✅
+   - Distiller, Meta-Learner, Pattern Library, Ralph Mode
+9. ~~Learning System Phase 2~~ ✅
+   - Evolution Daemon (hourly/daily/weekly cycles)
+   - Context Synthesizer (transform context to understanding)
+
 ### Current Priority (P1)
-1. **Real Claude Testing** - End-to-end test with ClaudeCodeBackend
-2. **Async Gate Approvals** - Auto-approve when criteria met
+1. **Depth-Based Context** - Agent-level defaults for Entity Graph retrieval depth
+2. **Real Claude Testing** - End-to-end test with ClaudeCodeBackend
+3. **Async Gate Approvals** - Auto-approve when criteria met
 
 ### Future (P2)
 1. Web UI with discovery onboarding chat
@@ -1195,8 +1257,7 @@ ai-corp status                                  # Quick health check summary
 4. Implement fitness functions per team
 5. Enable cross-department task claiming
 6. Auto-remediation execution (with human approval)
-7. Add learning from completed molecules
-8. Performance optimization for large agent swarms
+7. Performance optimization for large agent swarms
 
 ---
 

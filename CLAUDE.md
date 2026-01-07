@@ -27,15 +27,17 @@ Before making any changes, read these files:
 
 ## Current Priority
 
-**Recently Completed:** Learning System Phase 1 + Ralph Mode ✅
+**Recently Completed:** Learning System Phase 1 + 2 ✅
 
-**Next to implement:** Evolution Daemon (Phase 2)
+- Phase 1: Distiller, Meta-Learner, Pattern Library, Ralph Mode
+- Phase 2: Evolution Daemon, Context Synthesizer
 
-- Background learning cycles (hourly/daily/weekly)
-- Context Synthesizer
-- Design doc: `LEARNING_SYSTEM_DESIGN.md` (Phase 2 section)
+**Next to implement:** Depth-Based Context
 
-**Key concept:** Evolution Daemon runs continuous learning cycles to extract deeper patterns from accumulated insights.
+- Configure Entity Graph depth per agent level
+- COO gets deeper context, Workers get focused context
+
+**Key concept:** Leverage existing Entity Graph relationship traversal with agent-specific defaults.
 
 ---
 
@@ -71,7 +73,7 @@ ai-corp/
 │   └── cli/            # Command-line interface
 ├── templates/          # Organization templates
 ├── foundation/         # Foundation Corp (AI Corp building AI Corp)
-├── tests/              # Test suite (630+ tests)
+├── tests/              # Test suite (700+ tests)
 ├── docs/archive/       # Implemented design docs (historical)
 └── [Master Docs]       # STATE.md, ROADMAP.md, AI_CORP_ARCHITECTURE.md
 ```
@@ -80,7 +82,7 @@ ai-corp/
 
 ## Key Systems (All Implemented)
 
-- **Molecules** - Persistent workflows
+- **Molecules** - Persistent workflows (with Ralph Mode for persistent execution)
 - **Hooks** - Pull-based work queues
 - **Beads** - Git-backed audit trail
 - **Channels** - Agent messaging
@@ -88,6 +90,9 @@ ai-corp/
 - **Success Contracts** - Measurable outcomes
 - **Entity Graph** - Unified entity management
 - **Memory System** - RLM-inspired context management
+- **Learning System** - Extract insights, continuous improvement
+  - Evolution Daemon (hourly/daily/weekly learning cycles)
+  - Context Synthesizer (transform context to understanding)
 
 ---
 
