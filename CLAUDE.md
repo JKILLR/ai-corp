@@ -27,13 +27,15 @@ Before making any changes, read these files:
 
 ## Current Priority
 
-**Next to implement:** Learning System + Ralph Mode
+**Recently Completed:** Learning System Phase 1 + Ralph Mode ✅
 
-- Knowledge Distiller, Meta-Learner, Pattern Library
-- **Ralph Mode**: Retry-with-failure-injection for persistent execution
-- Design doc: `LEARNING_SYSTEM_DESIGN.md`
+**Next to implement:** Evolution Daemon (Phase 2)
 
-**Key concept:** Ralph Mode feeds failure context back into retries, making the Learning System essential for effective persistence.
+- Background learning cycles (hourly/daily/weekly)
+- Context Synthesizer
+- Design doc: `LEARNING_SYSTEM_DESIGN.md` (Phase 2 section)
+
+**Key concept:** Evolution Daemon runs continuous learning cycles to extract deeper patterns from accumulated insights.
 
 ---
 

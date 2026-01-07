@@ -24,20 +24,18 @@
 
 ### P0 - Immediate (Now)
 
-**Learning System + Ralph Mode** (Approved: 2026-01-07)
-- Build the Knowledge Distiller, Meta-Learner, and Pattern Library
-- **Include Ralph Mode**: Retry-with-failure-injection pattern for persistent execution
-- Design doc: `LEARNING_SYSTEM_DESIGN.md`
-- Why: Context/memory and learning are the two most critical systems for effectiveness
-- Ralph Mode is essential because learning FROM failure requires capturing failure context
-- Dependencies: Molecule Engine (complete), Memory System (complete)
+**Evolution Daemon (Learning System Phase 2)** (Approved: 2026-01-07)
+- Background learning cycles (hourly/daily/weekly)
+- Context Synthesizer - Transform raw context into understanding
+- Design doc: `LEARNING_SYSTEM_DESIGN.md` (Phase 2 section)
+- Why: Phase 1 captures insights; Phase 2 runs continuous learning to extract deeper patterns
+- Dependencies: Learning System Phase 1 (complete)
 
-**Ralph Mode Components:**
-- `ralph_mode: true` flag on molecules
-- `max_retries` and `cost_cap` safety limits
-- Failure context injection into retry attempts
-- `ralph_criteria` for explicit exit conditions
-- Integration: Failures → Beads → Learning System → Pattern extraction
+**Phase 2 Components:**
+- Hourly cycles: Fast pattern refinement
+- Daily cycles: Cross-molecule pattern discovery
+- Weekly cycles: Deep insight consolidation
+- Context Synthesizer: Transform raw context into actionable understanding
 
 ---
 
@@ -47,10 +45,12 @@
 
 | Plan | Description | Design Doc | Notes |
 |------|-------------|------------|-------|
-| Learning System | Extract insights from completed molecules | `LEARNING_SYSTEM_DESIGN.md` | Current - includes Ralph Mode |
-| Ralph Mode | Retry-with-failure-injection for persistent execution | `LEARNING_SYSTEM_DESIGN.md` | Part of Learning System Phase 1 |
+| ~~Learning System~~ | ~~Extract insights from completed molecules~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 1) |
+| ~~Ralph Mode~~ | ~~Retry-with-failure-injection for persistent execution~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 1) |
+| Evolution Daemon | Background learning cycles | `LEARNING_SYSTEM_DESIGN.md` | Current - Phase 2 |
+| Context Synthesizer | Transform raw context into understanding | `LEARNING_SYSTEM_DESIGN.md` | Part of Phase 2 |
 | Depth-Based Context | Agent-level defaults for context retrieval depth | - | Configure existing Entity Graph |
-| Async Gate Approvals | Allow gates to run asynchronously | - | After Learning System |
+| Async Gate Approvals | Allow gates to run asynchronously | - | After Phase 2 |
 
 ### P2 - Medium Priority
 
@@ -58,8 +58,6 @@
 |------|-------------|------------|-------|
 | Swarm Molecule Type | Parallel research: scatter → cross-critique → converge | `AI_CORP_ARCHITECTURE.md` | New molecule type |
 | Composite Molecules | Chain molecule types (Swarm → Ralph → escalate) | `AI_CORP_ARCHITECTURE.md` | Orchestration pattern |
-| Evolution Daemon | Background learning cycles (hourly/daily/weekly) | `LEARNING_SYSTEM_DESIGN.md` | Part of Learning System Phase 2 |
-| Context Synthesizer | Transform raw context into understanding | `LEARNING_SYSTEM_DESIGN.md` | Part of Learning System Phase 2 |
 | Data Source Connectors | Gmail, iMessage, Calendar for Personal edition | `INTEGRATIONS_DESIGN.md` | For Personal assistant use case |
 
 ### P3 - Future / Low Priority
@@ -103,6 +101,7 @@
 | Platform Architecture | 2026-01-07 | Apex, Personal, Foundation services defined |
 | Business Model | 2026-01-07 | Pricing, unit economics, token optimization |
 | Learning System Design | 2026-01-07 | Design complete, ready for implementation |
+| Learning System Phase 1 | 2026-01-07 | Distiller, Meta-Learner, Patterns, Ralph Mode integrated |
 | Foundation Corp Bootstrap | 2026-01-07 | Structure, hierarchy, gates, templates ready |
 
 ---
