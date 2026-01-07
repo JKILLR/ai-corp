@@ -1,0 +1,44 @@
+# Content Creation Department
+# Ideation, scripting, and writing
+
+department:
+  id: content_creation
+  name: "Content Creation"
+  description: |
+    Responsible for ideating content topics, writing scripts,
+    creating copy, and researching trends. The creative engine
+    of the content factory.
+
+  head: content_director
+
+  roles:
+    - script_writer      # Long-form scripts (YouTube, podcasts)
+    - copy_writer        # Short-form copy (social, captions)
+    - research_specialist # Trend research, competitor analysis
+
+  capabilities:
+    - content_ideation
+    - script_writing
+    - copywriting
+    - trend_research
+    - seo_optimization
+    - brand_voice_alignment
+
+  integrations:
+    primary:
+      - openai          # Script and copy generation
+      - anthropic       # Alternative generation
+    supporting:
+      - perplexity      # Research and trends
+
+  quality_metrics:
+    - engagement_score
+    - brand_alignment_score
+    - seo_score
+    - originality_score
+
+  workflows:
+    - viral_content_ideation
+    - script_generation
+    - caption_generation
+    - trend_analysis
