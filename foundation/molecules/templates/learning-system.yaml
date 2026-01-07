@@ -1,0 +1,87 @@
+# Molecule Template: Learning System Component
+# Use this for building Learning System features
+
+template:
+  id: learning-system
+  name: "Learning System Component"
+  description: "Add new functionality to the Learning System"
+  typical_duration: "2-5 days"
+
+  variables:
+    - name: component_name
+      description: "Name of the learning component"
+    - name: integrates_with
+      description: "Existing systems this connects to"
+
+  steps:
+    - id: research
+      name: "Research & Design"
+      description: "Understand requirements and design approach"
+      department: research
+      assigned_to: dir_architecture
+      estimated_duration: "2-4 hours"
+      outputs:
+        - design_document
+        - integration_plan
+
+    - id: design_review
+      name: "Design Review"
+      description: "Review learning system design"
+      department: research
+      depends_on: [research]
+      gate: design_review
+      gate_approvers:
+        - vp_engineering
+        - vp_research
+        - ceo_human
+
+    - id: implement_core
+      name: "Implement Core Logic"
+      description: "Build the core component"
+      department: engineering
+      assigned_to: core_workers
+      depends_on: [design_review]
+      estimated_duration: "4-8 hours"
+      checkpoint_frequency: "per_class"
+      outputs:
+        - source_code
+        - unit_tests
+
+    - id: implement_integration
+      name: "Implement Integrations"
+      description: "Connect to existing systems"
+      department: engineering
+      assigned_to: integration_workers
+      depends_on: [implement_core]
+      estimated_duration: "2-4 hours"
+      outputs:
+        - integration_code
+        - integration_tests
+
+    - id: test
+      name: "Testing"
+      description: "Full test suite"
+      department: quality
+      assigned_to: qa_workers
+      depends_on: [implement_integration]
+      gate: qa_review
+
+    - id: documentation
+      name: "Documentation"
+      description: "Update Learning System docs"
+      department: engineering
+      assigned_to: core_workers
+      depends_on: [test]
+      outputs:
+        - updated_learning_system_design
+        - api_docs
+
+    - id: release
+      name: "Release"
+      description: "Merge to main"
+      department: quality
+      depends_on: [documentation]
+      gate: release_gate
+      gate_approvers:
+        - vp_quality
+        - ceo_human

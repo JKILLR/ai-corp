@@ -17,6 +17,7 @@ This module provides the core infrastructure for the AI Corporation:
 - Ingest: RLM-inspired document processing pipeline
 - Skills: Role-based skill discovery and loading
 - Scheduler: Intelligent work scheduling and orchestration
+- Entity Graph: Unified entity management (Mem0/Graphiti-inspired)
 """
 
 from .molecule import Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine
@@ -35,8 +36,28 @@ from .memory import (
     ContextType, ContextVariable, MemoryBuffer,
     ContextEnvironment, RecursiveMemoryManager, ContextCompressor,
     OrganizationalMemory, SubAgentCall,
-    create_agent_memory, load_molecule_to_memory, load_bead_history_to_memory
+    create_agent_memory, load_molecule_to_memory, load_bead_history_to_memory,
+    # Entity Graph integration
+    EntityAwareMemory, load_entity_to_memory, load_entity_profile_to_memory,
+    load_entity_context_to_memory, load_interaction_to_memory,
+    get_entity_context_for_message
 )
+from .entities import (
+    Entity, EntityType, EntitySource, EntityAlias, EntityStore,
+    Relationship, RelationshipType, ConfidenceLevel
+)
+from .interactions import (
+    Interaction, InteractionType, InteractionStore, InteractionProcessor,
+    ExtractedEntity, ActionItem
+)
+from .entity_resolver import (
+    EntityResolver, ResolutionCandidate, MergeDecision, MatchType
+)
+from .entity_summarizer import (
+    EntitySummarizer, SummaryStore, Summary, SummaryType, SummaryScope,
+    EntityProfile
+)
+from .graph import EntityGraph, EntityContext, get_entity_graph
 from .llm import (
     LLMBackend, LLMRequest, LLMResponse, LLMBackendFactory,
     ClaudeCodeBackend, ClaudeAPIBackend, MockBackend,
@@ -84,6 +105,18 @@ __all__ = [
     'ContextEnvironment', 'RecursiveMemoryManager', 'ContextCompressor',
     'OrganizationalMemory', 'SubAgentCall',
     'create_agent_memory', 'load_molecule_to_memory', 'load_bead_history_to_memory',
+    'EntityAwareMemory', 'load_entity_to_memory', 'load_entity_profile_to_memory',
+    'load_entity_context_to_memory', 'load_interaction_to_memory',
+    'get_entity_context_for_message',
+    # Entity Graph (Mem0/Graphiti-inspired)
+    'Entity', 'EntityType', 'EntitySource', 'EntityAlias', 'EntityStore',
+    'Relationship', 'RelationshipType', 'ConfidenceLevel',
+    'Interaction', 'InteractionType', 'InteractionStore', 'InteractionProcessor',
+    'ExtractedEntity', 'ActionItem',
+    'EntityResolver', 'ResolutionCandidate', 'MergeDecision', 'MatchType',
+    'EntitySummarizer', 'SummaryStore', 'Summary', 'SummaryType', 'SummaryScope',
+    'EntityProfile',
+    'EntityGraph', 'EntityContext', 'get_entity_graph',
     # LLM backend interface
     'LLMBackend', 'LLMRequest', 'LLMResponse', 'LLMBackendFactory',
     'ClaudeCodeBackend', 'ClaudeAPIBackend', 'MockBackend',

@@ -1,8 +1,8 @@
 # AI Corp Project State
 
-> **Last Updated:** 2026-01-05
-> **Current Phase:** P1 - Skills & Orchestration Complete
-> **Status:** Skills System & Work Scheduler INTEGRATED
+> **Last Updated:** 2026-01-07
+> **Current Phase:** Platform Architecture & Foundation Corp Bootstrap
+> **Status:** Learning System Designed, Foundation Corp Ready
 
 ---
 
@@ -23,12 +23,76 @@
 | **Skills System** | ✅ Complete | Role-based skill discovery from SKILL.md files |
 | **Work Scheduler** | ✅ Complete | Capability matching, load balancing, dependency resolution |
 | **Executor Integration** | ✅ Complete | CorporationExecutor ↔ WorkScheduler ↔ SkillRegistry |
-| Tests | ✅ Complete | 451+ tests passing |
+| Tests | ✅ Complete | 630+ tests passing |
 | End-to-End Test | ⏳ Ready | CLI flow works with mock backend, ready for real testing |
+| **Entity Graph** | ✅ Complete | Unified entity management (Mem0/Graphiti-inspired) |
+| **File Storage** | ✅ Complete | Internal storage + Google Drive integration |
+| **The Forge** | ✅ Complete | Intention incubation system |
+| **Platform Architecture** | ✅ Complete | Apex, Personal, Foundation services defined |
+| **Business Model** | ✅ Complete | Pricing, unit economics, token optimization |
+| **Learning System** | ✅ Designed | Distiller, Evolution Daemon, Meta-Learner |
+| **Foundation Corp** | ✅ Bootstrapped | Structure, hierarchy, gates, templates ready |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-07: Foundation Corp Bootstrap & Learning System Design
+
+**Foundation Corp Bootstrapped:**
+- `foundation/` directory structure created
+- `foundation/org/hierarchy.yaml` - CEO → COO → VPs → Directors → Workers
+- `foundation/org/departments/` - Engineering, Research, Quality
+- `foundation/org/roles/` - COO, VP Engineering, Worker template
+- `foundation/gates/gates.yaml` - Design Review, QA, Security, Release gates
+- `foundation/molecules/templates/` - core-feature, bug-fix, learning-system
+- Phase 2 (Assisted) - Human CEO approves all changes
+
+**Learning System Designed:**
+- `LEARNING_SYSTEM_DESIGN.md` - Full architecture document
+- Knowledge Distiller - Extract insights from completed molecules
+- Evolution Daemon - Background learning (hourly/daily/weekly cycles)
+- Meta-Learner - Track what works, adjust routing strategies
+- Pattern Library - Store and retrieve validated patterns
+- Context Synthesizer - Transform raw context into understanding
+- Integrates with existing Molecule Engine, Work Scheduler, Memory System
+
+**Business Model Created:**
+- `BUSINESS_MODEL.md` - Full pricing and economics
+- Personal: Free / $19 Pro / $39 Pro+
+- Corp: $99 Starter / $299 Business / $599 Professional / Custom Enterprise
+- Token optimization strategies (40-50% potential savings)
+- Unit economics with 50%+ gross margin target
+
+**Platform Architecture Finalized:**
+- `PLATFORM_ARCHITECTURE.md` - Three-service architecture
+- APEX - Multi-corp management (spawn, monitor, coordinate)
+- PERSONAL - Individual assistant (Entity Graph, data integrations)
+- FOUNDATION - Privileged self-development corp
+- Decisions documented: Core Services (TODO), monorepo, freemium, 5-phase autonomy
+
+### 2026-01-06: Entity Graph & Personal Edition Systems
+
+**Entity Graph System:**
+- `src/core/entities.py` - Entity, Relationship, EntityStore
+- `src/core/interactions.py` - Interaction, InteractionStore
+- `src/core/entity_resolver.py` - Cross-source identity resolution
+- `src/core/entity_summarizer.py` - Hierarchical summaries
+- `src/core/graph.py` - EntityGraph main entry point
+- Mem0/Graphiti-inspired architecture
+- Temporal tracking, relationship strength decay
+
+**File Storage System:**
+- `src/core/filestore.py` - Internal storage + Google Drive integration
+
+**The Forge:**
+- `src/core/forge.py` - Intention incubation system for idea development
+
+**Bug Fixes:**
+- Added missing EntityStore methods (create_entity, create_relationship, add_alias)
+- Added missing InteractionStore methods (create_interaction, get_interaction)
+- Fixed get_connected_entities return type
+- Fixed method name mismatches (get_entity_relationships, _save_relationships)
 
 ### 2026-01-05: Skills System & Work Scheduler Integration Complete
 
@@ -423,21 +487,25 @@ CorporationExecutor
 
 ## Next Actions
 
-### P1 Priority (Ready)
-1. ~~Create pytest test suite~~ ✅ Complete (451+ tests)
-2. ~~Add monitoring~~ ✅ Complete (Phase 3)
-3. ~~Add terminal dashboard~~ ✅ Complete (Phase 4)
-4. ~~Implement skill loading~~ ✅ Complete (Skills System)
-5. ~~Implement work scheduling~~ ✅ Complete (WorkScheduler)
-6. ~~Integrate executor with scheduler~~ ✅ Complete
-7. **End-to-end test with real Claude Code** ← NEXT
+### P1 Priority (Current)
+1. ~~Create pytest test suite~~ ✅ Complete (630+ tests)
+2. ~~Add monitoring~~ ✅ Complete
+3. ~~Add terminal dashboard~~ ✅ Complete
+4. ~~Skills & Work Scheduler~~ ✅ Complete
+5. ~~Entity Graph~~ ✅ Complete
+6. ~~Platform Architecture~~ ✅ Complete
+7. ~~Foundation Corp Bootstrap~~ ✅ Complete
+8. ~~Learning System Design~~ ✅ Complete
+9. **Build Learning System** ← NEXT (Distiller, Meta-Learner, Patterns)
+10. Async Gate Approvals
 
 ### P2 Future
-1. Chapters & Guilds
-2. Fitness functions
-3. Cross-department claiming
-4. Performance optimization
-5. Dashboard: capability/skill view
+1. Evolution Daemon (background learning)
+2. Context Synthesizer
+3. Local model training (Phase 3 of Learning System)
+4. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
+5. Apex Corp Registry
+6. Web UI
 
 ---
 
@@ -482,6 +550,20 @@ STATE.md                 (new - this file)
 
 ---
 
+## Key Documentation
+
+| Document | Purpose |
+|----------|---------|
+| `AI_CORP_ARCHITECTURE.md` | Core Engine technical details |
+| `PLATFORM_ARCHITECTURE.md` | Apex, Personal, Foundation services |
+| `BUSINESS_MODEL.md` | Pricing, unit economics, token optimization |
+| `LEARNING_SYSTEM_DESIGN.md` | Learning System architecture |
+| `foundation/README.md` | Foundation Corp overview |
+| `WORKFLOW.md` | Development standards (TCMO) |
+| `VISION.md` | Long-term vision and principles |
+
+---
+
 ## Notes
 
 - All agents use Claude Opus 4.5 as specified
@@ -489,3 +571,5 @@ STATE.md                 (new - this file)
 - Message processor uses handler pattern for extensibility
 - Executor supports parallel execution via ThreadPoolExecutor
 - Workers have specialty-specific prompts (frontend, backend, devops, etc.)
+- Foundation Corp uses AI Corp to build AI Corp (dogfooding)
+- Learning System will capture insights from every completed molecule

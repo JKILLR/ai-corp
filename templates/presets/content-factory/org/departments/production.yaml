@@ -1,0 +1,48 @@
+# Production Department
+# Video, audio, and image creation
+
+department:
+  id: production
+  name: "Production"
+  description: |
+    Transforms scripts and concepts into finished media assets.
+    Creates videos, audio, images, and other visual content.
+
+  head: production_director
+
+  roles:
+    - video_producer     # Video creation and editing
+    - audio_producer     # Voice, music, sound design
+    - image_creator      # Thumbnails, graphics, images
+
+  capabilities:
+    - video_production
+    - audio_production
+    - image_generation
+    - thumbnail_creation
+    - avatar_video
+    - voice_synthesis
+
+  integrations:
+    primary:
+      - cloudinary      # Media storage and transformation
+      - openai          # Image generation (DALL-E)
+    video:
+      - heygen          # Avatar videos
+      - runway          # AI video generation
+      - synthesia       # Talking head videos
+    audio:
+      - elevenlabs      # Voice synthesis
+      - openai          # Whisper transcription
+
+  quality_metrics:
+    - video_quality_score
+    - audio_clarity_score
+    - thumbnail_ctr_prediction
+    - brand_consistency_score
+
+  workflows:
+    - text_to_video
+    - avatar_video_production
+    - thumbnail_generation
+    - audio_production

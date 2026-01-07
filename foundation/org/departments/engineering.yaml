@@ -1,0 +1,75 @@
+# Foundation Corp - Engineering Department
+# Responsible for building and maintaining all platform code
+
+department:
+  id: engineering
+  name: "Engineering"
+  purpose: "Build and maintain Core Engine, Platform Services, and Presets"
+
+  vp: vp_engineering
+
+  teams:
+    - id: core_team
+      name: "Core Engine Team"
+      director: dir_core
+      focus: "Core primitives - Molecule, Hook, Bead, Channel, Gate, Memory, etc."
+      code_ownership:
+        - src/core/molecule.py
+        - src/core/hook.py
+        - src/core/bead.py
+        - src/core/channel.py
+        - src/core/gate.py
+        - src/core/memory.py
+        - src/core/raci.py
+        - src/core/pool.py
+        - src/core/contract.py
+        - src/core/skills.py
+        - src/core/scheduler.py
+        - src/core/learning/  # New learning system
+
+    - id: platform_team
+      name: "Platform Team"
+      director: dir_platform
+      focus: "Apex, Personal, Core Services"
+      code_ownership:
+        - src/platform/apex/
+        - src/platform/personal/
+        - src/platform/services/
+
+    - id: integrations_team
+      name: "Integrations Team"
+      director: dir_integrations
+      focus: "External integrations - Gmail, Calendar, Drive, etc."
+      code_ownership:
+        - src/core/entities.py
+        - src/core/interactions.py
+        - src/core/entity_resolver.py
+        - src/core/entity_summarizer.py
+        - src/core/graph.py
+        - src/core/filestore.py
+        - src/integrations/
+
+  gates:
+    - id: design_review
+      name: "Design Review"
+      required_for: ["new_feature", "refactor"]
+      approvers: [dir_architecture, vp_engineering]
+
+    - id: code_review
+      name: "Code Review"
+      required_for: ["all"]
+      approvers: [team_lead, peer]
+
+    - id: test_pass
+      name: "Tests Pass"
+      required_for: ["all"]
+      automated: true
+      criteria:
+        - all_tests_pass
+        - coverage_maintained
+
+  workflows:
+    - new_feature
+    - bug_fix
+    - refactor
+    - performance_optimization

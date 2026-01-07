@@ -39,6 +39,12 @@ class ContextType(Enum):
     DECISION = "decision"          # Organizational decisions
     BUFFER = "buffer"              # Accumulated answers
     EXTERNAL = "external"          # External data sources
+    # Entity Graph types
+    ENTITY = "entity"              # Person, organization, project, etc.
+    ENTITY_PROFILE = "entity_profile"  # Rich entity profile with context
+    RELATIONSHIP = "relationship"  # Relationship between entities
+    INTERACTION = "interaction"    # Email, message, meeting, etc.
+    ENTITY_CONTEXT = "entity_context"  # Context package for conversation
 
 
 @dataclass
@@ -930,3 +936,269 @@ def load_bead_history_to_memory(
             'entry_count': len(entries)
         }
     )
+
+
+# =========================================================================
+# Entity Graph Integration
+# =========================================================================
+
+def load_entity_to_memory(
+    env: ContextEnvironment,
+    entity_id: str,
+    entity_graph: 'EntityGraph'
+) -> Optional[ContextVariable]:
+    """
+    Load an entity into the memory environment.
+
+    This provides basic entity information for quick reference.
+    """
+    from .graph import EntityGraph
+
+    entity = entity_graph.entity_store.get_entity(entity_id)
+    if not entity:
+        return None
+
+    return env.store(
+        name=f"entity_{entity_id}",
+        content=entity.to_dict(),
+        context_type=ContextType.ENTITY,
+        summary=f"{entity.name} ({entity.entity_type.value})",
+        metadata={
+            'entity_id': entity_id,
+            'entity_type': entity.entity_type.value,
+            'interaction_count': entity.interaction_count
+        }
+    )
+
+
+def load_entity_profile_to_memory(
+    env: ContextEnvironment,
+    entity_id: str,
+    entity_graph: 'EntityGraph'
+) -> Optional[ContextVariable]:
+    """
+    Load a rich entity profile into the memory environment.
+
+    This provides comprehensive context about an entity including:
+    - Summary and key facts
+    - Recent activity
+    - Relationship summaries
+    - Communication patterns
+    - Pending action items
+    """
+    from .graph import EntityGraph
+
+    profile = entity_graph.get_entity_profile(entity_id)
+    if not profile:
+        return None
+
+    return env.store(
+        name=f"entity_profile_{entity_id}",
+        content=profile.to_dict(),
+        context_type=ContextType.ENTITY_PROFILE,
+        summary=profile.summary,
+        metadata={
+            'entity_id': entity_id,
+            'entity_name': profile.entity.name,
+            'interaction_frequency': profile.interaction_frequency,
+            'pending_actions': len(profile.action_items)
+        }
+    )
+
+
+def load_entity_context_to_memory(
+    env: ContextEnvironment,
+    entity_ids: List[str],
+    entity_graph: 'EntityGraph',
+    context_name: Optional[str] = None
+) -> ContextVariable:
+    """
+    Load full entity context package into memory.
+
+    This is what Claude needs before responding to messages
+    involving specific entities. Includes:
+    - Entity profiles for all participants
+    - Relationship information
+    - Recent shared interactions
+    - Pending action items
+    - Overall context summary
+    """
+    from .graph import EntityGraph
+
+    context = entity_graph.get_context_for_entities(entity_ids)
+
+    name = context_name or f"entity_context_{'_'.join(entity_ids[:3])}"
+
+    return env.store(
+        name=name,
+        content=context.to_dict(),
+        context_type=ContextType.ENTITY_CONTEXT,
+        summary=context.summary[:200] if context.summary else "Entity context package",
+        metadata={
+            'entity_ids': entity_ids,
+            'entity_count': len(context.entities),
+            'relationship_count': len(context.relationships),
+            'pending_actions': len(context.pending_actions)
+        }
+    )
+
+
+def load_interaction_to_memory(
+    env: ContextEnvironment,
+    interaction_id: str,
+    entity_graph: 'EntityGraph'
+) -> Optional[ContextVariable]:
+    """Load an interaction into the memory environment"""
+    from .graph import EntityGraph
+
+    interaction = entity_graph.interaction_store.get_interaction(interaction_id)
+    if not interaction:
+        return None
+
+    return env.store(
+        name=f"interaction_{interaction_id}",
+        content=interaction.to_dict(),
+        context_type=ContextType.INTERACTION,
+        summary=f"{interaction.interaction_type.value}: {interaction.summary[:100]}",
+        metadata={
+            'interaction_id': interaction_id,
+            'interaction_type': interaction.interaction_type.value,
+            'participant_count': len(interaction.participants),
+            'timestamp': interaction.timestamp
+        }
+    )
+
+
+def get_entity_context_for_message(
+    env: ContextEnvironment,
+    message: str,
+    entity_graph: 'EntityGraph',
+    sender_email: Optional[str] = None
+) -> ContextVariable:
+    """
+    Automatically extract entity mentions from a message and load context.
+
+    This is a convenience function for quickly preparing context
+    before Claude processes a message.
+    """
+    from .graph import EntityGraph
+
+    context = entity_graph.get_context_for_message(message, sender_email)
+
+    entity_ids = [p.entity.id for p in context.entities]
+    name = f"msg_context_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+
+    return env.store(
+        name=name,
+        content=context.to_dict(),
+        context_type=ContextType.ENTITY_CONTEXT,
+        summary=context.summary[:200] if context.summary else "Message context",
+        metadata={
+            'entity_ids': entity_ids,
+            'entity_count': len(context.entities),
+            'auto_extracted': True
+        }
+    )
+
+
+class EntityAwareMemory:
+    """
+    Memory system that integrates entity context automatically.
+
+    This wraps ContextEnvironment and EntityGraph to provide
+    seamless entity-aware context management.
+    """
+
+    def __init__(self, corp_path: Path, agent_id: str):
+        from .graph import EntityGraph
+
+        self.env = ContextEnvironment(corp_path, agent_id)
+        self.entity_graph = EntityGraph(corp_path)
+        self.corp_path = corp_path
+        self.agent_id = agent_id
+
+    def prepare_context_for_entities(
+        self,
+        entity_ids: List[str],
+        include_profiles: bool = True,
+        include_relationships: bool = True
+    ) -> Dict[str, ContextVariable]:
+        """
+        Prepare all relevant context for a set of entities.
+
+        Returns a dictionary of context variables loaded into memory.
+        """
+        loaded = {}
+
+        # Load entity context package
+        ctx_var = load_entity_context_to_memory(
+            self.env,
+            entity_ids,
+            self.entity_graph
+        )
+        loaded['context'] = ctx_var
+
+        # Optionally load individual profiles
+        if include_profiles:
+            for eid in entity_ids:
+                profile_var = load_entity_profile_to_memory(
+                    self.env, eid, self.entity_graph
+                )
+                if profile_var:
+                    loaded[f'profile_{eid}'] = profile_var
+
+        return loaded
+
+    def prepare_context_for_message(
+        self,
+        message: str,
+        sender_email: Optional[str] = None
+    ) -> ContextVariable:
+        """
+        Automatically prepare context for processing a message.
+
+        Extracts entity mentions and loads all relevant context.
+        """
+        return get_entity_context_for_message(
+            self.env,
+            message,
+            self.entity_graph,
+            sender_email
+        )
+
+    def get_entity_graph(self) -> 'EntityGraph':
+        """Get the underlying entity graph"""
+        return self.entity_graph
+
+    def get_environment(self) -> ContextEnvironment:
+        """Get the underlying context environment"""
+        return self.env
+
+    def process_interaction(
+        self,
+        interaction_type: str,
+        **kwargs
+    ) -> None:
+        """
+        Process an interaction and update the entity graph.
+
+        Supported types: 'email', 'message', 'calendar_event'
+        """
+        if interaction_type == 'email':
+            self.entity_graph.process_email(**kwargs)
+        elif interaction_type == 'message':
+            self.entity_graph.process_message(**kwargs)
+        elif interaction_type == 'calendar_event':
+            self.entity_graph.process_calendar_event(**kwargs)
+        else:
+            raise ValueError(f"Unknown interaction type: {interaction_type}")
+
+    def get_context_prompt(self, entity_ids: List[str]) -> str:
+        """
+        Get a prompt-ready context string for entities.
+
+        This is what you inject into Claude's prompt before
+        processing messages about these entities.
+        """
+        context = self.entity_graph.get_context_for_entities(entity_ids)
+        return context.to_prompt()
