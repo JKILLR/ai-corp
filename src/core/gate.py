@@ -874,13 +874,21 @@ class AsyncGateEvaluator:
 
     Runs auto-check criteria in background threads and determines
     whether submissions can be auto-approved based on the gate's policy.
+
+    Integrations:
+    - BeadLedger: Records auto-approvals in audit trail
+    - ChannelManager: Sends notifications when policy allows
+    - MoleculeEngine: Updates molecule status on auto-approve
     """
 
     def __init__(
         self,
         gate_keeper: GateKeeper,
         max_workers: int = 4,
-        working_directory: Optional[Path] = None
+        working_directory: Optional[Path] = None,
+        bead_ledger: Optional[Any] = None,
+        channel_manager: Optional[Any] = None,
+        molecule_engine: Optional[Any] = None
     ):
         self.gate_keeper = gate_keeper
         self.max_workers = max_workers
@@ -888,6 +896,11 @@ class AsyncGateEvaluator:
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._pending_futures: Dict[str, Future] = {}
         self._lock = threading.Lock()
+
+        # Integration components (optional)
+        self.bead_ledger = bead_ledger
+        self.channel_manager = channel_manager
+        self.molecule_engine = molecule_engine
 
     def evaluate_async(
         self,
@@ -918,6 +931,16 @@ class AsyncGateEvaluator:
                     )
                     gate.status = GateStatus.APPROVED
                     logger.info(f"Submission {submission.id} auto-approved")
+
+                    # Integration: Record in audit trail
+                    self._record_auto_approval_bead(gate, submission, result)
+
+                    # Integration: Send notification if policy allows
+                    if gate.auto_approval_policy and gate.auto_approval_policy.notify_on_auto_approve:
+                        self._send_auto_approval_notification(gate, submission, result)
+
+                    # Integration: Update molecule status
+                    self._update_molecule_on_approval(gate, submission)
 
                 if callback:
                     callback(submission, result)
@@ -1102,3 +1125,82 @@ class AsyncGateEvaluator:
     def shutdown(self, wait: bool = True) -> None:
         """Shutdown the evaluator"""
         self._executor.shutdown(wait=wait)
+
+    # ==================== Integration Methods ====================
+
+    def _record_auto_approval_bead(
+        self,
+        gate: Gate,
+        submission: GateSubmission,
+        result: AsyncEvaluationResult
+    ) -> None:
+        """Record auto-approval in the audit trail (bead ledger)"""
+        if not self.bead_ledger:
+            return
+
+        try:
+            self.bead_ledger.record(
+                agent_id="auto-approval-system",
+                action="gate_auto_approved",
+                entity_type="gate_submission",
+                entity_id=submission.id,
+                data={
+                    'gate_id': gate.id,
+                    'gate_name': gate.name,
+                    'molecule_id': submission.molecule_id,
+                    'confidence_score': result.confidence_score,
+                    'auto_check_results': result.auto_check_results,
+                    'criteria_results': result.criteria_results,
+                    'policy': gate.auto_approval_policy.to_dict() if gate.auto_approval_policy else None
+                },
+                message=f"Auto-approved gate '{gate.name}' for molecule {submission.molecule_id}"
+            )
+            logger.debug(f"Recorded auto-approval bead for {submission.id}")
+        except Exception as e:
+            logger.warning(f"Failed to record auto-approval bead: {e}")
+
+    def _send_auto_approval_notification(
+        self,
+        gate: Gate,
+        submission: GateSubmission,
+        result: AsyncEvaluationResult
+    ) -> None:
+        """Send notification via channel when gate auto-approves"""
+        if not self.channel_manager:
+            return
+
+        try:
+            # Notify the gate owner
+            self.channel_manager.send_message(
+                channel_id=f"role_{gate.owner_role}",
+                sender="auto-approval-system",
+                content=(
+                    f"Gate '{gate.name}' auto-approved submission {submission.id}\n"
+                    f"Molecule: {submission.molecule_id}\n"
+                    f"Confidence: {result.confidence_score:.0%}\n"
+                    f"Summary: {submission.summary}"
+                ),
+                message_type="notification"
+            )
+            logger.debug(f"Sent auto-approval notification for {submission.id}")
+        except Exception as e:
+            logger.warning(f"Failed to send auto-approval notification: {e}")
+
+    def _update_molecule_on_approval(
+        self,
+        gate: Gate,
+        submission: GateSubmission
+    ) -> None:
+        """Update molecule status when gate auto-approves"""
+        if not self.molecule_engine:
+            return
+
+        try:
+            self.molecule_engine.approve_gate(
+                molecule_id=submission.molecule_id,
+                gate_id=gate.id,
+                approved_by="auto-approval-system"
+            )
+            logger.debug(f"Updated molecule {submission.molecule_id} on auto-approval")
+        except Exception as e:
+            logger.warning(f"Failed to update molecule on auto-approval: {e}")

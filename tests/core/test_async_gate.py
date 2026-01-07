@@ -808,6 +808,185 @@ class TestAsyncGateIntegration:
         evaluator.shutdown()
 
 
+class TestAsyncGateSystemIntegration:
+    """Tests for AsyncGateEvaluator system integrations (Bead, Channel, Molecule)"""
+
+    @pytest.fixture
+    def temp_corp(self):
+        """Create temporary corp directory"""
+        temp_dir = tempfile.mkdtemp()
+        yield Path(temp_dir)
+        shutil.rmtree(temp_dir)
+
+    def test_evaluator_with_integrations_init(self, temp_corp):
+        """Test evaluator can be initialized with integration components"""
+        gate_keeper = GateKeeper(temp_corp)
+
+        # Mock integration components
+        mock_bead = object()
+        mock_channel = object()
+        mock_molecule = object()
+
+        evaluator = AsyncGateEvaluator(
+            gate_keeper,
+            working_directory=temp_corp,
+            bead_ledger=mock_bead,
+            channel_manager=mock_channel,
+            molecule_engine=mock_molecule
+        )
+
+        assert evaluator.bead_ledger is mock_bead
+        assert evaluator.channel_manager is mock_channel
+        assert evaluator.molecule_engine is mock_molecule
+        evaluator.shutdown()
+
+    def test_bead_integration_called_on_auto_approve(self, temp_corp):
+        """Test that bead ledger is called when auto-approval happens"""
+        from src.core.bead import BeadLedger
+
+        gate_keeper = GateKeeper(temp_corp)
+        bead_ledger = BeadLedger(temp_corp, auto_commit=False)  # Disable git commits for test
+
+        gate = gate_keeper.create_gate(
+            name="Test Gate",
+            description="Test",
+            owner_role="test_role",
+            pipeline_stage="test_bead_integration",
+            criteria=[
+                {'name': 'Pass Check', 'description': 'Always passes',
+                 'auto_check': True, 'check_command': 'echo "pass"'},
+            ]
+        )
+        gate.set_auto_approval_policy(AutoApprovalPolicy.auto_checks_only())
+        gate_keeper._save_gate(gate)
+
+        evaluator = AsyncGateEvaluator(
+            gate_keeper,
+            working_directory=temp_corp,
+            bead_ledger=bead_ledger
+        )
+
+        submission = gate.submit("MOL-BEAD-TEST", None, "agent", "Test")
+
+        # Evaluate and check auto-approval triggers bead recording
+        done = threading.Event()
+
+        def on_complete(sub, result):
+            done.set()
+
+        evaluator.evaluate_async(gate, submission, on_complete)
+        done.wait(timeout=5)
+
+        # Check bead was recorded (look for gate_auto_approved action)
+        beads = bead_ledger.get_entries_for_entity("gate_submission", submission.id)
+        auto_approval_beads = [b for b in beads if b.action == "gate_auto_approved"]
+        assert len(auto_approval_beads) >= 1
+
+        evaluator.shutdown()
+
+    def test_molecule_integration_called_on_auto_approve(self, temp_corp):
+        """Test that molecule engine is called when auto-approval happens"""
+        from src.core.molecule import MoleculeEngine, MoleculeStep
+
+        gate_keeper = GateKeeper(temp_corp)
+        molecule_engine = MoleculeEngine(temp_corp)
+
+        # Create a gate
+        gate = gate_keeper.create_gate(
+            name="Test Gate",
+            description="Test",
+            owner_role="test_role",
+            pipeline_stage="test_mol_integration",
+            criteria=[
+                {'name': 'Pass Check', 'description': 'Always passes',
+                 'auto_check': True, 'check_command': 'echo "pass"'},
+            ]
+        )
+        gate.set_auto_approval_policy(AutoApprovalPolicy.auto_checks_only())
+        gate_keeper._save_gate(gate)
+
+        # Create a molecule with a gate step
+        molecule = molecule_engine.create_molecule(
+            "Test Molecule",
+            "Test description",
+            "test-agent"
+        )
+
+        # Add step to the molecule (add_step is on Molecule class, not MoleculeEngine)
+        gate_step = MoleculeStep.create(
+            name="Gate Step",
+            description="Gate step",
+            department="engineering",
+            is_gate=True,
+            gate_id=gate.id
+        )
+        molecule.add_step(gate_step)
+        molecule_engine._save_molecule(molecule)
+
+        molecule_engine.start_molecule(molecule.id)
+        molecule_engine.submit_for_review(molecule.id, gate.id)
+
+        evaluator = AsyncGateEvaluator(
+            gate_keeper,
+            working_directory=temp_corp,
+            molecule_engine=molecule_engine
+        )
+
+        submission = gate.submit(molecule.id, None, "agent", "Test")
+
+        # Evaluate async
+        done = threading.Event()
+
+        def on_complete(sub, result):
+            done.set()
+
+        evaluator.evaluate_async(gate, submission, on_complete)
+        done.wait(timeout=5)
+
+        # Check molecule step was marked complete
+        updated_mol = molecule_engine.get_molecule(molecule.id)
+        # The gate step should have been approved
+        assert submission.auto_approved is True
+
+        evaluator.shutdown()
+
+    def test_no_integration_without_components(self, temp_corp):
+        """Test that missing integration components don't cause errors"""
+        gate_keeper = GateKeeper(temp_corp)
+
+        gate = gate_keeper.create_gate(
+            name="Test Gate",
+            description="Test",
+            owner_role="test_role",
+            pipeline_stage="test_no_integration",
+            criteria=[
+                {'name': 'Pass Check', 'description': 'Always passes',
+                 'auto_check': True, 'check_command': 'echo "pass"'},
+            ]
+        )
+        gate.set_auto_approval_policy(AutoApprovalPolicy.auto_checks_only())
+        gate_keeper._save_gate(gate)
+
+        # Create evaluator WITHOUT integration components
+        evaluator = AsyncGateEvaluator(gate_keeper, working_directory=temp_corp)
+
+        submission = gate.submit("MOL-NO-INT", None, "agent", "Test")
+
+        # This should NOT raise an error even though integrations aren't set
+        done = threading.Event()
+
+        def on_complete(sub, result):
+            done.set()
+
+        evaluator.evaluate_async(gate, submission, on_complete)
+        done.wait(timeout=5)
+
+        # Should still auto-approve
+        assert submission.auto_approved is True
+
+        evaluator.shutdown()
+
+
 # Smoke test
 if __name__ == "__main__":
     print("Running async gate smoke tests...")
