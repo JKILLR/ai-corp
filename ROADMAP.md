@@ -24,11 +24,20 @@
 
 ### P0 - Immediate (Now)
 
-**Learning System** (Approved: 2026-01-07)
+**Learning System + Ralph Mode** (Approved: 2026-01-07)
 - Build the Knowledge Distiller, Meta-Learner, and Pattern Library
+- **Include Ralph Mode**: Retry-with-failure-injection pattern for persistent execution
 - Design doc: `LEARNING_SYSTEM_DESIGN.md`
 - Why: Context/memory and learning are the two most critical systems for effectiveness
+- Ralph Mode is essential because learning FROM failure requires capturing failure context
 - Dependencies: Molecule Engine (complete), Memory System (complete)
+
+**Ralph Mode Components:**
+- `ralph_mode: true` flag on molecules
+- `max_retries` and `cost_cap` safety limits
+- Failure context injection into retry attempts
+- `ralph_criteria` for explicit exit conditions
+- Integration: Failures → Beads → Learning System → Pattern extraction
 
 ---
 
@@ -38,13 +47,17 @@
 
 | Plan | Description | Design Doc | Notes |
 |------|-------------|------------|-------|
-| Learning System | Extract insights from completed molecules | `LEARNING_SYSTEM_DESIGN.md` | Next to implement |
+| Learning System | Extract insights from completed molecules | `LEARNING_SYSTEM_DESIGN.md` | Current - includes Ralph Mode |
+| Ralph Mode | Retry-with-failure-injection for persistent execution | `LEARNING_SYSTEM_DESIGN.md` | Part of Learning System Phase 1 |
+| Depth-Based Context | Agent-level defaults for context retrieval depth | - | Configure existing Entity Graph |
 | Async Gate Approvals | Allow gates to run asynchronously | - | After Learning System |
 
 ### P2 - Medium Priority
 
 | Plan | Description | Design Doc | Notes |
 |------|-------------|------------|-------|
+| Swarm Molecule Type | Parallel research: scatter → cross-critique → converge | `AI_CORP_ARCHITECTURE.md` | New molecule type |
+| Composite Molecules | Chain molecule types (Swarm → Ralph → escalate) | `AI_CORP_ARCHITECTURE.md` | Orchestration pattern |
 | Evolution Daemon | Background learning cycles (hourly/daily/weekly) | `LEARNING_SYSTEM_DESIGN.md` | Part of Learning System Phase 2 |
 | Context Synthesizer | Transform raw context into understanding | `LEARNING_SYSTEM_DESIGN.md` | Part of Learning System Phase 2 |
 | Data Source Connectors | Gmail, iMessage, Calendar for Personal edition | `INTEGRATIONS_DESIGN.md` | For Personal assistant use case |
@@ -117,6 +130,27 @@ Decisions that affect how we build features. Reference before implementing.
 | Dashboard | Terminal only | Separate from eventual web UI |
 | Metrics | 4 core only | Agent heartbeats, queue depths, molecule progress, errors |
 | Learning approach | Distill → Store → Retrieve | Extract patterns from completed work |
+| Ralph Mode | Molecule flag, not separate system | Retry logic belongs to molecule execution |
+| Swarm Pattern | Molecule type, not separate system | Uses existing Channels + WorkScheduler |
+| Context depth | Configure Entity Graph, don't build "Omni-Lens" | Already have relationship traversal |
+| Frontier vs Foundation | Same thing - use "Foundation Corp" | Avoid terminology confusion |
+
+### Terminology Clarifications
+
+| External Term | AI Corp Term | Notes |
+|---------------|--------------|-------|
+| Frontier | Foundation Corp | Privileged self-development corp (already designed) |
+| Apex | Apex Service | Multi-corp management (already designed) |
+| Child Corps | Instance Layer | Running corps (already designed) |
+| Omni-Lens | Entity Graph + depth param | Not a new system - configure existing |
+
+### Rejected/Deferred Ideas
+
+| Idea | Reason | Revisit When |
+|------|--------|--------------|
+| Simplified Plug-in Architecture | Presets are sidetrack from core system | After core complete |
+| Frontier as separate layer | Already exists as Foundation Corp | N/A |
+| Omni-Lens as new system | Entity Graph already does this | N/A |
 
 ---
 

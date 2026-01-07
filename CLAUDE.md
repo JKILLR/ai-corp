@@ -27,9 +27,13 @@ Before making any changes, read these files:
 
 ## Current Priority
 
-**Next to implement:** Learning System (Distiller, Meta-Learner, Pattern Library)
+**Next to implement:** Learning System + Ralph Mode
 
-Design doc: `LEARNING_SYSTEM_DESIGN.md`
+- Knowledge Distiller, Meta-Learner, Pattern Library
+- **Ralph Mode**: Retry-with-failure-injection for persistent execution
+- Design doc: `LEARNING_SYSTEM_DESIGN.md`
+
+**Key concept:** Ralph Mode feeds failure context back into retries, making the Learning System essential for effective persistence.
 
 ---
 

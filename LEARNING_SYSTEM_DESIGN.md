@@ -80,6 +80,8 @@ The Learning System connects to existing components:
 │   → distill   │    │   predictions │    │   insights    │
 │ • On fail     │    │ • Update from │    │ • Synthesize  │
 │   → learn why │    │   outcomes    │    │   context     │
+│ • Ralph Mode  │    │               │    │               │
+│   → feedback  │    │               │    │               │
 └───────────────┘    └───────────────┘    └───────────────┘
         │                    │                    │
         │                    │                    │
@@ -93,6 +95,230 @@ The Learning System connects to existing components:
 │ • Decay unused│    │   performance │    │ • Audit trail │
 └───────────────┘    └───────────────┘    └───────────────┘
 ```
+
+---
+
+## Ralph Mode Integration
+
+Ralph Mode molecules feed failure context back into execution, creating a tight learning loop.
+
+### Execution Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    RALPH MODE EXECUTION LOOP                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ┌─────────┐     ┌─────────┐     ┌─────────┐                  │
+│   │ Execute │────►│ Failed? │─YES─►│ Capture │                  │
+│   │  Step   │     └────┬────┘     │ Failure │                  │
+│   └────▲────┘          │NO        │  Bead   │                  │
+│        │               ▼          └────┬────┘                  │
+│        │         ┌─────────┐           │                       │
+│        │         │ Success │           ▼                       │
+│        │         │ Criteria│     ┌─────────┐                   │
+│        │         │   Met?  │     │ Query   │                   │
+│        │         └────┬────┘     │ Learning│                   │
+│        │              │YES       │ System  │                   │
+│        │              ▼          └────┬────┘                   │
+│        │         ┌─────────┐         │                        │
+│        │         │  EXIT   │         ▼                        │
+│        │         │ SUCCESS │   ┌───────────┐                   │
+│        │         └─────────┘   │  Inject   │                   │
+│        │                       │  Context  │                   │
+│        │                       │ • failure │                   │
+│        │                       │ • history │                   │
+│        │                       │ • patterns│                   │
+│        │                       └─────┬─────┘                   │
+│        │                             │                         │
+│        └─────────────────────────────┘                         │
+│                                                                 │
+│   Exit conditions:                                              │
+│   • ralph_criteria all satisfied                               │
+│   • max_retries exceeded                                       │
+│   • cost_cap reached                                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Integration Points
+
+1. **Failure → Bead**: Every failure captured with full context
+2. **Bead → Learning System**: Distiller extracts patterns from failure sequences
+3. **Learning System → Retry**: Relevant patterns injected as context
+4. **Retry → Success/Failure**: Loop continues with enriched context
+
+### Implementation
+
+```python
+# src/core/learning/ralph.py
+
+@dataclass
+class RalphConfig:
+    max_retries: int = 50
+    cost_cap: float = 10.0  # USD
+    criteria: List[RalphCriterion] = field(default_factory=list)
+    on_failure: FailureStrategy = FailureStrategy.SMART_RESTART
+
+class RalphModeExecutor:
+    """Execute molecules with failure-as-context feedback loop"""
+
+    def __init__(
+        self,
+        molecule_engine: MoleculeEngine,
+        learning_system: LearningSystem,
+        bead_ledger: BeadLedger,
+        budget_tracker: BudgetTracker
+    ):
+        self.molecules = molecule_engine
+        self.learning = learning_system
+        self.beads = bead_ledger
+        self.budget = budget_tracker
+
+    async def execute_with_feedback(
+        self,
+        molecule: Molecule,
+        config: RalphConfig
+    ) -> RalphResult:
+        """Execute molecule with Ralph Mode retry loop"""
+        attempt = 0
+        failure_history: List[FailureBead] = []
+
+        while self._should_continue(molecule.id, config, attempt):
+            attempt += 1
+
+            # Build context from failures and patterns
+            context = await self._build_failure_context(
+                molecule=molecule,
+                failures=failure_history,
+                attempt=attempt
+            )
+
+            # Execute step with enriched context
+            result = await self._execute_step(molecule, context)
+
+            if result.success:
+                if self._all_criteria_met(config.criteria, molecule):
+                    return RalphResult(success=True, attempts=attempt)
+            else:
+                # Capture failure as bead
+                failure_bead = self._record_failure(molecule, result, attempt)
+                failure_history.append(failure_bead)
+
+                # Distill patterns from this failure
+                await self.learning.on_step_fail(molecule, result.error)
+
+                # Determine restart point
+                restart_from = self._identify_restart_point(
+                    molecule, failure_history, config.on_failure
+                )
+                molecule.restart_from(restart_from)
+
+        return RalphResult(success=False, attempts=attempt, failures=failure_history)
+
+    async def _build_failure_context(
+        self,
+        molecule: Molecule,
+        failures: List[FailureBead],
+        attempt: int
+    ) -> FailureContext:
+        """Build enriched context from failure history"""
+        # Get patterns relevant to this type of work
+        patterns = self.learning.patterns.match({
+            'molecule_type': molecule.type,
+            'failure_types': [f.error_type for f in failures],
+            'step': molecule.current_step.name
+        })
+
+        # Get similar past failures and their solutions
+        similar_failures = await self.learning.find_similar_failures(failures[-1] if failures else None)
+
+        return FailureContext(
+            attempt_number=attempt,
+            previous_failures=failures,
+            relevant_patterns=patterns,
+            similar_past_failures=similar_failures,
+            learned_suggestions=[p.recommendation for p in patterns if p.promoted]
+        )
+
+    def _should_continue(self, molecule_id: str, config: RalphConfig, attempt: int) -> bool:
+        """Check if we should continue the loop"""
+        if attempt >= config.max_retries:
+            return False
+        if self.budget.get_spent(molecule_id) >= config.cost_cap:
+            return False
+        return True
+
+    def _identify_restart_point(
+        self,
+        molecule: Molecule,
+        failures: List[FailureBead],
+        strategy: FailureStrategy
+    ) -> str:
+        """Identify optimal restart point based on failure patterns"""
+        if strategy == FailureStrategy.FULL_RESTART:
+            return molecule.steps[0].id
+
+        # Smart restart: find the weak link
+        failure_rates = self._calculate_step_failure_rates(molecule, failures)
+        bottleneck = max(failure_rates.items(), key=lambda x: x[1])
+
+        return bottleneck[0]  # Return step ID with highest failure rate
+```
+
+### Molecule Configuration
+
+```yaml
+# Example Ralph Mode molecule
+molecule:
+  id: MOL-RALPH-001
+  name: "Build and Deploy Feature"
+  type: feature
+
+  # Ralph Mode flags
+  ralph_mode: true
+  ralph_config:
+    max_retries: 30
+    cost_cap: 15.00
+
+    criteria:
+      - condition: "tests_pass"
+        type: boolean
+      - condition: "deployed_to_staging"
+        type: boolean
+      - condition: "smoke_tests_pass"
+        type: boolean
+
+    on_failure:
+      strategy: smart_restart
+      inject_context:
+        - previous_failure_reason
+        - attempt_history
+        - learning_system_patterns
+
+  steps:
+    - id: implement
+      name: "Implement Feature"
+      # ...
+    - id: test
+      name: "Run Tests"
+      # ...
+    - id: deploy
+      name: "Deploy to Staging"
+      # ...
+```
+
+### Learning from Ralph Mode
+
+Ralph Mode provides rich learning data:
+
+| Data Source | Insight Type | Example |
+|-------------|--------------|---------|
+| Failure sequences | Pattern discovery | "Step X fails when Y not complete" |
+| Retry counts | Effort estimation | "This task type averages 5 attempts" |
+| Success after N retries | Persistence value | "Most successes happen by attempt 3" |
+| Cost per success | Budget planning | "Feature molecules cost ~$8 average" |
+| Restart points | Bottleneck detection | "Test step is most common failure" |
 
 ---
 
@@ -849,10 +1075,29 @@ This plugs into the meta-learner without changing other components.
 | Knowledge Distiller | P1 | Insight Store | Medium |
 | Outcome Tracker | P1 | - | Small |
 | Meta-Learner (basic) | P1 | Outcome Tracker | Medium |
-| Pattern Library | P2 | Insight Store | Medium |
+| **Ralph Mode Executor** | P1 | Distiller, Bead Ledger | Medium |
+| **Failure Context Builder** | P1 | Pattern Library | Small |
+| Pattern Library | P1-P2 | Insight Store | Medium |
 | Evolution Daemon | P2 | All P1 | Medium |
 | Context Synthesizer | P2 | Pattern Library | Large |
+| **Swarm Coordinator** | P2 | Channels, WorkScheduler | Medium |
+| **Composite Executor** | P2 | Ralph Mode, Swarm | Medium |
 | Local Models | P3 | All P2 | Large |
+
+### Phase 1: Learning Foundation + Ralph Mode
+1. Insight Store - basic persistence
+2. Knowledge Distiller - extract from molecule completions
+3. Outcome Tracker - record success/failure
+4. Meta-Learner (basic) - track what works
+5. Pattern Library (basic) - store patterns
+6. **Ralph Mode Executor** - retry with failure injection
+7. **Failure Context Builder** - enrich retries with patterns
+
+### Phase 2: Advanced Patterns + Swarm
+1. Evolution Daemon - background learning cycles
+2. Context Synthesizer - deep understanding
+3. **Swarm Coordinator** - parallel research pattern
+4. **Composite Executor** - chain Swarm → Ralph
 
 ---
 
