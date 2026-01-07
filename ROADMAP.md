@@ -124,8 +124,11 @@ Decisions that affect how we build features. Reference before implementing.
 
 | Document | Purpose | When to Update |
 |----------|---------|----------------|
+| `CLAUDE.md` | Auto-read session context | When priorities or reading order changes |
 | `STATE.md` | Current implementation status | Every completed feature |
 | `ROADMAP.md` | Approved plans and priorities | New plans approved, plans completed |
-| `AI_CORP_ARCHITECTURE.md` | Technical architecture details | Architecture changes |
+| `AI_CORP_ARCHITECTURE.md` | Technical architecture details | Any architecture change (planned OR implemented) |
 | `VISION.md` | Core philosophy and principles | Rarely - foundational |
 | `WORKFLOW.md` | Development standards | Process changes |
+
+**New Session Reading Order:** CLAUDE.md → STATE.md → ROADMAP.md → AI_CORP_ARCHITECTURE.md

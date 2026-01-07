@@ -46,13 +46,20 @@ This document defines the rules and processes for working on the AI Corp project
 |----------|----------------|
 | `STATE.md` | Every completed feature |
 | `ROADMAP.md` | New plans approved, plans completed |
-| `AI_CORP_ARCHITECTURE.md` | Architecture changes |
+| `AI_CORP_ARCHITECTURE.md` | Any architecture change (planned OR implemented) |
 
 **Process:**
 1. New idea approved → Add to `ROADMAP.md` under "Approved Plans"
-2. Implementation complete → Update `STATE.md`, move to "Completed" in `ROADMAP.md`
-3. Architecture changed → Update `AI_CORP_ARCHITECTURE.md`
-4. Design doc implemented → Archive to `docs/archive/`
+2. Architecture planned/designed → Update `AI_CORP_ARCHITECTURE.md` with design
+3. Implementation complete → Update `STATE.md`, update architecture doc with implementation details
+4. Move completed item to "Completed" in `ROADMAP.md`
+5. Design doc implemented → Archive to `docs/archive/`
+
+**CRITICAL:** `AI_CORP_ARCHITECTURE.md` must stay current throughout development. Update it when:
+- New systems are designed (before implementation)
+- Existing architecture is modified
+- Implementation reveals design changes
+- Integration points are added between systems
 
 **Other Documentation:**
 - Add docstrings to all classes and public methods

@@ -15,7 +15,9 @@
 |----------|---------|----------------|
 | `STATE.md` | Implementation status | Every completed feature |
 | `ROADMAP.md` | Approved plans/priorities | New plans approved, plans completed |
-| `AI_CORP_ARCHITECTURE.md` | Technical architecture | Architecture changes |
+| `AI_CORP_ARCHITECTURE.md` | Technical architecture | Any architecture change (planned OR implemented) |
+
+**CRITICAL:** Keep `AI_CORP_ARCHITECTURE.md` current throughout development - update when designing, not just after implementing.
 
 **How to Update STATE.md:**
 1. Update "Last Updated" date
@@ -579,9 +581,12 @@ STATE.md                 (new - this file)
 
 | Document | Purpose |
 |----------|---------|
+| `CLAUDE.md` | Auto-read session context (reading order, priorities) |
 | `STATE.md` | Current implementation status (this file) |
 | `ROADMAP.md` | Approved plans, priorities, and decisions |
 | `AI_CORP_ARCHITECTURE.md` | Core Engine technical details |
+
+**New Session Reading Order:** CLAUDE.md → STATE.md → ROADMAP.md → AI_CORP_ARCHITECTURE.md
 
 **Reference Documents:**
 
