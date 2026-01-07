@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-07
-> **Current Phase:** Learning System Implementation
-> **Status:** Core complete, Learning System next
-> **Next Action:** Build Learning System (Distiller, Meta-Learner, Patterns)
+> **Current Phase:** Learning System Phase 1 Complete
+> **Status:** Learning System implemented with Ralph Mode integration
+> **Next Action:** Evolution Daemon (background learning cycles)
 
 ---
 
@@ -55,12 +55,52 @@
 | **The Forge** | ✅ Complete | Intention incubation system |
 | **Platform Architecture** | ✅ Complete | Apex, Personal, Foundation services defined |
 | **Business Model** | ✅ Complete | Pricing, unit economics, token optimization |
-| **Learning System** | ✅ Designed | Distiller, Evolution Daemon, Meta-Learner |
+| **Learning System** | ✅ Complete | Phase 1: Distiller, Meta-Learner, Patterns, Ralph Mode |
 | **Foundation Corp** | ✅ Bootstrapped | Structure, hierarchy, gates, templates ready |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-07: Learning System Phase 1 Complete
+
+**Learning System Implementation:**
+- `src/core/learning.py` - Complete Learning System (~1100 lines)
+  - `InsightStore` - Persist and retrieve insights with deduplication
+  - `OutcomeTracker` - Track success/failure outcomes with metrics
+  - `PatternLibrary` - Store, validate, and promote patterns
+  - `MetaLearner` - Learn what works, adjust routing strategies
+  - `KnowledgeDistiller` - Extract insights from completed molecules
+  - `RalphModeExecutor` - Retry-with-failure-injection logic
+  - `BudgetTracker` - Track spending per molecule for cost caps
+  - `LearningSystem` - Main interface coordinating all components
+
+**Ralph Mode Integration with Molecule Engine:**
+- `src/core/molecule.py` - Updated with Ralph Mode support
+  - `Molecule` class: Added `ralph_mode`, `ralph_config`, `retry_count`, `failure_history` fields
+  - `MoleculeEngine.create_molecule()` - Accept ralph_mode parameters
+  - `MoleculeEngine.fail_step()` - Records failure context, handles retry logic
+  - `MoleculeEngine.enable_ralph_mode()` - Enable on existing molecules
+  - `MoleculeEngine.get_ralph_context()` - Get failure context for retries
+  - `MoleculeEngine.prepare_ralph_retry()` - Reset failed steps for retry
+  - `MoleculeEngine.get_ralph_stats()` - Statistics for Ralph Mode molecules
+  - `MoleculeEngine.list_ralph_molecules()` - List Ralph-enabled molecules
+  - Learning System callbacks on molecule complete/fail
+
+**Tests:**
+- `tests/core/test_learning.py` - 47 tests for Learning System
+- `tests/core/test_molecule.py` - 10 new Ralph Mode tests (46 total)
+- All 93 new tests passing
+
+**Exports Updated:**
+- `src/core/__init__.py` - All Learning System classes exported
+
+**Key Concepts:**
+- Ralph Mode: Retry-with-failure-injection for persistent execution
+- Failure context injected into retry attempts to avoid repeating mistakes
+- Three restart strategies: "beginning", "checkpoint", "smart"
+- Cost caps and max retries for safety limits
+- Learning System notified on molecule complete/fail for knowledge extraction
 
 ### 2026-01-07: Foundation Corp Bootstrap & Learning System Design
 
@@ -478,8 +518,9 @@ CorporationExecutor
 | `monitor.py` | ✅ Stable | System monitoring |
 | `knowledge.py` | ✅ Stable | Scoped knowledge base |
 | `ingest.py` | ✅ Stable | Document ingestion pipeline |
-| `skills.py` | ✅ New | Role-based skill discovery |
-| `scheduler.py` | ✅ New | Work scheduling with capability matching |
+| `skills.py` | ✅ Stable | Role-based skill discovery |
+| `scheduler.py` | ✅ Stable | Work scheduling with capability matching |
+| `learning.py` | ✅ New | Learning System + Ralph Mode |
 
 ### Agents (`src/agents/`)
 
@@ -521,16 +562,19 @@ CorporationExecutor
 6. ~~Platform Architecture~~ ✅ Complete
 7. ~~Foundation Corp Bootstrap~~ ✅ Complete
 8. ~~Learning System Design~~ ✅ Complete
-9. **Build Learning System** ← NEXT (Distiller, Meta-Learner, Patterns)
-10. Async Gate Approvals
+9. ~~Build Learning System~~ ✅ Complete (Phase 1 + Ralph Mode)
+10. Depth-Based Context - Configure Entity Graph depth per agent
+11. Async Gate Approvals
 
 ### P2 Future
-1. Evolution Daemon (background learning)
-2. Context Synthesizer
-3. Local model training (Phase 3 of Learning System)
-4. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
-5. Apex Corp Registry
-6. Web UI
+1. **Evolution Daemon** ← NEXT (background learning cycles)
+2. Swarm Molecule Type (parallel research pattern)
+3. Composite Molecules (chain molecule types)
+4. Context Synthesizer
+5. Local model training (Phase 3 of Learning System)
+6. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
+7. Apex Corp Registry
+8. Web UI
 
 ---
 
@@ -538,10 +582,10 @@ CorporationExecutor
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Core modules | 18 | - |
+| Core modules | 19 | - |
 | Agent types | 5 | 5+ |
-| Lines of code | ~9500 | - |
-| Test count | 451+ | - |
+| Lines of code | ~11000 | - |
+| Test count | 540+ | - |
 | Test coverage | ~40% | 80% |
 | Integration tests | Comprehensive | Comprehensive |
 

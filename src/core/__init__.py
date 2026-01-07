@@ -18,6 +18,7 @@ This module provides the core infrastructure for the AI Corporation:
 - Skills: Role-based skill discovery and loading
 - Scheduler: Intelligent work scheduling and orchestration
 - Entity Graph: Unified entity management (Mem0/Graphiti-inspired)
+- Learning: Learning System with Ralph Mode for persistent execution
 """
 
 from .molecule import Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine
@@ -87,6 +88,19 @@ from .scheduler import (
     WorkScheduler, CapabilityMatcher, LoadBalancer, DependencyResolver,
     SchedulingDecision
 )
+from .learning import (
+    # Enums
+    InsightType, PatternType, FailureStrategy,
+    # Data classes
+    Insight, Outcome, Pattern, RalphCriterion, RalphConfig,
+    FailureBead, FailureContext, RalphResult,
+    SourceEffectiveness, ConfidenceBucket,
+    # Core classes
+    InsightStore, OutcomeTracker, PatternLibrary, MetaLearner,
+    KnowledgeDistiller, RalphModeExecutor, BudgetTracker,
+    # Main interface
+    LearningSystem, get_learning_system
+)
 
 __all__ = [
     'Molecule', 'MoleculeStep', 'MoleculeStatus', 'MoleculeEngine',
@@ -139,4 +153,12 @@ __all__ = [
     # Work Scheduler
     'WorkScheduler', 'CapabilityMatcher', 'LoadBalancer', 'DependencyResolver',
     'SchedulingDecision',
+    # Learning System
+    'InsightType', 'PatternType', 'FailureStrategy',
+    'Insight', 'Outcome', 'Pattern', 'RalphCriterion', 'RalphConfig',
+    'FailureBead', 'FailureContext', 'RalphResult',
+    'SourceEffectiveness', 'ConfidenceBucket',
+    'InsightStore', 'OutcomeTracker', 'PatternLibrary', 'MetaLearner',
+    'KnowledgeDistiller', 'RalphModeExecutor', 'BudgetTracker',
+    'LearningSystem', 'get_learning_system',
 ]
