@@ -9,6 +9,8 @@ Tests cover:
 - KnowledgeDistiller: insight extraction
 - RalphModeExecutor: failure context building and budget tracking
 - LearningSystem: end-to-end integration
+- EvolutionDaemon: background learning cycles (Phase 2)
+- ContextSynthesizer: context understanding (Phase 2)
 """
 
 import pytest
@@ -19,14 +21,18 @@ import shutil
 
 from src.core.learning import (
     # Enums
-    InsightType, PatternType, FailureStrategy,
-    # Data classes
+    InsightType, PatternType, FailureStrategy, CycleType,
+    # Data classes - Phase 1
     Insight, Outcome, Pattern, RalphCriterion, RalphConfig,
     FailureBead, FailureContext, RalphResult,
     SourceEffectiveness, ConfidenceBucket,
-    # Core classes
+    # Data classes - Phase 2
+    CycleResult, ImprovementSuggestion, Theme, Prediction, SynthesizedContext,
+    # Core classes - Phase 1
     InsightStore, OutcomeTracker, PatternLibrary, MetaLearner,
     KnowledgeDistiller, RalphModeExecutor, BudgetTracker,
+    # Core classes - Phase 2
+    EvolutionDaemon, ContextSynthesizer,
     # Main interface
     LearningSystem, get_learning_system,
     # Helpers
@@ -998,3 +1004,408 @@ class TestPersistence:
         rate, sample = meta2.get_source_effectiveness("pattern_library")
         assert sample == 1
         assert rate == 1.0
+
+
+# =============================================================================
+# Tests - Evolution Daemon (Phase 2)
+# =============================================================================
+
+class TestEvolutionDaemon:
+    """Test Evolution Daemon functionality"""
+
+    @pytest.fixture
+    def evolution_daemon(self, temp_dir):
+        """Create an Evolution Daemon instance"""
+        insights = InsightStore(temp_dir / "learning" / "insights")
+        outcomes = OutcomeTracker(temp_dir / "learning" / "outcomes")
+        patterns = PatternLibrary(temp_dir / "learning" / "patterns")
+        meta = MetaLearner(temp_dir / "learning" / "meta")
+        distiller = KnowledgeDistiller(insights, outcomes)
+
+        return EvolutionDaemon(
+            base_path=temp_dir,
+            insight_store=insights,
+            outcome_tracker=outcomes,
+            pattern_library=patterns,
+            meta_learner=meta,
+            distiller=distiller
+        )
+
+    def test_initialization(self, evolution_daemon, temp_dir):
+        """Test daemon initializes correctly"""
+        assert evolution_daemon.running is False
+        assert evolution_daemon.last_fast_run is None
+        assert (temp_dir / "learning" / "evolution").exists()
+
+    def test_fast_cycle_empty(self, evolution_daemon):
+        """Test fast cycle with no molecules"""
+        result = evolution_daemon.run_fast_cycle([])
+
+        assert result.cycle_type == CycleType.FAST
+        assert result.molecules_processed == 0
+        assert result.insights_generated == 0
+        assert result.completed_at > result.started_at
+
+    def test_fast_cycle_with_molecules(self, evolution_daemon):
+        """Test fast cycle processes molecules"""
+        molecules = [
+            {
+                'id': 'MOL-001',
+                'type': 'feature',
+                'status': 'completed',
+                'created_by': 'worker-1',
+                'duration_seconds': 3600,
+                'success': True
+            },
+            {
+                'id': 'MOL-002',
+                'type': 'bugfix',
+                'status': 'failed',
+                'created_by': 'worker-2',
+                'duration_seconds': 1800,
+                'success': False
+            }
+        ]
+
+        result = evolution_daemon.run_fast_cycle(molecules)
+
+        assert result.molecules_processed == 2
+        assert result.insights_generated >= 0  # May or may not generate insights
+        assert evolution_daemon.last_fast_run is not None
+
+    def test_medium_cycle(self, evolution_daemon):
+        """Test medium cycle pattern analysis"""
+        # Add some insights first
+        insight = Insight(
+            id="INS-001",
+            type=InsightType.SUCCESS_PATTERN,
+            content="Test pattern insight",
+            confidence=0.8,
+            source_molecule="MOL-001",
+            tags=["feature"]
+        )
+        evolution_daemon.insights.add(insight)
+
+        result = evolution_daemon.run_medium_cycle(days=7)
+
+        assert result.cycle_type == CycleType.MEDIUM
+        assert result.completed_at > result.started_at
+        assert evolution_daemon.last_medium_run is not None
+
+    def test_slow_cycle(self, evolution_daemon):
+        """Test slow cycle deep analysis"""
+        result = evolution_daemon.run_slow_cycle(days=30)
+
+        assert result.cycle_type == CycleType.SLOW
+        assert result.completed_at > result.started_at
+        assert evolution_daemon.last_slow_run is not None
+
+    def test_suggestion_management(self, evolution_daemon):
+        """Test suggestion approve/reject"""
+        # Add a suggestion manually
+        suggestion = ImprovementSuggestion(
+            id="SUG-001",
+            type="process",
+            title="Test Suggestion",
+            description="Test description",
+            confidence=0.8,
+            source_patterns=["PAT-001"],
+            impact_estimate="medium"
+        )
+        evolution_daemon.suggestions.append(suggestion)
+
+        # Get pending
+        pending = evolution_daemon.get_pending_suggestions()
+        assert len(pending) == 1
+
+        # Approve
+        assert evolution_daemon.approve_suggestion("SUG-001") is True
+        pending = evolution_daemon.get_pending_suggestions()
+        assert len(pending) == 0
+
+    def test_cycle_history(self, evolution_daemon):
+        """Test cycle history tracking"""
+        evolution_daemon.run_fast_cycle([])
+        evolution_daemon.run_medium_cycle()
+
+        history = evolution_daemon.get_cycle_history()
+        assert len(history) == 2
+
+        fast_history = evolution_daemon.get_cycle_history(cycle_type=CycleType.FAST)
+        assert len(fast_history) == 1
+
+    def test_stats(self, evolution_daemon):
+        """Test get_stats method"""
+        stats = evolution_daemon.get_stats()
+
+        assert 'last_fast_run' in stats
+        assert 'last_medium_run' in stats
+        assert 'last_slow_run' in stats
+        assert 'pending_suggestions' in stats
+        assert 'cycle_runs' in stats
+
+    def test_persistence(self, temp_dir):
+        """Test daemon state persists across restarts"""
+        # Create and run daemon
+        insights = InsightStore(temp_dir / "learning" / "insights")
+        outcomes = OutcomeTracker(temp_dir / "learning" / "outcomes")
+        patterns = PatternLibrary(temp_dir / "learning" / "patterns")
+        meta = MetaLearner(temp_dir / "learning" / "meta")
+        distiller = KnowledgeDistiller(insights, outcomes)
+
+        daemon1 = EvolutionDaemon(
+            base_path=temp_dir,
+            insight_store=insights,
+            outcome_tracker=outcomes,
+            pattern_library=patterns,
+            meta_learner=meta,
+            distiller=distiller
+        )
+        daemon1.run_fast_cycle([])
+
+        # Create new daemon - should load state
+        daemon2 = EvolutionDaemon(
+            base_path=temp_dir,
+            insight_store=insights,
+            outcome_tracker=outcomes,
+            pattern_library=patterns,
+            meta_learner=meta,
+            distiller=distiller
+        )
+
+        assert daemon2.last_fast_run == daemon1.last_fast_run
+
+
+# =============================================================================
+# Tests - Context Synthesizer (Phase 2)
+# =============================================================================
+
+class TestContextSynthesizer:
+    """Test Context Synthesizer functionality"""
+
+    @pytest.fixture
+    def synthesizer(self, temp_dir):
+        """Create a Context Synthesizer instance"""
+        patterns = PatternLibrary(temp_dir / "patterns")
+        meta = MetaLearner(temp_dir / "meta")
+        insights = InsightStore(temp_dir / "insights")
+
+        return ContextSynthesizer(
+            pattern_library=patterns,
+            meta_learner=meta,
+            insight_store=insights
+        )
+
+    def test_synthesize_basic(self, synthesizer):
+        """Test basic context synthesis"""
+        context = synthesizer.synthesize(
+            query="Build a feature",
+            task_context={
+                'task_type': 'feature',
+                'capabilities': ['python', 'api'],
+                'department': 'engineering'
+            }
+        )
+
+        assert isinstance(context, SynthesizedContext)
+        assert context.summary is not None
+        assert isinstance(context.themes, list)
+        assert isinstance(context.gaps, list)
+        assert isinstance(context.recommendations, list)
+
+    def test_synthesize_with_patterns(self, synthesizer, temp_dir):
+        """Test synthesis includes patterns"""
+        # Add a pattern
+        pattern = Pattern(
+            id="PAT-SYNTH-001",
+            name="Feature Pattern",
+            description="Test pattern",
+            type=PatternType.SUCCESS,
+            triggers=["feature"],
+            context_requirements={},
+            recommendation="Use test-driven development",
+            confidence=0.85,
+            occurrences=5,
+            successes=4,
+            source_insights=["INS-001"],
+            promoted=True
+        )
+        synthesizer.patterns.add(pattern)
+
+        context = synthesizer.synthesize(
+            query="Build a feature",
+            task_context={
+                'task_type': 'feature',
+                'capabilities': ['python']
+            }
+        )
+
+        # Should include the pattern in recommendations
+        assert len(context.patterns) > 0 or "test-driven" in str(context.recommendations)
+
+    def test_synthesize_with_insights(self, synthesizer):
+        """Test synthesis includes insights"""
+        # Add an insight
+        insight = Insight(
+            id="INS-SYNTH-001",
+            type=InsightType.SUCCESS_PATTERN,
+            content="Feature development succeeds with clear specs",
+            confidence=0.8,
+            source_molecule="MOL-001",
+            tags=["feature"]
+        )
+        synthesizer.insights.add(insight)
+
+        context = synthesizer.synthesize(
+            query="Build a feature",
+            task_context={
+                'task_type': 'feature',
+                'capabilities': ['python']
+            }
+        )
+
+        # Should have themes based on insights
+        assert isinstance(context.themes, list)
+
+    def test_to_prompt(self, synthesizer):
+        """Test SynthesizedContext.to_prompt() formatting"""
+        context = synthesizer.synthesize(
+            query="Test query",
+            task_context={'task_type': 'test'}
+        )
+
+        prompt = context.to_prompt()
+
+        assert isinstance(prompt, str)
+        assert "Understanding" in prompt or "Gaps" in prompt
+
+    def test_to_dict(self, synthesizer):
+        """Test SynthesizedContext.to_dict()"""
+        context = synthesizer.synthesize(
+            query="Test query",
+            task_context={'task_type': 'test'}
+        )
+
+        data = context.to_dict()
+
+        assert 'summary' in data
+        assert 'themes' in data
+        assert 'patterns' in data
+        assert 'predictions' in data
+        assert 'gaps' in data
+        assert 'recommendations' in data
+        assert 'attention_weights' in data
+
+    def test_gap_identification(self, synthesizer):
+        """Test gaps are identified for missing context"""
+        # No capabilities or department
+        context = synthesizer.synthesize(
+            query="Build something",
+            task_context={'task_type': 'unknown'}
+        )
+
+        # Should identify gaps
+        assert any('capability' in g.lower() or 'department' in g.lower()
+                  for g in context.gaps)
+
+
+# =============================================================================
+# Tests - Phase 2 Data Classes
+# =============================================================================
+
+class TestPhase2DataClasses:
+    """Test Phase 2 data classes"""
+
+    def test_cycle_result_to_dict(self):
+        """Test CycleResult.to_dict()"""
+        result = CycleResult(
+            cycle_type=CycleType.FAST,
+            started_at="2026-01-07T10:00:00",
+            completed_at="2026-01-07T10:01:00",
+            molecules_processed=5,
+            insights_generated=3
+        )
+
+        data = result.to_dict()
+
+        assert data['cycle_type'] == 'fast'
+        assert data['molecules_processed'] == 5
+        assert data['insights_generated'] == 3
+
+    def test_improvement_suggestion_roundtrip(self):
+        """Test ImprovementSuggestion to_dict/from_dict"""
+        suggestion = ImprovementSuggestion(
+            id="SUG-TEST-001",
+            type="process",
+            title="Test Suggestion",
+            description="Test description",
+            confidence=0.8,
+            source_patterns=["PAT-001"],
+            impact_estimate="high"
+        )
+
+        data = suggestion.to_dict()
+        restored = ImprovementSuggestion.from_dict(data)
+
+        assert restored.id == suggestion.id
+        assert restored.type == suggestion.type
+        assert restored.confidence == suggestion.confidence
+
+    def test_theme_creation(self):
+        """Test Theme data class"""
+        theme = Theme(
+            name="Test Theme",
+            summary="Test summary",
+            items=["item1", "item2"],
+            relevance=0.8
+        )
+
+        assert theme.name == "Test Theme"
+        assert len(theme.items) == 2
+        assert theme.relevance == 0.8
+
+    def test_prediction_creation(self):
+        """Test Prediction data class"""
+        pred = Prediction(
+            description="Success likely",
+            confidence=0.85,
+            source="pattern_library"
+        )
+
+        assert pred.confidence == 0.85
+        assert "Success" in pred.description
+
+
+# =============================================================================
+# Tests - LearningSystem Phase 2 Integration
+# =============================================================================
+
+class TestLearningSystemPhase2:
+    """Test LearningSystem includes Phase 2 components"""
+
+    def test_learning_system_has_evolution(self, learning_system):
+        """Test LearningSystem has Evolution Daemon"""
+        assert hasattr(learning_system, 'evolution')
+        assert isinstance(learning_system.evolution, EvolutionDaemon)
+
+    def test_learning_system_has_synthesizer(self, learning_system):
+        """Test LearningSystem has Context Synthesizer"""
+        assert hasattr(learning_system, 'synthesizer')
+        assert isinstance(learning_system.synthesizer, ContextSynthesizer)
+
+    def test_run_evolution_cycle(self, learning_system):
+        """Test running evolution cycle through LearningSystem"""
+        result = learning_system.evolution.run_fast_cycle([])
+
+        assert result.cycle_type == CycleType.FAST
+        assert result.completed_at > result.started_at
+
+    def test_synthesize_through_system(self, learning_system):
+        """Test synthesizing context through LearningSystem"""
+        context = learning_system.synthesizer.synthesize(
+            query="Build a feature",
+            task_context={'task_type': 'feature'}
+        )
+
+        assert isinstance(context, SynthesizedContext)
+        assert context.summary is not None

@@ -1391,23 +1391,939 @@ class RalphModeExecutor:
 
 
 # =============================================================================
+# Evolution Daemon (Phase 2)
+# =============================================================================
+
+class CycleType(Enum):
+    """Types of evolution cycles"""
+    FAST = "fast"      # Hourly - process recent outcomes
+    MEDIUM = "medium"  # Daily - pattern analysis
+    SLOW = "slow"      # Weekly - deep analysis
+
+
+@dataclass
+class CycleResult:
+    """Result of an evolution cycle"""
+    cycle_type: CycleType
+    started_at: str
+    completed_at: str
+    molecules_processed: int = 0
+    insights_generated: int = 0
+    patterns_discovered: int = 0
+    patterns_promoted: int = 0
+    suggestions_generated: int = 0
+    errors: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'cycle_type': self.cycle_type.value,
+            'started_at': self.started_at,
+            'completed_at': self.completed_at,
+            'molecules_processed': self.molecules_processed,
+            'insights_generated': self.insights_generated,
+            'patterns_discovered': self.patterns_discovered,
+            'patterns_promoted': self.patterns_promoted,
+            'suggestions_generated': self.suggestions_generated,
+            'errors': self.errors
+        }
+
+
+@dataclass
+class ImprovementSuggestion:
+    """A suggestion for system improvement"""
+    id: str
+    type: str  # "process", "assignment", "timing", "structure"
+    title: str
+    description: str
+    confidence: float
+    source_patterns: List[str]
+    impact_estimate: str  # "low", "medium", "high"
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    status: str = "pending"  # "pending", "approved", "rejected", "implemented"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'type': self.type,
+            'title': self.title,
+            'description': self.description,
+            'confidence': self.confidence,
+            'source_patterns': self.source_patterns,
+            'impact_estimate': self.impact_estimate,
+            'created_at': self.created_at,
+            'status': self.status
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ImprovementSuggestion':
+        return cls(**data)
+
+
+class EvolutionDaemon:
+    """
+    Background learning process that continuously improves the system.
+
+    Runs three cycles:
+    - Fast (hourly): Process recent outcomes, update predictions
+    - Medium (daily): Analyze patterns, suggest improvements
+    - Slow (weekly): Deep analysis, generate Foundation tasks
+    """
+
+    def __init__(
+        self,
+        base_path: Path,
+        insight_store: InsightStore,
+        outcome_tracker: OutcomeTracker,
+        pattern_library: PatternLibrary,
+        meta_learner: MetaLearner,
+        distiller: KnowledgeDistiller
+    ):
+        self.base_path = base_path
+        self.insights = insight_store
+        self.outcomes = outcome_tracker
+        self.patterns = pattern_library
+        self.meta = meta_learner
+        self.distiller = distiller
+
+        # Evolution state
+        self.evolution_path = base_path / "learning" / "evolution"
+        self.evolution_path.mkdir(parents=True, exist_ok=True)
+
+        # Track last run times
+        self.last_fast_run: Optional[str] = None
+        self.last_medium_run: Optional[str] = None
+        self.last_slow_run: Optional[str] = None
+
+        # Suggestions queue
+        self.suggestions: List[ImprovementSuggestion] = []
+
+        # Cycle history
+        self.cycle_history: List[CycleResult] = []
+
+        # Running state (for async operation)
+        self.running = False
+
+        self._load_state()
+        logger.info("Evolution Daemon initialized")
+
+    def _load_state(self):
+        """Load daemon state from disk"""
+        state_file = self.evolution_path / "daemon_state.yaml"
+        if state_file.exists():
+            try:
+                state = yaml.safe_load(state_file.read_text())
+                self.last_fast_run = state.get('last_fast_run')
+                self.last_medium_run = state.get('last_medium_run')
+                self.last_slow_run = state.get('last_slow_run')
+            except Exception as e:
+                logger.warning(f"Failed to load daemon state: {e}")
+
+        # Load suggestions
+        suggestions_file = self.evolution_path / "suggestions.yaml"
+        if suggestions_file.exists():
+            try:
+                data = yaml.safe_load(suggestions_file.read_text()) or []
+                self.suggestions = [ImprovementSuggestion.from_dict(s) for s in data]
+            except Exception as e:
+                logger.warning(f"Failed to load suggestions: {e}")
+
+    def _save_state(self):
+        """Save daemon state to disk"""
+        state_file = self.evolution_path / "daemon_state.yaml"
+        state = {
+            'last_fast_run': self.last_fast_run,
+            'last_medium_run': self.last_medium_run,
+            'last_slow_run': self.last_slow_run
+        }
+        state_file.write_text(yaml.dump(state, default_flow_style=False))
+
+        # Save suggestions
+        suggestions_file = self.evolution_path / "suggestions.yaml"
+        suggestions_file.write_text(yaml.dump(
+            [s.to_dict() for s in self.suggestions],
+            default_flow_style=False
+        ))
+
+    # =========================================================================
+    # Cycle Execution (Synchronous versions for non-async contexts)
+    # =========================================================================
+
+    def run_fast_cycle(self, completed_molecules: Optional[List[Dict[str, Any]]] = None) -> CycleResult:
+        """
+        Fast cycle (hourly): Process recent outcomes.
+
+        Args:
+            completed_molecules: List of completed molecule data dicts.
+                                If None, looks for unprocessed molecules.
+        """
+        started = datetime.now().isoformat()
+        result = CycleResult(
+            cycle_type=CycleType.FAST,
+            started_at=started,
+            completed_at=""
+        )
+
+        try:
+            molecules = completed_molecules or []
+            result.molecules_processed = len(molecules)
+
+            # 1. Distill each molecule
+            all_insights = []
+            for mol_data in molecules:
+                try:
+                    insights = self.distiller.distill(mol_data)
+                    all_insights.extend(insights)
+                except Exception as e:
+                    result.errors.append(f"Distill error for {mol_data.get('id', 'unknown')}: {e}")
+
+            result.insights_generated = len(all_insights)
+
+            # 2. Update meta-learner with outcomes
+            for mol_data in molecules:
+                success = mol_data.get('status') == 'completed' or mol_data.get('success', False)
+                self.meta.record_outcome(
+                    task_type=mol_data.get('type', 'unknown'),
+                    assigned_to=mol_data.get('created_by', 'unknown'),
+                    success=success,
+                    duration=mol_data.get('duration_seconds', 0),
+                    sources_used=['molecule_completion']
+                )
+
+            # 3. Quick pattern check - promote any ready patterns
+            for pattern in self.patterns.get_all():
+                if not pattern.promoted and pattern.confidence > 0.8 and pattern.occurrences >= 5:
+                    self.patterns.promote(pattern)
+                    result.patterns_promoted += 1
+
+            self.last_fast_run = started
+
+        except Exception as e:
+            result.errors.append(f"Fast cycle error: {e}")
+            logger.error(f"Fast cycle failed: {e}")
+
+        result.completed_at = datetime.now().isoformat()
+        self.cycle_history.append(result)
+        self._save_state()
+        self._save_cycle_result(result)
+
+        logger.info(f"Fast cycle complete: {result.molecules_processed} molecules, "
+                   f"{result.insights_generated} insights")
+        return result
+
+    def run_medium_cycle(self, days: int = 7) -> CycleResult:
+        """
+        Medium cycle (daily): Pattern analysis and improvement suggestions.
+
+        Args:
+            days: Number of days of insights to analyze
+        """
+        started = datetime.now().isoformat()
+        result = CycleResult(
+            cycle_type=CycleType.MEDIUM,
+            started_at=started,
+            completed_at=""
+        )
+
+        try:
+            # 1. Get recent insights
+            recent_insights = self.insights.get_since(days)
+
+            # 2. Discover new patterns
+            new_patterns = self.patterns.discover(recent_insights)
+            for pattern in new_patterns:
+                self.patterns.add(pattern)
+            result.patterns_discovered = len(new_patterns)
+
+            # 3. Validate existing patterns against new data
+            validated_count = self._validate_patterns(recent_insights)
+
+            # 4. Promote high-confidence patterns
+            for pattern in self.patterns.get_all():
+                if not pattern.promoted and pattern.confidence > 0.8 and pattern.occurrences >= 3:
+                    self.patterns.promote(pattern)
+                    result.patterns_promoted += 1
+
+            # 5. Generate improvement suggestions
+            suggestions = self._generate_suggestions(new_patterns)
+            self.suggestions.extend(suggestions)
+            result.suggestions_generated = len(suggestions)
+
+            self.last_medium_run = started
+
+        except Exception as e:
+            result.errors.append(f"Medium cycle error: {e}")
+            logger.error(f"Medium cycle failed: {e}")
+
+        result.completed_at = datetime.now().isoformat()
+        self.cycle_history.append(result)
+        self._save_state()
+        self._save_cycle_result(result)
+
+        logger.info(f"Medium cycle complete: {result.patterns_discovered} patterns discovered, "
+                   f"{result.suggestions_generated} suggestions")
+        return result
+
+    def run_slow_cycle(self, days: int = 30) -> CycleResult:
+        """
+        Slow cycle (weekly): Deep analysis, generate improvement tasks.
+
+        Args:
+            days: Number of days of data to analyze
+        """
+        started = datetime.now().isoformat()
+        result = CycleResult(
+            cycle_type=CycleType.SLOW,
+            started_at=started,
+            completed_at=""
+        )
+
+        try:
+            # 1. Comprehensive outcome analysis
+            analysis = self._analyze_outcomes(days)
+
+            # 2. Identify systematic issues
+            issues = self._identify_systematic_issues(analysis)
+
+            # 3. Generate high-impact suggestions
+            for issue in issues:
+                if issue.get('severity', 0) > 0.7:
+                    suggestion = ImprovementSuggestion(
+                        id=f"SUG-{datetime.now().strftime('%Y%m%d%H%M%S')}-{len(self.suggestions)}",
+                        type=issue.get('type', 'process'),
+                        title=issue.get('title', 'System Issue'),
+                        description=issue.get('description', ''),
+                        confidence=issue.get('confidence', 0.5),
+                        source_patterns=issue.get('patterns', []),
+                        impact_estimate='high'
+                    )
+                    self.suggestions.append(suggestion)
+                    result.suggestions_generated += 1
+
+            # 4. Generate performance report
+            report = self._generate_performance_report(days, analysis)
+            self._save_report(report)
+
+            # 5. Consolidate insights - merge similar ones
+            consolidated = self._consolidate_insights()
+            result.insights_generated = consolidated
+
+            self.last_slow_run = started
+
+        except Exception as e:
+            result.errors.append(f"Slow cycle error: {e}")
+            logger.error(f"Slow cycle failed: {e}")
+
+        result.completed_at = datetime.now().isoformat()
+        self.cycle_history.append(result)
+        self._save_state()
+        self._save_cycle_result(result)
+
+        logger.info(f"Slow cycle complete: {result.suggestions_generated} suggestions, "
+                   f"report generated")
+        return result
+
+    # =========================================================================
+    # Analysis Helpers
+    # =========================================================================
+
+    def _validate_patterns(self, insights: List[Insight]) -> int:
+        """Validate existing patterns against new insights"""
+        validated = 0
+        for pattern in self.patterns.get_all():
+            # Check if pattern is relevant to any insight
+            for insight in insights:
+                if self._pattern_relevant_to_insight(pattern, insight):
+                    # Update pattern based on insight
+                    if insight.validated:
+                        pattern.occurrences += 1
+                        validated += 1
+        return validated
+
+    def _pattern_relevant_to_insight(self, pattern: Pattern, insight: Insight) -> bool:
+        """Check if a pattern is relevant to an insight"""
+        # Simple matching based on tags and type
+        pattern_tags = set(pattern.triggers)
+        insight_tags = set(insight.tags)
+        return bool(pattern_tags & insight_tags)
+
+    def _generate_suggestions(self, patterns: List[Pattern]) -> List[ImprovementSuggestion]:
+        """Generate improvement suggestions from patterns"""
+        suggestions = []
+
+        # Group patterns by type
+        failure_patterns = [p for p in patterns if p.type == PatternType.FAILURE]
+        timing_patterns = [p for p in patterns if p.type == PatternType.TIMING]
+
+        # Failure pattern suggestions
+        for pattern in failure_patterns:
+            if pattern.confidence > 0.7:
+                suggestions.append(ImprovementSuggestion(
+                    id=f"SUG-{datetime.now().strftime('%Y%m%d%H%M%S')}-{len(suggestions)}",
+                    type="process",
+                    title=f"Address recurring failure: {pattern.name}",
+                    description=f"Pattern detected: {pattern.description}\n"
+                               f"Recommendation: {pattern.recommendation}",
+                    confidence=pattern.confidence,
+                    source_patterns=[pattern.id],
+                    impact_estimate="medium" if pattern.occurrences < 5 else "high"
+                ))
+
+        # Timing pattern suggestions
+        for pattern in timing_patterns:
+            if pattern.confidence > 0.7 and 'slow' in pattern.name.lower():
+                suggestions.append(ImprovementSuggestion(
+                    id=f"SUG-{datetime.now().strftime('%Y%m%d%H%M%S')}-{len(suggestions)}",
+                    type="timing",
+                    title=f"Optimize slow process: {pattern.name}",
+                    description=pattern.description,
+                    confidence=pattern.confidence,
+                    source_patterns=[pattern.id],
+                    impact_estimate="medium"
+                ))
+
+        return suggestions
+
+    def _analyze_outcomes(self, days: int) -> Dict[str, Any]:
+        """Analyze outcomes for the specified period"""
+        # Get outcomes from tracker
+        all_outcomes = self.outcomes.outcomes
+
+        # Filter by date
+        cutoff = datetime.now().isoformat()[:10]  # Just date part
+        recent_outcomes = [o for o in all_outcomes
+                         if o.created_at[:10] >= cutoff[:10]]  # Simplified date comparison
+
+        total = len(recent_outcomes)
+        successes = len([o for o in recent_outcomes if o.success])
+        failures = total - successes
+
+        # Calculate averages
+        total_duration = sum(o.duration_seconds for o in recent_outcomes)
+        avg_duration = total_duration / total if total > 0 else 0
+
+        total_cost = sum(o.cost_usd for o in recent_outcomes)
+        avg_cost = total_cost / total if total > 0 else 0
+
+        # Group by type
+        by_type: Dict[str, List[Outcome]] = {}
+        for o in recent_outcomes:
+            by_type.setdefault(o.molecule_type, []).append(o)
+
+        type_stats = {}
+        for mol_type, outcomes in by_type.items():
+            type_successes = len([o for o in outcomes if o.success])
+            type_stats[mol_type] = {
+                'total': len(outcomes),
+                'success_rate': type_successes / len(outcomes) if outcomes else 0,
+                'avg_duration': sum(o.duration_seconds for o in outcomes) / len(outcomes) if outcomes else 0
+            }
+
+        return {
+            'total_outcomes': total,
+            'success_count': successes,
+            'failure_count': failures,
+            'success_rate': successes / total if total > 0 else 0,
+            'avg_duration_seconds': avg_duration,
+            'total_cost_usd': total_cost,
+            'avg_cost_usd': avg_cost,
+            'by_type': type_stats
+        }
+
+    def _identify_systematic_issues(self, analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Identify systematic issues from analysis"""
+        issues = []
+
+        # Low overall success rate
+        if analysis['success_rate'] < 0.7 and analysis['total_outcomes'] > 10:
+            issues.append({
+                'type': 'process',
+                'title': 'Low overall success rate',
+                'description': f"Success rate is {analysis['success_rate']:.1%}, "
+                              f"below target of 70%",
+                'severity': 0.8,
+                'confidence': 0.9,
+                'patterns': []
+            })
+
+        # High cost per outcome
+        if analysis['avg_cost_usd'] > 5.0:
+            issues.append({
+                'type': 'cost',
+                'title': 'High average cost per molecule',
+                'description': f"Average cost ${analysis['avg_cost_usd']:.2f} exceeds target",
+                'severity': 0.7,
+                'confidence': 0.8,
+                'patterns': []
+            })
+
+        # Type-specific issues
+        for mol_type, stats in analysis.get('by_type', {}).items():
+            if stats['success_rate'] < 0.5 and stats['total'] >= 5:
+                issues.append({
+                    'type': 'process',
+                    'title': f'Low success rate for {mol_type}',
+                    'description': f"{mol_type} molecules have {stats['success_rate']:.1%} success rate",
+                    'severity': 0.75,
+                    'confidence': 0.85,
+                    'patterns': []
+                })
+
+        return issues
+
+    def _consolidate_insights(self) -> int:
+        """Consolidate similar insights"""
+        # Simple consolidation - increase validation count for similar insights
+        all_insights = self.insights.get_all()
+        consolidated = 0
+
+        # Group by content hash
+        content_groups: Dict[str, List[Insight]] = {}
+        for insight in all_insights:
+            content_hash = hashlib.md5(insight.content.lower().encode()).hexdigest()[:8]
+            content_groups.setdefault(content_hash, []).append(insight)
+
+        # For groups with multiple insights, consolidate
+        for group in content_groups.values():
+            if len(group) > 1:
+                # Keep the first, increase its validation
+                primary = group[0]
+                for other in group[1:]:
+                    primary.validation_count += 1
+                    primary.confidence = min(1.0, primary.confidence + 0.05)
+                    # Mark others as validated (pointing to primary)
+                    other.validated = True
+                consolidated += len(group) - 1
+
+        return consolidated
+
+    def _generate_performance_report(self, days: int, analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate a performance report"""
+        return {
+            'report_id': f"RPT-{datetime.now().strftime('%Y%m%d')}",
+            'generated_at': datetime.now().isoformat(),
+            'period_days': days,
+            'summary': {
+                'total_molecules': analysis['total_outcomes'],
+                'success_rate': f"{analysis['success_rate']:.1%}",
+                'avg_duration': f"{analysis['avg_duration_seconds']:.0f}s",
+                'total_cost': f"${analysis['total_cost_usd']:.2f}"
+            },
+            'type_breakdown': analysis.get('by_type', {}),
+            'pattern_count': len(self.patterns.get_all()),
+            'promoted_patterns': len(self.patterns.get_promoted()),
+            'pending_suggestions': len([s for s in self.suggestions if s.status == 'pending'])
+        }
+
+    def _save_cycle_result(self, result: CycleResult):
+        """Save cycle result to disk"""
+        results_dir = self.evolution_path / "results"
+        results_dir.mkdir(exist_ok=True)
+
+        filename = f"{result.cycle_type.value}_{result.started_at[:10]}.yaml"
+        filepath = results_dir / filename
+
+        # Append or create
+        existing = []
+        if filepath.exists():
+            existing = yaml.safe_load(filepath.read_text()) or []
+
+        existing.append(result.to_dict())
+        filepath.write_text(yaml.dump(existing, default_flow_style=False))
+
+    def _save_report(self, report: Dict[str, Any]):
+        """Save performance report to disk"""
+        reports_dir = self.evolution_path / "reports"
+        reports_dir.mkdir(exist_ok=True)
+
+        filename = f"{report['report_id']}.yaml"
+        filepath = reports_dir / filename
+        filepath.write_text(yaml.dump(report, default_flow_style=False))
+
+    # =========================================================================
+    # Query Methods
+    # =========================================================================
+
+    def get_pending_suggestions(self) -> List[ImprovementSuggestion]:
+        """Get all pending improvement suggestions"""
+        return [s for s in self.suggestions if s.status == 'pending']
+
+    def approve_suggestion(self, suggestion_id: str) -> bool:
+        """Approve a suggestion"""
+        for s in self.suggestions:
+            if s.id == suggestion_id:
+                s.status = 'approved'
+                self._save_state()
+                return True
+        return False
+
+    def reject_suggestion(self, suggestion_id: str) -> bool:
+        """Reject a suggestion"""
+        for s in self.suggestions:
+            if s.id == suggestion_id:
+                s.status = 'rejected'
+                self._save_state()
+                return True
+        return False
+
+    def get_cycle_history(self, cycle_type: Optional[CycleType] = None,
+                         limit: int = 10) -> List[CycleResult]:
+        """Get recent cycle history"""
+        history = self.cycle_history
+        if cycle_type:
+            history = [h for h in history if h.cycle_type == cycle_type]
+        return history[-limit:]
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get daemon statistics"""
+        return {
+            'last_fast_run': self.last_fast_run,
+            'last_medium_run': self.last_medium_run,
+            'last_slow_run': self.last_slow_run,
+            'pending_suggestions': len(self.get_pending_suggestions()),
+            'total_suggestions': len(self.suggestions),
+            'cycle_runs': len(self.cycle_history)
+        }
+
+
+# =============================================================================
+# Context Synthesizer (Phase 2)
+# =============================================================================
+
+@dataclass
+class Theme:
+    """A cluster of related context items"""
+    name: str
+    summary: str
+    items: List[str]
+    relevance: float
+
+
+@dataclass
+class Prediction:
+    """A prediction about what might happen"""
+    description: str
+    confidence: float
+    source: str
+
+
+@dataclass
+class SynthesizedContext:
+    """Synthesized understanding from multiple sources"""
+    summary: str
+    themes: List[Theme]
+    patterns: List[Pattern]
+    predictions: List[Prediction]
+    gaps: List[str]
+    recommendations: List[str]
+    attention_weights: Dict[str, float]
+
+    def to_prompt(self) -> str:
+        """Format for LLM consumption"""
+        sections = []
+
+        if self.summary:
+            sections.append(f"## Understanding\n{self.summary}")
+
+        if self.themes:
+            theme_lines = [f"- **{t.name}**: {t.summary}" for t in self.themes]
+            sections.append(f"## Key Themes\n" + "\n".join(theme_lines))
+
+        if self.patterns:
+            pattern_lines = [f"- **{p.name}**: {p.recommendation}" for p in self.patterns]
+            sections.append(f"## Applicable Patterns\n" + "\n".join(pattern_lines))
+
+        if self.predictions:
+            pred_lines = [f"- {p.description} (confidence: {p.confidence:.0%})" for p in self.predictions]
+            sections.append(f"## Predictions\n" + "\n".join(pred_lines))
+
+        if self.gaps:
+            sections.append(f"## Gaps to Address\n" + "\n".join(f"- {g}" for g in self.gaps))
+
+        if self.recommendations:
+            sections.append(f"## Recommendations\n" + "\n".join(f"- {r}" for r in self.recommendations))
+
+        return "\n\n".join(sections)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'summary': self.summary,
+            'themes': [{'name': t.name, 'summary': t.summary, 'relevance': t.relevance}
+                      for t in self.themes],
+            'patterns': [p.to_dict() for p in self.patterns],
+            'predictions': [{'description': p.description, 'confidence': p.confidence}
+                           for p in self.predictions],
+            'gaps': self.gaps,
+            'recommendations': self.recommendations,
+            'attention_weights': self.attention_weights
+        }
+
+
+class ContextSynthesizer:
+    """
+    Transform raw context into understanding.
+
+    Takes multiple context sources and synthesizes them into
+    a coherent understanding with patterns, predictions, and recommendations.
+    """
+
+    def __init__(
+        self,
+        pattern_library: PatternLibrary,
+        meta_learner: MetaLearner,
+        insight_store: InsightStore
+    ):
+        self.patterns = pattern_library
+        self.meta = meta_learner
+        self.insights = insight_store
+        logger.info("Context Synthesizer initialized")
+
+    def synthesize(
+        self,
+        query: str,
+        task_context: Dict[str, Any],
+        additional_context: Optional[Dict[str, Any]] = None
+    ) -> SynthesizedContext:
+        """
+        Synthesize understanding from query and context.
+
+        Args:
+            query: The task description or question
+            task_context: Dict with task_type, capabilities, department, etc.
+            additional_context: Optional additional context to include
+        """
+        # 1. Get attention weights from meta-learner
+        weights = self.meta.get_attention_weights()
+
+        # 2. Gather relevant patterns
+        patterns = self.patterns.match(task_context)
+
+        # 3. Get relevant insights
+        tags = [task_context.get('task_type', '')] + task_context.get('capabilities', [])
+        relevant_insights = self.insights.get_by_tags([t for t in tags if t])
+
+        # 4. Cluster into themes
+        themes = self._cluster_themes(query, relevant_insights, patterns)
+
+        # 5. Generate predictions
+        predictions = self._generate_predictions(task_context, patterns)
+
+        # 6. Identify gaps
+        gaps = self._identify_gaps(themes, task_context)
+
+        # 7. Generate recommendations
+        recommendations = self._generate_recommendations(patterns, gaps, task_context)
+
+        # 8. Synthesize summary
+        summary = self._synthesize_summary(query, themes, patterns, task_context)
+
+        return SynthesizedContext(
+            summary=summary,
+            themes=themes,
+            patterns=patterns[:5],  # Top 5 patterns
+            predictions=predictions,
+            gaps=gaps,
+            recommendations=recommendations,
+            attention_weights=weights
+        )
+
+    def _cluster_themes(
+        self,
+        query: str,
+        insights: List[Insight],
+        patterns: List[Pattern]
+    ) -> List[Theme]:
+        """Cluster related items into themes"""
+        themes = []
+
+        # Group insights by type
+        by_type: Dict[str, List[Insight]] = {}
+        for insight in insights:
+            by_type.setdefault(insight.type.value, []).append(insight)
+
+        for insight_type, type_insights in by_type.items():
+            if type_insights:
+                theme = Theme(
+                    name=insight_type.replace('_', ' ').title(),
+                    summary=f"{len(type_insights)} relevant insights",
+                    items=[i.content[:100] for i in type_insights[:3]],
+                    relevance=0.7
+                )
+                themes.append(theme)
+
+        # Add pattern-based theme
+        if patterns:
+            theme = Theme(
+                name="Applicable Patterns",
+                summary=f"{len(patterns)} patterns match this context",
+                items=[p.name for p in patterns[:3]],
+                relevance=0.8
+            )
+            themes.append(theme)
+
+        return themes
+
+    def _generate_predictions(
+        self,
+        task_context: Dict[str, Any],
+        patterns: List[Pattern]
+    ) -> List[Prediction]:
+        """Generate predictions based on patterns and context"""
+        predictions = []
+
+        # Pattern-based predictions
+        for pattern in patterns[:3]:
+            if pattern.promoted and pattern.confidence > 0.7:
+                predictions.append(Prediction(
+                    description=f"Based on pattern '{pattern.name}': {pattern.recommendation}",
+                    confidence=pattern.confidence,
+                    source=pattern.id
+                ))
+
+        # Success rate prediction
+        task_type = task_context.get('task_type', '')
+        if task_type:
+            success_rate = self._estimate_success_rate(task_type)
+            predictions.append(Prediction(
+                description=f"Estimated success rate for {task_type}: {success_rate:.0%}",
+                confidence=0.6,
+                source='outcome_history'
+            ))
+
+        return predictions
+
+    def _estimate_success_rate(self, task_type: str) -> float:
+        """Estimate success rate from historical outcomes"""
+        # Simple estimation from insight patterns
+        success_insights = len(self.insights.get_by_type(InsightType.SUCCESS_PATTERN))
+        failure_insights = len(self.insights.get_by_type(InsightType.FAILURE_PATTERN))
+        total = success_insights + failure_insights
+        if total == 0:
+            return 0.7  # Default estimate
+        return success_insights / total
+
+    def _identify_gaps(
+        self,
+        themes: List[Theme],
+        task_context: Dict[str, Any]
+    ) -> List[str]:
+        """Identify what's missing from the context"""
+        gaps = []
+
+        # Check for required context
+        if not task_context.get('capabilities'):
+            gaps.append("No capability requirements specified")
+
+        if not task_context.get('department'):
+            gaps.append("No department context provided")
+
+        # Check theme coverage
+        if not any(t.name.lower().find('pattern') >= 0 for t in themes):
+            gaps.append("No historical patterns found for this task type")
+
+        return gaps
+
+    def _generate_recommendations(
+        self,
+        patterns: List[Pattern],
+        gaps: List[str],
+        task_context: Dict[str, Any]
+    ) -> List[str]:
+        """Generate actionable recommendations"""
+        recommendations = []
+
+        # Pattern-based recommendations
+        for pattern in patterns:
+            if pattern.promoted:
+                recommendations.append(pattern.recommendation)
+
+        # Gap-based recommendations
+        if "No historical patterns" in str(gaps):
+            recommendations.append("Consider creating explicit success criteria for this new task type")
+
+        if "No capability requirements" in str(gaps):
+            recommendations.append("Define required capabilities to improve worker assignment")
+
+        return recommendations[:5]  # Limit to 5
+
+    def _synthesize_summary(
+        self,
+        query: str,
+        themes: List[Theme],
+        patterns: List[Pattern],
+        task_context: Dict[str, Any]
+    ) -> str:
+        """Synthesize a high-level summary"""
+        parts = []
+
+        task_type = task_context.get('task_type', 'this task')
+        parts.append(f"For {task_type}:")
+
+        if patterns:
+            promoted = [p for p in patterns if p.promoted]
+            parts.append(f"Found {len(patterns)} relevant patterns ({len(promoted)} validated).")
+
+        if themes:
+            parts.append(f"Identified {len(themes)} key themes.")
+
+        # Success expectation
+        success_patterns = len([p for p in patterns if p.type == PatternType.SUCCESS])
+        failure_patterns = len([p for p in patterns if p.type == PatternType.FAILURE])
+
+        if success_patterns > failure_patterns:
+            parts.append("Historical patterns suggest good likelihood of success.")
+        elif failure_patterns > success_patterns:
+            parts.append("Historical patterns suggest potential challenges - review recommendations.")
+
+        return " ".join(parts)
+
+
+# =============================================================================
 # Learning System (Main Interface)
 # =============================================================================
 
 class LearningSystem:
-    """Main interface to the Learning System"""
+    """
+    Main interface to the Learning System.
+
+    Phase 1 Components:
+    - InsightStore: Persist and retrieve insights
+    - OutcomeTracker: Track success/failure outcomes
+    - PatternLibrary: Store and retrieve validated patterns
+    - MetaLearner: Learn what works, adjust strategies
+    - KnowledgeDistiller: Extract insights from completed molecules
+    - RalphModeExecutor: Retry-with-failure-injection
+
+    Phase 2 Components:
+    - EvolutionDaemon: Background learning cycles (hourly/daily/weekly)
+    - ContextSynthesizer: Transform raw context into understanding
+    """
 
     def __init__(self, base_path: Path):
         self.base_path = base_path
         learning_path = base_path / "learning"
 
-        # Initialize all components
+        # Initialize Phase 1 components
         self.insights = InsightStore(learning_path / "insights")
         self.outcomes = OutcomeTracker(learning_path / "outcomes")
         self.patterns = PatternLibrary(learning_path / "patterns")
         self.meta = MetaLearner(learning_path / "meta")
         self.distiller = KnowledgeDistiller(self.insights, self.outcomes)
         self.ralph = RalphModeExecutor(self.patterns, self.distiller, self.outcomes)
+
+        # Initialize Phase 2 components
+        self.evolution = EvolutionDaemon(
+            base_path=base_path,
+            insight_store=self.insights,
+            outcome_tracker=self.outcomes,
+            pattern_library=self.patterns,
+            meta_learner=self.meta,
+            distiller=self.distiller
+        )
+        self.synthesizer = ContextSynthesizer(
+            pattern_library=self.patterns,
+            meta_learner=self.meta,
+            insight_store=self.insights
+        )
 
         logger.info(f"Learning System initialized at {learning_path}")
 

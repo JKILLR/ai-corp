@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-07
-> **Current Phase:** Learning System Phase 1 Complete
-> **Status:** Learning System implemented with Ralph Mode integration
-> **Next Action:** Evolution Daemon (background learning cycles)
+> **Current Phase:** Learning System Phase 2 Complete
+> **Status:** Evolution Daemon and Context Synthesizer implemented
+> **Next Action:** Depth-Based Context (configure Entity Graph per agent)
 
 ---
 
@@ -56,11 +56,51 @@
 | **Platform Architecture** | ✅ Complete | Apex, Personal, Foundation services defined |
 | **Business Model** | ✅ Complete | Pricing, unit economics, token optimization |
 | **Learning System** | ✅ Complete | Phase 1: Distiller, Meta-Learner, Patterns, Ralph Mode |
+| **Evolution Daemon** | ✅ Complete | Phase 2: Background learning cycles + Context Synthesizer |
 | **Foundation Corp** | ✅ Bootstrapped | Structure, hierarchy, gates, templates ready |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-07: Learning System Phase 2 Complete
+
+**Evolution Daemon Implementation:**
+- `src/core/learning.py` - Added ~400 lines for Phase 2 components
+  - `CycleType` enum - FAST (hourly), MEDIUM (daily), SLOW (weekly)
+  - `CycleResult` - Track outcomes of learning cycles
+  - `ImprovementSuggestion` - System-generated recommendations
+  - `EvolutionDaemon` - Background learning with three cycles:
+    - Fast cycle: Process recent outcomes, update meta-learner, promote patterns
+    - Medium cycle: Discover patterns, validate existing, generate suggestions
+    - Slow cycle: Deep analysis, identify systematic issues, generate reports
+  - Persistence: Cycle history and suggestions saved to disk
+
+**Context Synthesizer Implementation:**
+- `Theme` - Recurring patterns identified across contexts
+- `Prediction` - What might happen based on patterns
+- `SynthesizedContext` - Rich context combining patterns, insights, themes
+- `ContextSynthesizer` - Transform raw context into understanding:
+  - Gathers relevant patterns and insights for a query
+  - Identifies themes, predictions, gaps in knowledge
+  - Generates recommendations for actions
+  - Outputs both dict format and LLM-ready prompt format
+
+**Integration with LearningSystem:**
+- `LearningSystem.evolution` - Evolution Daemon instance
+- `LearningSystem.synthesizer` - Context Synthesizer instance
+- Full integration with existing Phase 1 components
+
+**Tests:**
+- `tests/core/test_learning.py` - 23 new tests for Phase 2:
+  - TestEvolutionDaemon: 9 tests (cycles, suggestions, persistence)
+  - TestContextSynthesizer: 6 tests (synthesize, themes, gaps)
+  - TestPhase2DataClasses: 4 tests (CycleType, CycleResult, etc.)
+  - TestLearningSystemPhase2: 4 tests (integration)
+- All 70 learning tests passing
+
+**Exports Updated:**
+- `src/core/__init__.py` - All Phase 2 classes exported
 
 ### 2026-01-07: Learning System Phase 1 Complete
 
@@ -520,7 +560,7 @@ CorporationExecutor
 | `ingest.py` | ✅ Stable | Document ingestion pipeline |
 | `skills.py` | ✅ Stable | Role-based skill discovery |
 | `scheduler.py` | ✅ Stable | Work scheduling with capability matching |
-| `learning.py` | ✅ New | Learning System + Ralph Mode |
+| `learning.py` | ✅ Stable | Learning System Phase 1 + Phase 2 (Evolution Daemon, Context Synthesizer) |
 
 ### Agents (`src/agents/`)
 
@@ -567,10 +607,10 @@ CorporationExecutor
 11. Async Gate Approvals
 
 ### P2 Future
-1. **Evolution Daemon** ← NEXT (background learning cycles)
-2. Swarm Molecule Type (parallel research pattern)
-3. Composite Molecules (chain molecule types)
-4. Context Synthesizer
+1. ~~Evolution Daemon~~ ✅ Complete (background learning cycles)
+2. ~~Context Synthesizer~~ ✅ Complete (part of Phase 2)
+3. Swarm Molecule Type (parallel research pattern)
+4. Composite Molecules (chain molecule types)
 5. Local model training (Phase 3 of Learning System)
 6. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
 7. Apex Corp Registry

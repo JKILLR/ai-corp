@@ -24,18 +24,10 @@
 
 ### P0 - Immediate (Now)
 
-**Evolution Daemon (Learning System Phase 2)** (Approved: 2026-01-07)
-- Background learning cycles (hourly/daily/weekly)
-- Context Synthesizer - Transform raw context into understanding
-- Design doc: `LEARNING_SYSTEM_DESIGN.md` (Phase 2 section)
-- Why: Phase 1 captures insights; Phase 2 runs continuous learning to extract deeper patterns
-- Dependencies: Learning System Phase 1 (complete)
-
-**Phase 2 Components:**
-- Hourly cycles: Fast pattern refinement
-- Daily cycles: Cross-molecule pattern discovery
-- Weekly cycles: Deep insight consolidation
-- Context Synthesizer: Transform raw context into actionable understanding
+**Depth-Based Context** (Next)
+- Configure Entity Graph depth per agent level
+- COO gets deeper context, Workers get focused context
+- Leverage existing Entity Graph relationship traversal
 
 ---
 
@@ -47,10 +39,10 @@
 |------|-------------|------------|-------|
 | ~~Learning System~~ | ~~Extract insights from completed molecules~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 1) |
 | ~~Ralph Mode~~ | ~~Retry-with-failure-injection for persistent execution~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 1) |
-| Evolution Daemon | Background learning cycles | `LEARNING_SYSTEM_DESIGN.md` | Current - Phase 2 |
-| Context Synthesizer | Transform raw context into understanding | `LEARNING_SYSTEM_DESIGN.md` | Part of Phase 2 |
+| ~~Evolution Daemon~~ | ~~Background learning cycles~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 2) |
+| ~~Context Synthesizer~~ | ~~Transform raw context into understanding~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 2) |
 | Depth-Based Context | Agent-level defaults for context retrieval depth | - | Configure existing Entity Graph |
-| Async Gate Approvals | Allow gates to run asynchronously | - | After Phase 2 |
+| Async Gate Approvals | Allow gates to run asynchronously | - | Next priority |
 
 ### P2 - Medium Priority
 
@@ -102,6 +94,7 @@
 | Business Model | 2026-01-07 | Pricing, unit economics, token optimization |
 | Learning System Design | 2026-01-07 | Design complete, ready for implementation |
 | Learning System Phase 1 | 2026-01-07 | Distiller, Meta-Learner, Patterns, Ralph Mode integrated |
+| Learning System Phase 2 | 2026-01-07 | Evolution Daemon + Context Synthesizer |
 | Foundation Corp Bootstrap | 2026-01-07 | Structure, hierarchy, gates, templates ready |
 
 ---

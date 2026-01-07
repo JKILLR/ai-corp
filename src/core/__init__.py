@@ -90,14 +90,18 @@ from .scheduler import (
 )
 from .learning import (
     # Enums
-    InsightType, PatternType, FailureStrategy,
+    InsightType, PatternType, FailureStrategy, CycleType,
     # Data classes
     Insight, Outcome, Pattern, RalphCriterion, RalphConfig,
     FailureBead, FailureContext, RalphResult,
     SourceEffectiveness, ConfidenceBucket,
-    # Core classes
+    CycleResult, ImprovementSuggestion,
+    Theme, Prediction, SynthesizedContext,
+    # Core classes - Phase 1
     InsightStore, OutcomeTracker, PatternLibrary, MetaLearner,
     KnowledgeDistiller, RalphModeExecutor, BudgetTracker,
+    # Core classes - Phase 2
+    EvolutionDaemon, ContextSynthesizer,
     # Main interface
     LearningSystem, get_learning_system
 )
@@ -153,12 +157,17 @@ __all__ = [
     # Work Scheduler
     'WorkScheduler', 'CapabilityMatcher', 'LoadBalancer', 'DependencyResolver',
     'SchedulingDecision',
-    # Learning System
+    # Learning System - Phase 1
     'InsightType', 'PatternType', 'FailureStrategy',
     'Insight', 'Outcome', 'Pattern', 'RalphCriterion', 'RalphConfig',
     'FailureBead', 'FailureContext', 'RalphResult',
     'SourceEffectiveness', 'ConfidenceBucket',
     'InsightStore', 'OutcomeTracker', 'PatternLibrary', 'MetaLearner',
     'KnowledgeDistiller', 'RalphModeExecutor', 'BudgetTracker',
+    # Learning System - Phase 2
+    'CycleType', 'CycleResult', 'ImprovementSuggestion',
+    'Theme', 'Prediction', 'SynthesizedContext',
+    'EvolutionDaemon', 'ContextSynthesizer',
+    # Learning System - Main
     'LearningSystem', 'get_learning_system',
 ]
