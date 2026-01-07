@@ -98,6 +98,16 @@
 
 Decisions that affect how we build features. Reference before implementing.
 
+### Core Principles (Non-Negotiable)
+
+| Principle | Description |
+|-----------|-------------|
+| **Full Integration** | Every feature must interconnect with existing systems. No feature stacking. Ask: "What does this give to/receive from the system?" |
+| **Modular & Swappable** | Components must be loosely coupled. Any feature can be upgraded/replaced without breaking the system. |
+| **Clean Core Template** | Core system remains pristine until ready to spawn customized versions. Customizations happen in spawned instances, not the template. |
+
+### Technical Decisions
+
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Storage format | YAML + Git | Human-readable, version controlled, works with beads |
