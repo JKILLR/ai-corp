@@ -50,6 +50,9 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
+| **Learning System** | P1 | Knowledge Distiller, Meta-Learner, Pattern Library |
+| **Ralph Mode** | P1 | Retry-with-failure-injection for persistent execution |
+| **Depth-Based Context** | P1 | Agent-level defaults for Entity Graph retrieval depth |
 | Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
 | Async Gate Approvals | P1 | Auto-approve when criteria met |
 
@@ -57,6 +60,9 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
+| **Swarm Molecule Type** | P2 | Parallel research: scatter → cross-critique → converge |
+| **Composite Molecules** | P2 | Chain molecule types (Swarm → Ralph → escalate) |
+| Evolution Daemon | P2 | Background learning cycles (hourly/daily/weekly) |
 | Web UI | P2 | Browser-based dashboard and discovery chat |
 | Chapters & Guilds | P2 | Cross-team skill groups and communities |
 | Fitness Functions | P2 | Per-team success metrics |
@@ -212,6 +218,108 @@ molecule:
 - `Molecule` - Workflow with steps, RACI, progress tracking
 - `MoleculeStep` - Individual step with checkpoints
 - `Checkpoint` - Recovery point for crash resilience
+
+#### Molecule Execution Modes
+
+**Ralph Mode** (P1 - Planned)
+Persistent execution with failure-as-context. Named after "Ralph Wiggum Mode" - keep going no matter what, feeding failure back as learning.
+
+```yaml
+molecule:
+  id: MOL-PERSISTENT-001
+  name: "Build and Deploy Feature"
+
+  # RALPH MODE FLAGS
+  ralph_mode: true
+  max_retries: 50
+  cost_cap: 10.00  # USD - safety limit
+
+  # Success criteria - ALL must be true to exit loop
+  ralph_criteria:
+    - condition: "tests_pass"
+      type: boolean
+    - condition: "deployed_successfully"
+      type: boolean
+
+  # On failure behavior
+  on_failure:
+    strategy: "smart_restart"  # Not full loop restart
+    restart_from: "identified_weak_link"
+    inject_context:
+      - previous_failure_reason
+      - attempt_history
+      - learning_system_patterns
+```
+
+**Key concepts:**
+- `ralph_mode: true` enables persistent execution
+- `cost_cap` prevents runaway spending
+- `ralph_criteria` defines explicit exit conditions
+- Failure beads are injected as context for retries
+- Learning System extracts patterns from failure sequences
+
+#### Molecule Types
+
+**Standard Molecule** (Current)
+Sequential or parallel steps with optional gates. Single execution attempt per step.
+
+**Swarm Molecule** (P2 - Planned)
+Parallel research pattern: multiple workers attack a problem simultaneously, cross-critique, and converge.
+
+```yaml
+molecule:
+  id: MOL-SWARM-RESEARCH
+  name: "Architecture Research"
+  type: swarm_molecule
+
+  swarm_config:
+    parallel_workers: 5
+    rounds: 4
+    convergence_target: 1  # End with single report
+
+  worker_shards:
+    - id: worker_academic
+      focus: "arXiv, papers"
+    - id: worker_code
+      focus: "GitHub, implementations"
+    - id: worker_social
+      focus: "discussions, experiences"
+    - id: worker_contrarian
+      focus: "criticisms, limitations"
+
+  round_rules:
+    round_1: {type: "parallel_gather"}
+    round_2: {type: "cross_critique"}  # Each reads all others
+    round_3: {type: "directed_merge"}   # Director forces convergence
+    round_4: {type: "final_synthesis"}
+```
+
+**Composite Molecule** (P2 - Planned)
+Chain molecule types together with escalation.
+
+```yaml
+molecule:
+  id: MOL-COMPOSITE-001
+  type: composite_molecule
+
+  phases:
+    - phase: 1
+      name: "swarm_research"
+      type: swarm_molecule
+      # Swarm explores the problem space
+
+    - phase: 2
+      name: "ralph_execution"
+      type: persistent_molecule
+      depends_on: "swarm_research"
+      config:
+        ralph_mode: true
+        on_failure:
+          after_retries: 10
+          action: "escalate_to_swarm"  # Go back to Phase 1
+```
+
+**Pattern:** "Swarm expands, Ralph executes." Use Swarm for exploration, Ralph for relentless execution.
 
 ### 3. Beads (Git-Backed Ledger)
 All state stored in git for:

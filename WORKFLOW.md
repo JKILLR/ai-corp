@@ -30,13 +30,42 @@ This document defines the rules and processes for working on the AI Corp project
 - [ ] Update `__init__.py` exports
 - [ ] Integration tests prove the connections work
 
-### 3. Documentation Always
-- Update `AI_CORP_ARCHITECTURE.md` for any architectural changes
-- Update `STATE.md` after every major update
-- Add docstrings to all classes and public methods
-- Keep this `WORKFLOW.md` current
+### 3. Clean Core Template
+- **The core system must remain a clean, reusable template**
+- No runtime data committed to the template repository
+- Core remains pristine until ready to spawn customized versions
+- Customizations happen in spawned instances, not the template
+- When ready to branch: clone template → customize → deploy
+- See "Template vs Runtime Separation" section below
 
-### 4. Code Quality Standards (TCMO)
+### 4. Documentation Workflow
+
+**Master Documents (update with every change):**
+
+| Document | When to Update |
+|----------|----------------|
+| `STATE.md` | Every completed feature |
+| `ROADMAP.md` | New plans approved, plans completed |
+| `AI_CORP_ARCHITECTURE.md` | Any architecture change (planned OR implemented) |
+
+**Process:**
+1. New idea approved → Add to `ROADMAP.md` under "Approved Plans"
+2. Architecture planned/designed → Update `AI_CORP_ARCHITECTURE.md` with design
+3. Implementation complete → Update `STATE.md`, update architecture doc with implementation details
+4. Move completed item to "Completed" in `ROADMAP.md`
+5. Design doc implemented → Archive to `docs/archive/`
+
+**CRITICAL:** `AI_CORP_ARCHITECTURE.md` must stay current throughout development. Update it when:
+- New systems are designed (before implementation)
+- Existing architecture is modified
+- Implementation reveals design changes
+- Integration points are added between systems
+
+**Other Documentation:**
+- Add docstrings to all classes and public methods
+- Keep this `WORKFLOW.md` current with process changes
+
+### 5. Code Quality Standards (TCMO)
 
 All code must meet the **TCMO standard** before being considered complete:
 
