@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-07
-> **Current Phase:** Depth-Based Context Complete
-> **Status:** Agent-level context depth for Entity Graph
-> **Next Action:** Async Gate Approvals
+> **Current Phase:** Async Gate Approvals Complete
+> **Status:** Gates can run asynchronously with auto-approval support
+> **Next Action:** Swarm Molecule Type (P2)
 
 ---
 
@@ -59,10 +59,65 @@
 | **Evolution Daemon** | ✅ Complete | Phase 2: Background learning cycles + Context Synthesizer |
 | **Foundation Corp** | ✅ Bootstrapped | Structure, hierarchy, gates, templates ready |
 | **Depth-Based Context** | ✅ Complete | Agent-level depth defaults for Entity Graph |
+| **Async Gate Approvals** | ✅ Complete | Async evaluation, auto-approval policies |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-07: Async Gate Approvals Complete
+
+**New Enums and Data Classes (`src/core/gate.py`):**
+- `EvaluationStatus` enum - NOT_STARTED, PENDING, EVALUATING, EVALUATED, FAILED
+- `AsyncEvaluationResult` - Results of async evaluation with confidence scores
+- `AutoApprovalPolicy` - Configure when gates can auto-approve
+  - Presets: `strict()`, `auto_checks_only()`, `lenient(min_confidence)`
+
+**GateSubmission Async Fields:**
+- `evaluation_status` - Track async evaluation state
+- `evaluation_result` - Store evaluation results
+- `auto_approved` - Flag for auto-approved submissions
+- Methods: `start_evaluation()`, `complete_evaluation()`, `fail_evaluation()`, `auto_approve()`
+- Helper methods: `is_evaluating()`, `is_evaluated()`
+
+**Gate Async Methods:**
+- `get_auto_check_criteria()` - Get criteria that can be auto-checked
+- `get_manual_check_criteria()` - Get criteria requiring manual verification
+- `get_evaluating_submissions()` - Get submissions being evaluated
+- `get_evaluated_submissions()` - Get completed evaluations
+- `set_auto_approval_policy()` - Configure auto-approval
+- `can_auto_approve()` - Check if gate supports auto-approval
+
+**AsyncGateEvaluator Class:**
+- Background evaluation using ThreadPoolExecutor
+- `evaluate_async()` - Start async evaluation with callback
+- `evaluate_sync()` - Synchronous evaluation for testing
+- Runs auto-check criteria commands
+- Calculates confidence scores
+- Auto-approves when policy conditions met
+- `cancel_evaluation()` - Cancel pending evaluations
+- `shutdown()` - Clean shutdown of executor
+
+**GateKeeper Async Methods:**
+- `submit_for_async_evaluation()` - Submit with automatic async evaluation
+- `get_evaluating_submissions()` - Get all evaluating submissions
+- `get_evaluated_submissions()` - Get all evaluated submissions
+- `set_gate_auto_approval_policy()` - Set policy for a gate
+
+**Tests (`tests/core/test_async_gate.py`):**
+- 40 new tests covering:
+  - EvaluationStatus enum
+  - AsyncEvaluationResult serialization
+  - AutoApprovalPolicy presets
+  - GateSubmission async methods
+  - Gate async methods
+  - AsyncGateEvaluator sync/async evaluation
+  - Auto-approval flow
+  - GateKeeper async methods
+  - Integration tests
+
+**Exports Updated:**
+- All async gate classes exported from `src/core`
 
 ### 2026-01-07: Depth-Based Context Complete
 
@@ -586,7 +641,7 @@ CorporationExecutor
 | `hook.py` | ✅ Stable | Work queues |
 | `bead.py` | ✅ Stable | Git-backed ledger |
 | `channel.py` | ✅ Stable | Inter-agent messaging |
-| `gate.py` | ✅ Stable | Quality gates |
+| `gate.py` | ✅ Stable | Quality gates with async evaluation + auto-approval |
 | `pool.py` | ✅ Stable | Worker pools |
 | `raci.py` | ✅ Stable | Accountability model |
 | `hiring.py` | ✅ Stable | Dynamic hiring |
@@ -633,8 +688,8 @@ CorporationExecutor
 
 ## Next Actions
 
-### P1 Priority (Current)
-1. ~~Create pytest test suite~~ ✅ Complete (630+ tests)
+### P1 Priority (Complete)
+1. ~~Create pytest test suite~~ ✅ Complete (770+ tests)
 2. ~~Add monitoring~~ ✅ Complete
 3. ~~Add terminal dashboard~~ ✅ Complete
 4. ~~Skills & Work Scheduler~~ ✅ Complete
@@ -643,8 +698,8 @@ CorporationExecutor
 7. ~~Foundation Corp Bootstrap~~ ✅ Complete
 8. ~~Learning System Design~~ ✅ Complete
 9. ~~Build Learning System~~ ✅ Complete (Phase 1 + Ralph Mode)
-10. Depth-Based Context - Configure Entity Graph depth per agent
-11. Async Gate Approvals
+10. ~~Depth-Based Context~~ ✅ Complete - Agent-level Entity Graph depth
+11. ~~Async Gate Approvals~~ ✅ Complete - Async evaluation + auto-approval
 
 ### P2 Future
 1. ~~Evolution Daemon~~ ✅ Complete (background learning cycles)
@@ -665,7 +720,7 @@ CorporationExecutor
 | Core modules | 19 | - |
 | Agent types | 5 | 5+ |
 | Lines of code | ~11000 | - |
-| Test count | 540+ | - |
+| Test count | 770+ | - |
 | Test coverage | ~40% | 80% |
 | Integration tests | Comprehensive | Comprehensive |
 

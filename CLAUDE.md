@@ -27,16 +27,13 @@ Before making any changes, read these files:
 
 ## Current Priority
 
-**Recently Completed:** Learning System Phase 1 + 2, Depth-Based Context ✅
+**All P1 items complete!** ✅
 
-- Phase 1: Distiller, Meta-Learner, Pattern Library, Ralph Mode
-- Phase 2: Evolution Daemon, Context Synthesizer
-- Depth-Based Context: Agent-level depth defaults for Entity Graph
+- Learning System Phase 1 + 2 (Distiller, Meta-Learner, Evolution Daemon, Context Synthesizer)
+- Depth-Based Context (Agent-level defaults for Entity Graph)
+- Async Gate Approvals (Async evaluation + auto-approval policies)
 
-**Next to implement:** Async Gate Approvals
-
-- Allow gates to run asynchronously without blocking
-- Enable parallel processing of gate validations
+**Next (P2):** Swarm Molecule Type or Composite Molecules
 
 ---
 
@@ -72,7 +69,7 @@ ai-corp/
 │   └── cli/            # Command-line interface
 ├── templates/          # Organization templates
 ├── foundation/         # Foundation Corp (AI Corp building AI Corp)
-├── tests/              # Test suite (700+ tests)
+├── tests/              # Test suite (770+ tests)
 ├── docs/archive/       # Implemented design docs (historical)
 └── [Master Docs]       # STATE.md, ROADMAP.md, AI_CORP_ARCHITECTURE.md
 ```
@@ -85,7 +82,7 @@ ai-corp/
 - **Hooks** - Pull-based work queues
 - **Beads** - Git-backed audit trail
 - **Channels** - Agent messaging
-- **Gates** - Quality checkpoints
+- **Gates** - Quality checkpoints (with async evaluation + auto-approval)
 - **Success Contracts** - Measurable outcomes
 - **Entity Graph** - Unified entity management
 - **Memory System** - RLM-inspired context management

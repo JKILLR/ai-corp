@@ -24,10 +24,9 @@
 
 ### P0 - Immediate (Now)
 
-**Async Gate Approvals** (Next)
-- Allow gates to run asynchronously without blocking
-- Enable parallel processing of gate validations
-- Improve throughput for molecule execution
+**All P0/P1 items complete!** Moving to P2 priorities.
+
+Next up: Swarm Molecule Type or Composite Molecules
 
 ---
 
@@ -42,7 +41,7 @@
 | ~~Evolution Daemon~~ | ~~Background learning cycles~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 2) |
 | ~~Context Synthesizer~~ | ~~Transform raw context into understanding~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 2) |
 | ~~Depth-Based Context~~ | ~~Agent-level defaults for context retrieval depth~~ | - | ✅ Complete |
-| Async Gate Approvals | Allow gates to run asynchronously | - | Next priority |
+| ~~Async Gate Approvals~~ | ~~Allow gates to run asynchronously~~ | - | ✅ Complete |
 
 ### P2 - Medium Priority
 
@@ -97,6 +96,7 @@
 | Learning System Phase 2 | 2026-01-07 | Evolution Daemon + Context Synthesizer |
 | Foundation Corp Bootstrap | 2026-01-07 | Structure, hierarchy, gates, templates ready |
 | Depth-Based Context | 2026-01-07 | Agent-level depth for Entity Graph context |
+| Async Gate Approvals | 2026-01-07 | Async evaluation + auto-approval policies |
 
 ---
 

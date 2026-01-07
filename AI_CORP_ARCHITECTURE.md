@@ -48,15 +48,15 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 | **Ralph Mode** | ✅ Done | Retry-with-failure-injection for persistent execution |
 | **Evolution Daemon** | ✅ Done | Background learning cycles (hourly/daily/weekly) |
 | **Context Synthesizer** | ✅ Done | Transform raw context into actionable understanding |
-| Test Suite | ✅ Done | 700+ tests passing |
+| Test Suite | ✅ Done | 770+ tests passing |
 
 ### Planned Components (P1)
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
 | **Depth-Based Context** | ✅ Done | Agent-level defaults for Entity Graph retrieval depth |
+| **Async Gate Approvals** | ✅ Done | Async evaluation with auto-approval policies |
 | Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
-| Async Gate Approvals | P1 | Auto-approve when criteria met |
 
 ### Future Components (P2)
 
@@ -399,9 +399,27 @@ All state stored in git for:
 
 **Implementation:** `src/core/gate.py`
 - `GateKeeper` - Manages all quality gates
-- `Gate` - Individual gate with criteria
-- `GateSubmission` - Submission for review
-- `GateCriterion` - Required/optional criteria
+- `Gate` - Individual gate with criteria and auto-approval policy
+- `GateSubmission` - Submission for review with evaluation status
+- `GateCriterion` - Required/optional criteria with auto-check support
+- `AsyncGateEvaluator` - Background evaluation with auto-approval
+- `AutoApprovalPolicy` - Configure auto-approval rules (strict, lenient, auto-checks-only)
+- `AsyncEvaluationResult` - Evaluation results with confidence scores
+- `EvaluationStatus` - Track evaluation state (pending, evaluating, evaluated, failed)
+
+**Async Gate Flow:**
+```
+Submit → [Async Evaluation] → Check Criteria → Calculate Confidence
+                                                      │
+                          ┌─────────────────────────┬─┴─────────────────────────┐
+                          ▼                         ▼                           ▼
+                    Policy: strict             Policy: lenient           Policy: auto-checks-only
+                    (all checks pass)        (confidence >= min)        (auto-checks only)
+                          │                         │                           │
+                          └─────────────────────────┴───────────────────────────┘
+                                                      │
+                                          [Auto-approve if criteria met]
+```
 
 ### 7. Worker Pools
 

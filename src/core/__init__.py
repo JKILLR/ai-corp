@@ -25,7 +25,11 @@ from .molecule import Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine
 from .hook import Hook, HookManager
 from .bead import Bead, BeadLedger
 from .channel import Channel, ChannelType, ChannelManager
-from .gate import Gate, GateStatus, GateKeeper
+from .gate import (
+    Gate, GateStatus, GateKeeper, GateSubmission, GateCriterion,
+    SubmissionStatus, EvaluationStatus, AsyncEvaluationResult,
+    AutoApprovalPolicy, AsyncGateEvaluator
+)
 from .pool import WorkerPool, PoolManager
 from .raci import RACI, RACIRole
 from .contract import (
@@ -116,7 +120,10 @@ __all__ = [
     'Hook', 'HookManager',
     'Bead', 'BeadLedger',
     'Channel', 'ChannelType', 'ChannelManager',
-    'Gate', 'GateStatus', 'GateKeeper',
+    # Quality Gates (with async support)
+    'Gate', 'GateStatus', 'GateKeeper', 'GateSubmission', 'GateCriterion',
+    'SubmissionStatus', 'EvaluationStatus', 'AsyncEvaluationResult',
+    'AutoApprovalPolicy', 'AsyncGateEvaluator',
     'WorkerPool', 'PoolManager',
     'RACI', 'RACIRole',
     # Success Contracts
