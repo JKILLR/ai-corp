@@ -27,17 +27,16 @@ Before making any changes, read these files:
 
 ## Current Priority
 
-**Recently Completed:** Learning System Phase 1 + 2 ✅
+**Recently Completed:** Learning System Phase 1 + 2, Depth-Based Context ✅
 
 - Phase 1: Distiller, Meta-Learner, Pattern Library, Ralph Mode
 - Phase 2: Evolution Daemon, Context Synthesizer
+- Depth-Based Context: Agent-level depth defaults for Entity Graph
 
-**Next to implement:** Depth-Based Context
+**Next to implement:** Async Gate Approvals
 
-- Configure Entity Graph depth per agent level
-- COO gets deeper context, Workers get focused context
-
-**Key concept:** Leverage existing Entity Graph relationship traversal with agent-specific defaults.
+- Allow gates to run asynchronously without blocking
+- Enable parallel processing of gate validations
 
 ---
 

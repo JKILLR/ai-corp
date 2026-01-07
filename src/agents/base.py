@@ -29,6 +29,10 @@ from ..core.memory import (
     RecursiveMemoryManager, ContextCompressor, OrganizationalMemory,
     create_agent_memory, load_molecule_to_memory, load_bead_history_to_memory
 )
+from ..core.graph import (
+    EntityGraph, EntityContext, get_entity_graph,
+    DepthConfig, get_depth_for_level
+)
 from ..core.llm import (
     LLMBackend, LLMBackendFactory, AgentLLMInterface, LLMRequest, LLMResponse,
     get_llm_interface
@@ -100,6 +104,10 @@ class BaseAgent(ABC):
                 role_id=self.identity.role_id,
                 department=self.identity.department
             )
+
+        # Initialize Entity Graph with depth-based context
+        self.entity_graph = get_entity_graph(self.corp_path)
+        self.depth_config = DepthConfig.for_agent_level(self.identity.level)
 
         # Initialize LLM interface (swappable backend)
         self.llm = AgentLLMInterface(llm_backend or LLMBackendFactory.get_best_available())
@@ -807,6 +815,134 @@ Always maintain professional communication and follow the organizational hierarc
     def get_relevant_lessons(self, context: str) -> List[Dict[str, Any]]:
         """Get lessons learned relevant to current context"""
         return self.org_memory.get_relevant_lessons(context)
+
+    # ==================== Entity Graph Context Operations ====================
+
+    def get_entity_context(
+        self,
+        entity_ids: List[str],
+        depth_override: Optional[int] = None
+    ) -> EntityContext:
+        """
+        Get entity context with depth appropriate for this agent's level.
+
+        Context depth is automatically determined by agent level:
+        - Level 1 (Executive/COO): Deep strategic context (depth=3)
+        - Level 2 (VP): Departmental context (depth=2)
+        - Level 3 (Director): Team context (depth=1)
+        - Level 4 (Worker): Task-focused context (depth=0)
+
+        Args:
+            entity_ids: Entity IDs to retrieve context for
+            depth_override: Optional override for depth (use sparingly)
+
+        Returns:
+            EntityContext with appropriate depth for this agent
+        """
+        config = self.depth_config
+
+        # Allow depth override if provided
+        if depth_override is not None:
+            config = DepthConfig.custom(
+                depth=depth_override,
+                max_entities=config.max_entities,
+                max_relationships=config.max_relationships,
+                max_interactions=config.max_interactions,
+                include_network=depth_override > 0
+            )
+
+        return self.entity_graph.get_context_for_agent(
+            entity_ids=entity_ids,
+            agent_level=self.identity.level,
+            depth_config=config
+        )
+
+    def get_entity_context_for_message(
+        self,
+        message: str,
+        sender_email: Optional[str] = None
+    ) -> EntityContext:
+        """
+        Get entity context extracted from a message.
+
+        Extracts entity mentions from the message text and returns
+        context with depth appropriate for this agent's level.
+
+        Args:
+            message: Message text to extract entities from
+            sender_email: Optional sender email to include in context
+
+        Returns:
+            EntityContext for entities mentioned in the message
+        """
+        # Use entity graph's message parsing to find entity IDs
+        base_context = self.entity_graph.get_context_for_message(
+            message=message,
+            sender_email=sender_email
+        )
+
+        # If entities were found, re-retrieve with agent-level depth
+        if base_context.entities:
+            entity_ids = [profile.entity.id for profile in base_context.entities]
+            return self.get_entity_context(entity_ids)
+
+        return base_context
+
+    def get_entity_profile(self, entity_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a comprehensive profile for a specific entity.
+
+        Args:
+            entity_id: Entity ID to get profile for
+
+        Returns:
+            EntityProfile dict or None if entity not found
+        """
+        profile = self.entity_graph.get_entity_profile(entity_id)
+        if profile:
+            return profile.to_dict()
+        return None
+
+    def get_network_context(
+        self,
+        entity_id: str,
+        depth_override: Optional[int] = None
+    ) -> Optional[str]:
+        """
+        Get network summary for an entity.
+
+        Uses agent's default depth or override.
+
+        Args:
+            entity_id: Entity to get network for
+            depth_override: Optional depth override
+
+        Returns:
+            Network summary text or None
+        """
+        depth = depth_override if depth_override is not None else self.depth_config.depth
+        summary = self.entity_graph.get_network_summary(entity_id, depth=depth)
+        if summary:
+            return summary.content
+        return None
+
+    def get_context_depth(self) -> int:
+        """
+        Get this agent's default context depth.
+
+        Returns:
+            Depth value (0-3) based on agent level
+        """
+        return self.depth_config.depth
+
+    def get_depth_config(self) -> DepthConfig:
+        """
+        Get this agent's full depth configuration.
+
+        Returns:
+            DepthConfig with all context limits for this agent level
+        """
+        return self.depth_config
 
     # ==================== Monitoring Integration ====================
 

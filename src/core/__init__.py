@@ -58,7 +58,12 @@ from .entity_summarizer import (
     EntitySummarizer, SummaryStore, Summary, SummaryType, SummaryScope,
     EntityProfile
 )
-from .graph import EntityGraph, EntityContext, get_entity_graph
+from .graph import (
+    EntityGraph, EntityContext, get_entity_graph,
+    # Depth-Based Context Configuration
+    DepthConfig, get_depth_for_level,
+    AGENT_LEVEL_DEPTH_DEFAULTS, AGENT_LEVEL_CONTEXT_LIMITS
+)
 from .llm import (
     LLMBackend, LLMRequest, LLMResponse, LLMBackendFactory,
     ClaudeCodeBackend, ClaudeAPIBackend, MockBackend,
@@ -135,6 +140,8 @@ __all__ = [
     'EntitySummarizer', 'SummaryStore', 'Summary', 'SummaryType', 'SummaryScope',
     'EntityProfile',
     'EntityGraph', 'EntityContext', 'get_entity_graph',
+    'DepthConfig', 'get_depth_for_level',
+    'AGENT_LEVEL_DEPTH_DEFAULTS', 'AGENT_LEVEL_CONTEXT_LIMITS',
     # LLM backend interface
     'LLMBackend', 'LLMRequest', 'LLMResponse', 'LLMBackendFactory',
     'ClaudeCodeBackend', 'ClaudeAPIBackend', 'MockBackend',

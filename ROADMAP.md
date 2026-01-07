@@ -24,10 +24,10 @@
 
 ### P0 - Immediate (Now)
 
-**Depth-Based Context** (Next)
-- Configure Entity Graph depth per agent level
-- COO gets deeper context, Workers get focused context
-- Leverage existing Entity Graph relationship traversal
+**Async Gate Approvals** (Next)
+- Allow gates to run asynchronously without blocking
+- Enable parallel processing of gate validations
+- Improve throughput for molecule execution
 
 ---
 
@@ -41,7 +41,7 @@
 | ~~Ralph Mode~~ | ~~Retry-with-failure-injection for persistent execution~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 1) |
 | ~~Evolution Daemon~~ | ~~Background learning cycles~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 2) |
 | ~~Context Synthesizer~~ | ~~Transform raw context into understanding~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 2) |
-| Depth-Based Context | Agent-level defaults for context retrieval depth | - | Configure existing Entity Graph |
+| ~~Depth-Based Context~~ | ~~Agent-level defaults for context retrieval depth~~ | - | ✅ Complete |
 | Async Gate Approvals | Allow gates to run asynchronously | - | Next priority |
 
 ### P2 - Medium Priority
@@ -96,6 +96,7 @@
 | Learning System Phase 1 | 2026-01-07 | Distiller, Meta-Learner, Patterns, Ralph Mode integrated |
 | Learning System Phase 2 | 2026-01-07 | Evolution Daemon + Context Synthesizer |
 | Foundation Corp Bootstrap | 2026-01-07 | Structure, hierarchy, gates, templates ready |
+| Depth-Based Context | 2026-01-07 | Agent-level depth for Entity Graph context |
 
 ---
 

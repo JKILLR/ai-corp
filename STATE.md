@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-07
-> **Current Phase:** Learning System Phase 2 Complete
-> **Status:** Evolution Daemon and Context Synthesizer implemented
-> **Next Action:** Depth-Based Context (configure Entity Graph per agent)
+> **Current Phase:** Depth-Based Context Complete
+> **Status:** Agent-level context depth for Entity Graph
+> **Next Action:** Async Gate Approvals
 
 ---
 
@@ -48,7 +48,7 @@
 | **Skills System** | ✅ Complete | Role-based skill discovery from SKILL.md files |
 | **Work Scheduler** | ✅ Complete | Capability matching, load balancing, dependency resolution |
 | **Executor Integration** | ✅ Complete | CorporationExecutor ↔ WorkScheduler ↔ SkillRegistry |
-| Tests | ✅ Complete | 630+ tests passing |
+| Tests | ✅ Complete | 730+ tests passing |
 | End-to-End Test | ⏳ Ready | CLI flow works with mock backend, ready for real testing |
 | **Entity Graph** | ✅ Complete | Unified entity management (Mem0/Graphiti-inspired) |
 | **File Storage** | ✅ Complete | Internal storage + Google Drive integration |
@@ -58,10 +58,50 @@
 | **Learning System** | ✅ Complete | Phase 1: Distiller, Meta-Learner, Patterns, Ralph Mode |
 | **Evolution Daemon** | ✅ Complete | Phase 2: Background learning cycles + Context Synthesizer |
 | **Foundation Corp** | ✅ Bootstrapped | Structure, hierarchy, gates, templates ready |
+| **Depth-Based Context** | ✅ Complete | Agent-level depth defaults for Entity Graph |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-07: Depth-Based Context Complete
+
+**DepthConfig Class (`src/core/graph.py`):**
+- `DepthConfig` dataclass with depth, limits, and network inclusion settings
+- `for_agent_level(level)` - Get appropriate config for agent level
+- Shorthand methods: `executive()`, `vp()`, `director()`, `worker()`
+- `custom()` - Create custom depth configurations
+
+**Agent-Level Defaults:**
+- Level 1 (Executive/COO): depth=3, max_entities=20, include_network=True
+- Level 2 (VP): depth=2, max_entities=15, include_network=True
+- Level 3 (Director): depth=1, max_entities=10, include_network=False
+- Level 4 (Worker): depth=0, max_entities=5, include_network=False
+
+**EntityGraph Enhancement (`src/core/graph.py`):**
+- `get_context_for_agent()` - Retrieve context with agent-level depth
+- Automatic limit enforcement (entities, relationships, interactions)
+- Network expansion for higher-level agents
+
+**BaseAgent Integration (`src/agents/base.py`):**
+- `entity_graph` - EntityGraph instance initialized on agent creation
+- `depth_config` - DepthConfig set based on agent level
+- `get_entity_context(entity_ids)` - Get context with appropriate depth
+- `get_entity_context_for_message(message)` - Extract entities and get context
+- `get_entity_profile(entity_id)` - Get comprehensive entity profile
+- `get_network_context(entity_id)` - Get network summary
+- `get_context_depth()` - Get agent's default depth value
+
+**Tests (`tests/core/test_depth_context.py`):**
+- 30 new tests covering:
+  - DepthConfig class methods and defaults
+  - Agent-level depth constants
+  - EntityGraph.get_context_for_agent()
+  - Agent integration with depth config
+
+**Exports:**
+- `DepthConfig`, `get_depth_for_level` exported from `src/core`
+- `AGENT_LEVEL_DEPTH_DEFAULTS`, `AGENT_LEVEL_CONTEXT_LIMITS` constants
 
 ### 2026-01-07: Learning System Phase 2 Complete
 

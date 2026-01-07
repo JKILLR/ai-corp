@@ -54,7 +54,7 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
-| **Depth-Based Context** | P1 | Agent-level defaults for Entity Graph retrieval depth |
+| **Depth-Based Context** | ✅ Done | Agent-level defaults for Entity Graph retrieval depth |
 | Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
 | Async Gate Approvals | P1 | Auto-approve when criteria met |
 
@@ -1245,10 +1245,14 @@ ai-corp status                                  # Quick health check summary
    - Evolution Daemon (hourly/daily/weekly cycles)
    - Context Synthesizer (transform context to understanding)
 
+### ✅ Completed - Depth-Based Context
+10. ~~Depth-Based Context~~ ✅
+    - DepthConfig class with agent-level defaults
+    - Integrated into BaseAgent with get_entity_context()
+
 ### Current Priority (P1)
-1. **Depth-Based Context** - Agent-level defaults for Entity Graph retrieval depth
+1. **Async Gate Approvals** - Auto-approve when criteria met
 2. **Real Claude Testing** - End-to-end test with ClaudeCodeBackend
-3. **Async Gate Approvals** - Auto-approve when criteria met
 
 ### Future (P2)
 1. Web UI with discovery onboarding chat
