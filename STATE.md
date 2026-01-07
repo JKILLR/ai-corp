@@ -1,8 +1,31 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-07
-> **Current Phase:** Platform Architecture & Foundation Corp Bootstrap
-> **Status:** Learning System Designed, Foundation Corp Ready
+> **Current Phase:** Learning System Implementation
+> **Status:** Core complete, Learning System next
+> **Next Action:** Build Learning System (Distiller, Meta-Learner, Patterns)
+
+---
+
+## Documentation Workflow
+
+**Master Documents (update with every change):**
+
+| Document | Purpose | When to Update |
+|----------|---------|----------------|
+| `STATE.md` | Implementation status | Every completed feature |
+| `ROADMAP.md` | Approved plans/priorities | New plans approved, plans completed |
+| `AI_CORP_ARCHITECTURE.md` | Technical architecture | Architecture changes |
+
+**How to Update STATE.md:**
+1. Update "Last Updated" date
+2. Update "Current Phase" to reflect current work
+3. Add entry under "Recent Changes" with date header
+4. Update "Quick Status" table if status changed
+5. Update "Component Status" if modules added/changed
+6. Update "Next Actions" - mark completed items, add new ones
+
+**Archived Docs:** Historical design docs that are now implemented are in `docs/archive/`
 
 ---
 
@@ -552,15 +575,29 @@ STATE.md                 (new - this file)
 
 ## Key Documentation
 
+**Master Documents (always keep updated):**
+
 | Document | Purpose |
 |----------|---------|
+| `STATE.md` | Current implementation status (this file) |
+| `ROADMAP.md` | Approved plans, priorities, and decisions |
 | `AI_CORP_ARCHITECTURE.md` | Core Engine technical details |
+
+**Reference Documents:**
+
+| Document | Purpose |
+|----------|---------|
 | `PLATFORM_ARCHITECTURE.md` | Apex, Personal, Foundation services |
 | `BUSINESS_MODEL.md` | Pricing, unit economics, token optimization |
 | `LEARNING_SYSTEM_DESIGN.md` | Learning System architecture |
+| `INTEGRATIONS_DESIGN.md` | Connector system for external services |
 | `foundation/README.md` | Foundation Corp overview |
 | `WORKFLOW.md` | Development standards (TCMO) |
 | `VISION.md` | Long-term vision and principles |
+
+**Archived (implemented):**
+- `docs/archive/PLAN_SUCCESS_CONTRACT_AND_MONITORING.md`
+- `docs/archive/DESIGN_SKILLS_AND_ORCHESTRATION.md`
 
 ---
 
