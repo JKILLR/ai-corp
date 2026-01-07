@@ -18,13 +18,18 @@ This module provides the core infrastructure for the AI Corporation:
 - Skills: Role-based skill discovery and loading
 - Scheduler: Intelligent work scheduling and orchestration
 - Entity Graph: Unified entity management (Mem0/Graphiti-inspired)
+- Learning: Learning System with Ralph Mode for persistent execution
 """
 
 from .molecule import Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine
 from .hook import Hook, HookManager
 from .bead import Bead, BeadLedger
 from .channel import Channel, ChannelType, ChannelManager
-from .gate import Gate, GateStatus, GateKeeper
+from .gate import (
+    Gate, GateStatus, GateKeeper, GateSubmission, GateCriterion,
+    SubmissionStatus, EvaluationStatus, AsyncEvaluationResult,
+    AutoApprovalPolicy, AsyncGateEvaluator
+)
 from .pool import WorkerPool, PoolManager
 from .raci import RACI, RACIRole
 from .contract import (
@@ -57,7 +62,12 @@ from .entity_summarizer import (
     EntitySummarizer, SummaryStore, Summary, SummaryType, SummaryScope,
     EntityProfile
 )
-from .graph import EntityGraph, EntityContext, get_entity_graph
+from .graph import (
+    EntityGraph, EntityContext, get_entity_graph,
+    # Depth-Based Context Configuration
+    DepthConfig, get_depth_for_level,
+    AGENT_LEVEL_DEPTH_DEFAULTS, AGENT_LEVEL_CONTEXT_LIMITS
+)
 from .llm import (
     LLMBackend, LLMRequest, LLMResponse, LLMBackendFactory,
     ClaudeCodeBackend, ClaudeAPIBackend, MockBackend,
@@ -87,13 +97,33 @@ from .scheduler import (
     WorkScheduler, CapabilityMatcher, LoadBalancer, DependencyResolver,
     SchedulingDecision
 )
+from .learning import (
+    # Enums
+    InsightType, PatternType, FailureStrategy, CycleType,
+    # Data classes
+    Insight, Outcome, Pattern, RalphCriterion, RalphConfig,
+    FailureBead, FailureContext, RalphResult,
+    SourceEffectiveness, ConfidenceBucket,
+    CycleResult, ImprovementSuggestion,
+    Theme, Prediction, SynthesizedContext,
+    # Core classes - Phase 1
+    InsightStore, OutcomeTracker, PatternLibrary, MetaLearner,
+    KnowledgeDistiller, RalphModeExecutor, BudgetTracker,
+    # Core classes - Phase 2
+    EvolutionDaemon, ContextSynthesizer,
+    # Main interface
+    LearningSystem, get_learning_system
+)
 
 __all__ = [
     'Molecule', 'MoleculeStep', 'MoleculeStatus', 'MoleculeEngine',
     'Hook', 'HookManager',
     'Bead', 'BeadLedger',
     'Channel', 'ChannelType', 'ChannelManager',
-    'Gate', 'GateStatus', 'GateKeeper',
+    # Quality Gates (with async support)
+    'Gate', 'GateStatus', 'GateKeeper', 'GateSubmission', 'GateCriterion',
+    'SubmissionStatus', 'EvaluationStatus', 'AsyncEvaluationResult',
+    'AutoApprovalPolicy', 'AsyncGateEvaluator',
     'WorkerPool', 'PoolManager',
     'RACI', 'RACIRole',
     # Success Contracts
@@ -117,6 +147,8 @@ __all__ = [
     'EntitySummarizer', 'SummaryStore', 'Summary', 'SummaryType', 'SummaryScope',
     'EntityProfile',
     'EntityGraph', 'EntityContext', 'get_entity_graph',
+    'DepthConfig', 'get_depth_for_level',
+    'AGENT_LEVEL_DEPTH_DEFAULTS', 'AGENT_LEVEL_CONTEXT_LIMITS',
     # LLM backend interface
     'LLMBackend', 'LLMRequest', 'LLMResponse', 'LLMBackendFactory',
     'ClaudeCodeBackend', 'ClaudeAPIBackend', 'MockBackend',
@@ -139,4 +171,17 @@ __all__ = [
     # Work Scheduler
     'WorkScheduler', 'CapabilityMatcher', 'LoadBalancer', 'DependencyResolver',
     'SchedulingDecision',
+    # Learning System - Phase 1
+    'InsightType', 'PatternType', 'FailureStrategy',
+    'Insight', 'Outcome', 'Pattern', 'RalphCriterion', 'RalphConfig',
+    'FailureBead', 'FailureContext', 'RalphResult',
+    'SourceEffectiveness', 'ConfidenceBucket',
+    'InsightStore', 'OutcomeTracker', 'PatternLibrary', 'MetaLearner',
+    'KnowledgeDistiller', 'RalphModeExecutor', 'BudgetTracker',
+    # Learning System - Phase 2
+    'CycleType', 'CycleResult', 'ImprovementSuggestion',
+    'Theme', 'Prediction', 'SynthesizedContext',
+    'EvolutionDaemon', 'ContextSynthesizer',
+    # Learning System - Main
+    'LearningSystem', 'get_learning_system',
 ]

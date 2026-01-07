@@ -9,6 +9,7 @@ Key concepts:
 - Steps have checkpoints for progress tracking
 - Molecules can be paused, resumed, and recovered
 - All state is persisted to git via Beads
+- Ralph Mode enables retry-with-failure-injection for persistent execution
 """
 
 import json
@@ -16,9 +17,12 @@ import uuid
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field, asdict
 import yaml
+
+if TYPE_CHECKING:
+    from .learning import LearningSystem, RalphConfig
 
 
 class MoleculeStatus(Enum):
@@ -149,6 +153,10 @@ class Molecule:
     Molecules represent units of work that flow through the organization.
     They contain steps with dependencies, checkpoints for recovery,
     and RACI for accountability.
+
+    Ralph Mode: When ralph_mode=True, molecules use retry-with-failure-injection
+    for persistent execution. Failures are captured and injected into retry
+    context to help subsequent attempts avoid the same mistakes.
     """
     id: str
     name: str
@@ -167,6 +175,11 @@ class Molecule:
     completed_at: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     tags: List[str] = field(default_factory=list)
+    # Ralph Mode fields
+    ralph_mode: bool = False
+    ralph_config: Optional[Dict[str, Any]] = None  # Serialized RalphConfig
+    retry_count: int = 0
+    failure_history: List[Dict[str, Any]] = field(default_factory=list)
 
     @classmethod
     def create(
@@ -175,7 +188,9 @@ class Molecule:
         description: str,
         created_by: str,
         priority: str = "P2_MEDIUM",
-        parent_molecule_id: Optional[str] = None
+        parent_molecule_id: Optional[str] = None,
+        ralph_mode: bool = False,
+        ralph_config: Optional[Dict[str, Any]] = None
     ) -> 'Molecule':
         now = datetime.utcnow().isoformat()
         return cls(
@@ -186,7 +201,9 @@ class Molecule:
             created_by=created_by,
             updated_at=now,
             priority=priority,
-            parent_molecule_id=parent_molecule_id
+            parent_molecule_id=parent_molecule_id,
+            ralph_mode=ralph_mode,
+            ralph_config=ralph_config
         )
 
     def add_step(self, step: MoleculeStep) -> None:
@@ -342,7 +359,12 @@ class Molecule:
             'started_at': self.started_at,
             'completed_at': self.completed_at,
             'metadata': self.metadata,
-            'tags': self.tags
+            'tags': self.tags,
+            # Ralph Mode fields
+            'ralph_mode': self.ralph_mode,
+            'ralph_config': self.ralph_config,
+            'retry_count': self.retry_count,
+            'failure_history': self.failure_history
         }
 
     @classmethod
@@ -350,6 +372,11 @@ class Molecule:
         data['status'] = MoleculeStatus(data['status'])
         data['steps'] = [MoleculeStep.from_dict(s) for s in data.get('steps', [])]
         data['raci'] = RACI(**data.get('raci', {}))
+        # Handle Ralph Mode fields with defaults for backward compatibility
+        data.setdefault('ralph_mode', False)
+        data.setdefault('ralph_config', None)
+        data.setdefault('retry_count', 0)
+        data.setdefault('failure_history', [])
         return cls(**data)
 
     def to_yaml(self) -> str:
@@ -370,18 +397,25 @@ class MoleculeEngine:
     - Tracking molecule state
     - Managing step execution
     - Crash recovery via checkpoints
+    - Ralph Mode: retry-with-failure-injection for persistent execution
+    - Learning System integration for knowledge extraction
     """
 
-    def __init__(self, base_path: Path):
+    def __init__(self, base_path: Path, learning_system: Optional['LearningSystem'] = None):
         self.base_path = Path(base_path)
         self.active_path = self.base_path / "molecules" / "active"
         self.completed_path = self.base_path / "molecules" / "completed"
         self.templates_path = self.base_path / "molecules" / "templates"
+        self.learning_system = learning_system
 
         # Ensure directories exist
         self.active_path.mkdir(parents=True, exist_ok=True)
         self.completed_path.mkdir(parents=True, exist_ok=True)
         self.templates_path.mkdir(parents=True, exist_ok=True)
+
+    def set_learning_system(self, learning_system: 'LearningSystem') -> None:
+        """Set the learning system for callbacks"""
+        self.learning_system = learning_system
 
     def create_molecule(
         self,
@@ -389,15 +423,30 @@ class MoleculeEngine:
         description: str,
         created_by: str,
         priority: str = "P2_MEDIUM",
-        parent_molecule_id: Optional[str] = None
+        parent_molecule_id: Optional[str] = None,
+        ralph_mode: bool = False,
+        ralph_config: Optional[Dict[str, Any]] = None
     ) -> Molecule:
-        """Create a new molecule"""
+        """
+        Create a new molecule.
+
+        Args:
+            name: Molecule name
+            description: What this molecule accomplishes
+            created_by: Agent ID that created this molecule
+            priority: P0-P3 priority level
+            parent_molecule_id: Optional parent molecule for sub-tasks
+            ralph_mode: Enable retry-with-failure-injection
+            ralph_config: Configuration for Ralph Mode (max_retries, cost_cap, etc.)
+        """
         molecule = Molecule.create(
             name=name,
             description=description,
             created_by=created_by,
             priority=priority,
-            parent_molecule_id=parent_molecule_id
+            parent_molecule_id=parent_molecule_id,
+            ralph_mode=ralph_mode,
+            ralph_config=ralph_config
         )
         self._save_molecule(molecule)
         return molecule
@@ -537,9 +586,15 @@ class MoleculeEngine:
         self,
         molecule_id: str,
         step_id: str,
-        error: str
+        error: str,
+        error_type: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None
     ) -> MoleculeStep:
-        """Mark a step as failed"""
+        """
+        Mark a step as failed.
+
+        For Ralph Mode molecules, this records failure context and may trigger retry.
+        """
         molecule = self.get_molecule(molecule_id)
         if not molecule:
             raise ValueError(f"Molecule {molecule_id} not found")
@@ -551,10 +606,65 @@ class MoleculeEngine:
         step.status = StepStatus.FAILED
         step.error = error
         step.completed_at = datetime.utcnow().isoformat()
+
+        # Record failure in history for Ralph Mode
+        failure_record = {
+            'step_id': step_id,
+            'step_name': step.name,
+            'error': error,
+            'error_type': error_type or 'unknown',
+            'timestamp': datetime.utcnow().isoformat(),
+            'retry_count': molecule.retry_count,
+            'context': context or {}
+        }
+        molecule.failure_history.append(failure_record)
+
+        # Notify Learning System of failure
+        if self.learning_system:
+            try:
+                self.learning_system.on_molecule_fail(
+                    molecule, step, error, error_type
+                )
+            except Exception as e:
+                print(f"Warning: Learning system failure callback failed: {e}")
+
+        # Handle Ralph Mode retry logic
+        if molecule.ralph_mode and self._should_ralph_retry(molecule):
+            # Don't mark as blocked - prepare for retry
+            molecule.retry_count += 1
+            molecule.updated_at = datetime.utcnow().isoformat()
+            self._save_molecule(molecule)
+            return step
+
+        # Standard failure - block the molecule
         molecule.status = MoleculeStatus.BLOCKED
         molecule.updated_at = datetime.utcnow().isoformat()
         self._save_molecule(molecule)
         return step
+
+    def _should_ralph_retry(self, molecule: Molecule) -> bool:
+        """Check if Ralph Mode should retry the molecule"""
+        if not molecule.ralph_mode or not molecule.ralph_config:
+            return False
+
+        config = molecule.ralph_config
+        max_retries = config.get('max_retries', 3)
+        cost_cap = config.get('cost_cap')
+
+        # Check retry count
+        if molecule.retry_count >= max_retries:
+            return False
+
+        # Check cost cap if Learning System is available
+        if cost_cap and self.learning_system:
+            try:
+                current_cost = self.learning_system.get_molecule_cost(molecule.id)
+                if current_cost >= cost_cap:
+                    return False
+            except Exception:
+                pass  # Continue without cost check
+
+        return True
 
     def recover_step(self, molecule_id: str, step_id: str) -> Optional[Checkpoint]:
         """Get the latest checkpoint for crash recovery"""
@@ -647,6 +757,14 @@ class MoleculeEngine:
         completed_file = self.completed_path / f"{molecule.id}.yaml"
         completed_file.write_text(molecule.to_yaml())
 
+        # Notify Learning System
+        if self.learning_system:
+            try:
+                self.learning_system.on_molecule_complete(molecule)
+            except Exception as e:
+                # Don't fail molecule completion if learning system has issues
+                print(f"Warning: Learning system callback failed: {e}")
+
     def create_from_template(
         self,
         template_name: str,
@@ -694,3 +812,180 @@ class MoleculeEngine:
 
         self._save_molecule(molecule)
         return molecule
+
+    # ========================================
+    # Ralph Mode Methods
+    # ========================================
+
+    def enable_ralph_mode(
+        self,
+        molecule_id: str,
+        max_retries: int = 3,
+        cost_cap: Optional[float] = None,
+        restart_strategy: str = "smart"
+    ) -> Molecule:
+        """
+        Enable Ralph Mode on an existing molecule.
+
+        Args:
+            molecule_id: Target molecule
+            max_retries: Maximum retry attempts (default 3)
+            cost_cap: Maximum cost in dollars before giving up
+            restart_strategy: "beginning", "checkpoint", or "smart"
+        """
+        molecule = self.get_molecule(molecule_id)
+        if not molecule:
+            raise ValueError(f"Molecule {molecule_id} not found")
+
+        molecule.ralph_mode = True
+        molecule.ralph_config = {
+            'max_retries': max_retries,
+            'cost_cap': cost_cap,
+            'restart_strategy': restart_strategy,
+            'enabled_at': datetime.utcnow().isoformat()
+        }
+        molecule.updated_at = datetime.utcnow().isoformat()
+        self._save_molecule(molecule)
+        return molecule
+
+    def get_ralph_context(self, molecule_id: str) -> Dict[str, Any]:
+        """
+        Get failure context for Ralph Mode retry.
+
+        Returns context that should be injected into the next attempt,
+        including previous failures and what to avoid.
+        """
+        molecule = self.get_molecule(molecule_id)
+        if not molecule:
+            return {}
+
+        context = {
+            'molecule_id': molecule.id,
+            'retry_count': molecule.retry_count,
+            'failure_history': molecule.failure_history,
+            'previous_errors': [],
+            'what_to_avoid': [],
+            'suggestions': []
+        }
+
+        # Extract learnings from failure history
+        for failure in molecule.failure_history:
+            context['previous_errors'].append({
+                'step': failure.get('step_name'),
+                'error': failure.get('error'),
+                'type': failure.get('error_type')
+            })
+            context['what_to_avoid'].append(
+                f"Avoid repeating: {failure.get('error', 'unknown error')} "
+                f"in step '{failure.get('step_name')}'"
+            )
+
+        # Get additional context from Learning System
+        if self.learning_system:
+            try:
+                ls_context = self.learning_system.get_ralph_context(molecule)
+                context['patterns'] = ls_context.get('relevant_patterns', [])
+                context['suggestions'] = ls_context.get('suggestions', [])
+            except Exception as e:
+                print(f"Warning: Could not get Learning System context: {e}")
+
+        return context
+
+    def prepare_ralph_retry(self, molecule_id: str) -> Molecule:
+        """
+        Prepare a molecule for Ralph Mode retry.
+
+        Resets failed steps based on restart strategy and prepares
+        the molecule for another attempt with failure context.
+        """
+        molecule = self.get_molecule(molecule_id)
+        if not molecule:
+            raise ValueError(f"Molecule {molecule_id} not found")
+
+        if not molecule.ralph_mode:
+            raise ValueError(f"Molecule {molecule_id} is not in Ralph Mode")
+
+        config = molecule.ralph_config or {}
+        strategy = config.get('restart_strategy', 'smart')
+
+        # Determine restart point
+        restart_from = self._identify_restart_point(molecule, strategy)
+
+        # Reset steps from restart point
+        found_restart = False
+        for step in molecule.steps:
+            if step.id == restart_from:
+                found_restart = True
+            if found_restart and step.status in (StepStatus.FAILED, StepStatus.IN_PROGRESS):
+                step.status = StepStatus.PENDING
+                step.error = None
+                step.started_at = None
+                step.completed_at = None
+                step.result = None
+                # Keep checkpoints for reference
+
+        # Update molecule status
+        molecule.status = MoleculeStatus.ACTIVE
+        molecule.updated_at = datetime.utcnow().isoformat()
+
+        # Store retry context in metadata
+        molecule.metadata['ralph_retry_context'] = self.get_ralph_context(molecule_id)
+
+        self._save_molecule(molecule)
+        return molecule
+
+    def _identify_restart_point(self, molecule: Molecule, strategy: str) -> str:
+        """Identify where to restart based on strategy"""
+        if strategy == "beginning":
+            # Start from the first step
+            return molecule.steps[0].id if molecule.steps else ""
+
+        elif strategy == "checkpoint":
+            # Start from last successful checkpoint
+            for step in reversed(molecule.steps):
+                if step.status == StepStatus.COMPLETED:
+                    # Return the step after the last completed one
+                    idx = molecule.steps.index(step)
+                    if idx + 1 < len(molecule.steps):
+                        return molecule.steps[idx + 1].id
+            return molecule.steps[0].id if molecule.steps else ""
+
+        else:  # "smart" strategy
+            # Use Learning System to determine best restart point
+            if self.learning_system:
+                try:
+                    return self.learning_system.suggest_restart_point(molecule)
+                except Exception:
+                    pass
+
+            # Fallback to checkpoint strategy
+            return self._identify_restart_point(molecule, "checkpoint")
+
+    def get_ralph_stats(self, molecule_id: str) -> Dict[str, Any]:
+        """Get Ralph Mode statistics for a molecule"""
+        molecule = self.get_molecule(molecule_id)
+        if not molecule:
+            return {}
+
+        config = molecule.ralph_config or {}
+        return {
+            'molecule_id': molecule.id,
+            'ralph_mode': molecule.ralph_mode,
+            'retry_count': molecule.retry_count,
+            'max_retries': config.get('max_retries', 3),
+            'cost_cap': config.get('cost_cap'),
+            'restart_strategy': config.get('restart_strategy', 'smart'),
+            'failure_count': len(molecule.failure_history),
+            'can_retry': self._should_ralph_retry(molecule),
+            'failure_summary': [
+                f"{f.get('step_name')}: {f.get('error_type')}"
+                for f in molecule.failure_history[-5:]  # Last 5
+            ]
+        }
+
+    def list_ralph_molecules(self) -> List[Molecule]:
+        """List all molecules with Ralph Mode enabled"""
+        return [
+            m for m in self.list_active_molecules()
+            if m.ralph_mode
+        ]

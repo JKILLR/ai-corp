@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-07
-> **Current Phase:** Learning System Implementation
-> **Status:** Core complete, Learning System next
-> **Next Action:** Build Learning System (Distiller, Meta-Learner, Patterns)
+> **Current Phase:** Async Gate Approvals Complete
+> **Status:** Gates can run asynchronously with auto-approval support
+> **Next Action:** Swarm Molecule Type (P2)
 
 ---
 
@@ -48,19 +48,194 @@
 | **Skills System** | ✅ Complete | Role-based skill discovery from SKILL.md files |
 | **Work Scheduler** | ✅ Complete | Capability matching, load balancing, dependency resolution |
 | **Executor Integration** | ✅ Complete | CorporationExecutor ↔ WorkScheduler ↔ SkillRegistry |
-| Tests | ✅ Complete | 630+ tests passing |
+| Tests | ✅ Complete | 730+ tests passing |
 | End-to-End Test | ⏳ Ready | CLI flow works with mock backend, ready for real testing |
 | **Entity Graph** | ✅ Complete | Unified entity management (Mem0/Graphiti-inspired) |
 | **File Storage** | ✅ Complete | Internal storage + Google Drive integration |
 | **The Forge** | ✅ Complete | Intention incubation system |
 | **Platform Architecture** | ✅ Complete | Apex, Personal, Foundation services defined |
 | **Business Model** | ✅ Complete | Pricing, unit economics, token optimization |
-| **Learning System** | ✅ Designed | Distiller, Evolution Daemon, Meta-Learner |
+| **Learning System** | ✅ Complete | Phase 1: Distiller, Meta-Learner, Patterns, Ralph Mode |
+| **Evolution Daemon** | ✅ Complete | Phase 2: Background learning cycles + Context Synthesizer |
 | **Foundation Corp** | ✅ Bootstrapped | Structure, hierarchy, gates, templates ready |
+| **Depth-Based Context** | ✅ Complete | Agent-level depth defaults for Entity Graph |
+| **Async Gate Approvals** | ✅ Complete | Async evaluation, auto-approval policies |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-07: Async Gate Approvals Complete
+
+**New Enums and Data Classes (`src/core/gate.py`):**
+- `EvaluationStatus` enum - NOT_STARTED, PENDING, EVALUATING, EVALUATED, FAILED
+- `AsyncEvaluationResult` - Results of async evaluation with confidence scores
+- `AutoApprovalPolicy` - Configure when gates can auto-approve
+  - Presets: `strict()`, `auto_checks_only()`, `lenient(min_confidence)`
+
+**GateSubmission Async Fields:**
+- `evaluation_status` - Track async evaluation state
+- `evaluation_result` - Store evaluation results
+- `auto_approved` - Flag for auto-approved submissions
+- Methods: `start_evaluation()`, `complete_evaluation()`, `fail_evaluation()`, `auto_approve()`
+- Helper methods: `is_evaluating()`, `is_evaluated()`
+
+**Gate Async Methods:**
+- `get_auto_check_criteria()` - Get criteria that can be auto-checked
+- `get_manual_check_criteria()` - Get criteria requiring manual verification
+- `get_evaluating_submissions()` - Get submissions being evaluated
+- `get_evaluated_submissions()` - Get completed evaluations
+- `set_auto_approval_policy()` - Configure auto-approval
+- `can_auto_approve()` - Check if gate supports auto-approval
+
+**AsyncGateEvaluator Class:**
+- Background evaluation using ThreadPoolExecutor
+- `evaluate_async()` - Start async evaluation with callback
+- `evaluate_sync()` - Synchronous evaluation for testing
+- Runs auto-check criteria commands
+- Calculates confidence scores
+- Auto-approves when policy conditions met
+- `cancel_evaluation()` - Cancel pending evaluations
+- `shutdown()` - Clean shutdown of executor
+
+**GateKeeper Async Methods:**
+- `submit_for_async_evaluation()` - Submit with automatic async evaluation
+- `get_evaluating_submissions()` - Get all evaluating submissions
+- `get_evaluated_submissions()` - Get all evaluated submissions
+- `set_gate_auto_approval_policy()` - Set policy for a gate
+
+**Tests (`tests/core/test_async_gate.py`):**
+- 40 new tests covering:
+  - EvaluationStatus enum
+  - AsyncEvaluationResult serialization
+  - AutoApprovalPolicy presets
+  - GateSubmission async methods
+  - Gate async methods
+  - AsyncGateEvaluator sync/async evaluation
+  - Auto-approval flow
+  - GateKeeper async methods
+  - Integration tests
+
+**Exports Updated:**
+- All async gate classes exported from `src/core`
+
+### 2026-01-07: Depth-Based Context Complete
+
+**DepthConfig Class (`src/core/graph.py`):**
+- `DepthConfig` dataclass with depth, limits, and network inclusion settings
+- `for_agent_level(level)` - Get appropriate config for agent level
+- Shorthand methods: `executive()`, `vp()`, `director()`, `worker()`
+- `custom()` - Create custom depth configurations
+
+**Agent-Level Defaults:**
+- Level 1 (Executive/COO): depth=3, max_entities=20, include_network=True
+- Level 2 (VP): depth=2, max_entities=15, include_network=True
+- Level 3 (Director): depth=1, max_entities=10, include_network=False
+- Level 4 (Worker): depth=0, max_entities=5, include_network=False
+
+**EntityGraph Enhancement (`src/core/graph.py`):**
+- `get_context_for_agent()` - Retrieve context with agent-level depth
+- Automatic limit enforcement (entities, relationships, interactions)
+- Network expansion for higher-level agents
+
+**BaseAgent Integration (`src/agents/base.py`):**
+- `entity_graph` - EntityGraph instance initialized on agent creation
+- `depth_config` - DepthConfig set based on agent level
+- `get_entity_context(entity_ids)` - Get context with appropriate depth
+- `get_entity_context_for_message(message)` - Extract entities and get context
+- `get_entity_profile(entity_id)` - Get comprehensive entity profile
+- `get_network_context(entity_id)` - Get network summary
+- `get_context_depth()` - Get agent's default depth value
+
+**Tests (`tests/core/test_depth_context.py`):**
+- 30 new tests covering:
+  - DepthConfig class methods and defaults
+  - Agent-level depth constants
+  - EntityGraph.get_context_for_agent()
+  - Agent integration with depth config
+
+**Exports:**
+- `DepthConfig`, `get_depth_for_level` exported from `src/core`
+- `AGENT_LEVEL_DEPTH_DEFAULTS`, `AGENT_LEVEL_CONTEXT_LIMITS` constants
+
+### 2026-01-07: Learning System Phase 2 Complete
+
+**Evolution Daemon Implementation:**
+- `src/core/learning.py` - Added ~400 lines for Phase 2 components
+  - `CycleType` enum - FAST (hourly), MEDIUM (daily), SLOW (weekly)
+  - `CycleResult` - Track outcomes of learning cycles
+  - `ImprovementSuggestion` - System-generated recommendations
+  - `EvolutionDaemon` - Background learning with three cycles:
+    - Fast cycle: Process recent outcomes, update meta-learner, promote patterns
+    - Medium cycle: Discover patterns, validate existing, generate suggestions
+    - Slow cycle: Deep analysis, identify systematic issues, generate reports
+  - Persistence: Cycle history and suggestions saved to disk
+
+**Context Synthesizer Implementation:**
+- `Theme` - Recurring patterns identified across contexts
+- `Prediction` - What might happen based on patterns
+- `SynthesizedContext` - Rich context combining patterns, insights, themes
+- `ContextSynthesizer` - Transform raw context into understanding:
+  - Gathers relevant patterns and insights for a query
+  - Identifies themes, predictions, gaps in knowledge
+  - Generates recommendations for actions
+  - Outputs both dict format and LLM-ready prompt format
+
+**Integration with LearningSystem:**
+- `LearningSystem.evolution` - Evolution Daemon instance
+- `LearningSystem.synthesizer` - Context Synthesizer instance
+- Full integration with existing Phase 1 components
+
+**Tests:**
+- `tests/core/test_learning.py` - 23 new tests for Phase 2:
+  - TestEvolutionDaemon: 9 tests (cycles, suggestions, persistence)
+  - TestContextSynthesizer: 6 tests (synthesize, themes, gaps)
+  - TestPhase2DataClasses: 4 tests (CycleType, CycleResult, etc.)
+  - TestLearningSystemPhase2: 4 tests (integration)
+- All 70 learning tests passing
+
+**Exports Updated:**
+- `src/core/__init__.py` - All Phase 2 classes exported
+
+### 2026-01-07: Learning System Phase 1 Complete
+
+**Learning System Implementation:**
+- `src/core/learning.py` - Complete Learning System (~1100 lines)
+  - `InsightStore` - Persist and retrieve insights with deduplication
+  - `OutcomeTracker` - Track success/failure outcomes with metrics
+  - `PatternLibrary` - Store, validate, and promote patterns
+  - `MetaLearner` - Learn what works, adjust routing strategies
+  - `KnowledgeDistiller` - Extract insights from completed molecules
+  - `RalphModeExecutor` - Retry-with-failure-injection logic
+  - `BudgetTracker` - Track spending per molecule for cost caps
+  - `LearningSystem` - Main interface coordinating all components
+
+**Ralph Mode Integration with Molecule Engine:**
+- `src/core/molecule.py` - Updated with Ralph Mode support
+  - `Molecule` class: Added `ralph_mode`, `ralph_config`, `retry_count`, `failure_history` fields
+  - `MoleculeEngine.create_molecule()` - Accept ralph_mode parameters
+  - `MoleculeEngine.fail_step()` - Records failure context, handles retry logic
+  - `MoleculeEngine.enable_ralph_mode()` - Enable on existing molecules
+  - `MoleculeEngine.get_ralph_context()` - Get failure context for retries
+  - `MoleculeEngine.prepare_ralph_retry()` - Reset failed steps for retry
+  - `MoleculeEngine.get_ralph_stats()` - Statistics for Ralph Mode molecules
+  - `MoleculeEngine.list_ralph_molecules()` - List Ralph-enabled molecules
+  - Learning System callbacks on molecule complete/fail
+
+**Tests:**
+- `tests/core/test_learning.py` - 47 tests for Learning System
+- `tests/core/test_molecule.py` - 10 new Ralph Mode tests (46 total)
+- All 93 new tests passing
+
+**Exports Updated:**
+- `src/core/__init__.py` - All Learning System classes exported
+
+**Key Concepts:**
+- Ralph Mode: Retry-with-failure-injection for persistent execution
+- Failure context injected into retry attempts to avoid repeating mistakes
+- Three restart strategies: "beginning", "checkpoint", "smart"
+- Cost caps and max retries for safety limits
+- Learning System notified on molecule complete/fail for knowledge extraction
 
 ### 2026-01-07: Foundation Corp Bootstrap & Learning System Design
 
@@ -466,7 +641,7 @@ CorporationExecutor
 | `hook.py` | ✅ Stable | Work queues |
 | `bead.py` | ✅ Stable | Git-backed ledger |
 | `channel.py` | ✅ Stable | Inter-agent messaging |
-| `gate.py` | ✅ Stable | Quality gates |
+| `gate.py` | ✅ Stable | Quality gates with async evaluation + auto-approval |
 | `pool.py` | ✅ Stable | Worker pools |
 | `raci.py` | ✅ Stable | Accountability model |
 | `hiring.py` | ✅ Stable | Dynamic hiring |
@@ -478,8 +653,9 @@ CorporationExecutor
 | `monitor.py` | ✅ Stable | System monitoring |
 | `knowledge.py` | ✅ Stable | Scoped knowledge base |
 | `ingest.py` | ✅ Stable | Document ingestion pipeline |
-| `skills.py` | ✅ New | Role-based skill discovery |
-| `scheduler.py` | ✅ New | Work scheduling with capability matching |
+| `skills.py` | ✅ Stable | Role-based skill discovery |
+| `scheduler.py` | ✅ Stable | Work scheduling with capability matching |
+| `learning.py` | ✅ Stable | Learning System Phase 1 + Phase 2 (Evolution Daemon, Context Synthesizer) |
 
 ### Agents (`src/agents/`)
 
@@ -512,8 +688,8 @@ CorporationExecutor
 
 ## Next Actions
 
-### P1 Priority (Current)
-1. ~~Create pytest test suite~~ ✅ Complete (630+ tests)
+### P1 Priority (Complete)
+1. ~~Create pytest test suite~~ ✅ Complete (770+ tests)
 2. ~~Add monitoring~~ ✅ Complete
 3. ~~Add terminal dashboard~~ ✅ Complete
 4. ~~Skills & Work Scheduler~~ ✅ Complete
@@ -521,16 +697,19 @@ CorporationExecutor
 6. ~~Platform Architecture~~ ✅ Complete
 7. ~~Foundation Corp Bootstrap~~ ✅ Complete
 8. ~~Learning System Design~~ ✅ Complete
-9. **Build Learning System** ← NEXT (Distiller, Meta-Learner, Patterns)
-10. Async Gate Approvals
+9. ~~Build Learning System~~ ✅ Complete (Phase 1 + Ralph Mode)
+10. ~~Depth-Based Context~~ ✅ Complete - Agent-level Entity Graph depth
+11. ~~Async Gate Approvals~~ ✅ Complete - Async evaluation + auto-approval
 
 ### P2 Future
-1. Evolution Daemon (background learning)
-2. Context Synthesizer
-3. Local model training (Phase 3 of Learning System)
-4. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
-5. Apex Corp Registry
-6. Web UI
+1. ~~Evolution Daemon~~ ✅ Complete (background learning cycles)
+2. ~~Context Synthesizer~~ ✅ Complete (part of Phase 2)
+3. Swarm Molecule Type (parallel research pattern)
+4. Composite Molecules (chain molecule types)
+5. Local model training (Phase 3 of Learning System)
+6. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
+7. Apex Corp Registry
+8. Web UI
 
 ---
 
@@ -538,10 +717,10 @@ CorporationExecutor
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Core modules | 18 | - |
+| Core modules | 19 | - |
 | Agent types | 5 | 5+ |
-| Lines of code | ~9500 | - |
-| Test count | 451+ | - |
+| Lines of code | ~11000 | - |
+| Test count | 770+ | - |
 | Test coverage | ~40% | 80% |
 | Integration tests | Comprehensive | Comprehensive |
 

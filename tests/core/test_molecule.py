@@ -607,3 +607,262 @@ class TestMoleculeEdgeCases:
 
         assert rejected.status == MoleculeStatus.BLOCKED
         assert rejected.metadata['rejection_reason'] == 'Needs more tests'
+
+
+class TestRalphMode:
+    """Tests for Ralph Mode (retry-with-failure-injection)."""
+
+    def test_create_molecule_with_ralph_mode(self, molecule_engine):
+        """Test creating a molecule with Ralph Mode enabled."""
+        ralph_config = {
+            'max_retries': 3,
+            'cost_cap': 10.0,
+            'restart_strategy': 'smart'
+        }
+        molecule = molecule_engine.create_molecule(
+            name='Ralph Test',
+            description='Test Ralph Mode',
+            created_by='test-agent',
+            ralph_mode=True,
+            ralph_config=ralph_config
+        )
+
+        assert molecule.ralph_mode is True
+        assert molecule.ralph_config['max_retries'] == 3
+        assert molecule.ralph_config['cost_cap'] == 10.0
+        assert molecule.retry_count == 0
+        assert molecule.failure_history == []
+
+    def test_enable_ralph_mode_on_existing(self, molecule_engine):
+        """Test enabling Ralph Mode on an existing molecule."""
+        molecule = molecule_engine.create_molecule(
+            name='Normal Molecule',
+            description='Test',
+            created_by='test-agent'
+        )
+        assert molecule.ralph_mode is False
+
+        updated = molecule_engine.enable_ralph_mode(
+            molecule.id,
+            max_retries=5,
+            cost_cap=25.0,
+            restart_strategy='checkpoint'
+        )
+
+        assert updated.ralph_mode is True
+        assert updated.ralph_config['max_retries'] == 5
+        assert updated.ralph_config['cost_cap'] == 25.0
+
+    def test_fail_step_records_failure_history(self, molecule_engine):
+        """Test that failing a step records in failure history."""
+        molecule = molecule_engine.create_molecule(
+            name='Test',
+            description='Test',
+            created_by='test-agent',
+            ralph_mode=True,
+            ralph_config={'max_retries': 3}
+        )
+        step = MoleculeStep.create(name='Step 1', description='First')
+        molecule.add_step(step)
+        molecule_engine._save_molecule(molecule)
+
+        molecule_engine.start_step(molecule.id, step.id, 'worker')
+        molecule_engine.fail_step(
+            molecule.id,
+            step.id,
+            error='Test failure',
+            error_type='timeout',
+            context={'detail': 'test'}
+        )
+
+        updated = molecule_engine.get_molecule(molecule.id)
+        assert len(updated.failure_history) == 1
+        assert updated.failure_history[0]['error'] == 'Test failure'
+        assert updated.failure_history[0]['error_type'] == 'timeout'
+
+    def test_ralph_mode_increments_retry_count(self, molecule_engine):
+        """Test that Ralph Mode increments retry count on failure."""
+        molecule = molecule_engine.create_molecule(
+            name='Test',
+            description='Test',
+            created_by='test-agent',
+            ralph_mode=True,
+            ralph_config={'max_retries': 3}
+        )
+        step = MoleculeStep.create(name='Step 1', description='First')
+        molecule.add_step(step)
+        molecule_engine._save_molecule(molecule)
+
+        molecule_engine.start_step(molecule.id, step.id, 'worker')
+        molecule_engine.fail_step(molecule.id, step.id, error='First failure')
+
+        updated = molecule_engine.get_molecule(molecule.id)
+        assert updated.retry_count == 1
+        # Should not be BLOCKED since retries remain
+        assert updated.status != MoleculeStatus.BLOCKED
+
+    def test_ralph_mode_blocks_after_max_retries(self, molecule_engine):
+        """Test that molecule blocks after max retries exceeded."""
+        molecule = molecule_engine.create_molecule(
+            name='Test',
+            description='Test',
+            created_by='test-agent',
+            ralph_mode=True,
+            ralph_config={'max_retries': 1}
+        )
+        step = MoleculeStep.create(name='Step 1', description='First')
+        molecule.add_step(step)
+        molecule_engine._save_molecule(molecule)
+
+        # First failure - should not block
+        molecule_engine.start_step(molecule.id, step.id, 'worker')
+        molecule_engine.fail_step(molecule.id, step.id, error='First failure')
+
+        # Second failure - should block (max_retries=1 means 1 retry allowed)
+        mol = molecule_engine.get_molecule(molecule.id)
+        step = mol.get_step(step.id)
+        step.status = StepStatus.IN_PROGRESS
+        molecule_engine._save_molecule(mol)
+        molecule_engine.fail_step(molecule.id, step.id, error='Second failure')
+
+        final = molecule_engine.get_molecule(molecule.id)
+        assert final.status == MoleculeStatus.BLOCKED
+        assert final.retry_count == 1
+
+    def test_get_ralph_context(self, molecule_engine):
+        """Test getting Ralph context for retry."""
+        molecule = molecule_engine.create_molecule(
+            name='Test',
+            description='Test',
+            created_by='test-agent',
+            ralph_mode=True,
+            ralph_config={'max_retries': 3}
+        )
+        step = MoleculeStep.create(name='Build', description='Build code')
+        molecule.add_step(step)
+        molecule_engine._save_molecule(molecule)
+
+        molecule_engine.start_step(molecule.id, step.id, 'worker')
+        molecule_engine.fail_step(
+            molecule.id, step.id,
+            error='Compile error: missing import',
+            error_type='compile_error'
+        )
+
+        context = molecule_engine.get_ralph_context(molecule.id)
+
+        assert context['retry_count'] == 1
+        assert len(context['previous_errors']) == 1
+        assert context['previous_errors'][0]['step'] == 'Build'
+        assert 'Avoid repeating' in context['what_to_avoid'][0]
+
+    def test_prepare_ralph_retry_resets_steps(self, molecule_engine):
+        """Test that prepare_ralph_retry resets failed steps."""
+        molecule = molecule_engine.create_molecule(
+            name='Test',
+            description='Test',
+            created_by='test-agent',
+            ralph_mode=True,
+            ralph_config={'max_retries': 3, 'restart_strategy': 'checkpoint'}
+        )
+        s1 = MoleculeStep.create(name='Step 1', description='First')
+        s2 = MoleculeStep.create(name='Step 2', description='Second')
+        molecule.add_step(s1)
+        molecule.add_step(s2)
+        molecule.steps[1].depends_on = [s1.id]
+        molecule_engine._save_molecule(molecule)
+
+        # Complete step 1
+        molecule_engine.start_step(molecule.id, s1.id, 'worker')
+        molecule_engine.complete_step(molecule.id, s1.id)
+
+        # Fail step 2
+        molecule_engine.start_step(molecule.id, s2.id, 'worker')
+        molecule_engine.fail_step(molecule.id, s2.id, error='Failed')
+
+        # Prepare retry
+        retried = molecule_engine.prepare_ralph_retry(molecule.id)
+
+        assert retried.status == MoleculeStatus.ACTIVE
+        # Step 1 should still be completed
+        assert retried.get_step(s1.id).status == StepStatus.COMPLETED
+        # Step 2 should be reset to pending
+        assert retried.get_step(s2.id).status == StepStatus.PENDING
+        assert retried.get_step(s2.id).error is None
+
+    def test_get_ralph_stats(self, molecule_engine):
+        """Test getting Ralph Mode statistics."""
+        molecule = molecule_engine.create_molecule(
+            name='Test',
+            description='Test',
+            created_by='test-agent',
+            ralph_mode=True,
+            ralph_config={'max_retries': 5, 'cost_cap': 50.0}
+        )
+        step = MoleculeStep.create(name='Step 1', description='First')
+        molecule.add_step(step)
+        molecule_engine._save_molecule(molecule)
+
+        molecule_engine.start_step(molecule.id, step.id, 'worker')
+        molecule_engine.fail_step(molecule.id, step.id, error='Oops')
+
+        stats = molecule_engine.get_ralph_stats(molecule.id)
+
+        assert stats['ralph_mode'] is True
+        assert stats['retry_count'] == 1
+        assert stats['max_retries'] == 5
+        assert stats['cost_cap'] == 50.0
+        assert stats['failure_count'] == 1
+        assert stats['can_retry'] is True
+
+    def test_list_ralph_molecules(self, molecule_engine):
+        """Test listing molecules with Ralph Mode enabled."""
+        molecule_engine.create_molecule(
+            name='Normal',
+            description='Regular molecule',
+            created_by='test-agent'
+        )
+        molecule_engine.create_molecule(
+            name='Ralph 1',
+            description='Ralph molecule',
+            created_by='test-agent',
+            ralph_mode=True,
+            ralph_config={'max_retries': 3}
+        )
+        molecule_engine.create_molecule(
+            name='Ralph 2',
+            description='Another Ralph molecule',
+            created_by='test-agent',
+            ralph_mode=True,
+            ralph_config={'max_retries': 3}
+        )
+
+        ralph_mols = molecule_engine.list_ralph_molecules()
+
+        assert len(ralph_mols) == 2
+        assert all(m.ralph_mode for m in ralph_mols)
+
+    def test_molecule_ralph_mode_serialization(self, molecule_engine):
+        """Test that Ralph Mode state persists correctly."""
+        molecule = molecule_engine.create_molecule(
+            name='Test',
+            description='Test',
+            created_by='test-agent',
+            ralph_mode=True,
+            ralph_config={'max_retries': 3}
+        )
+        step = MoleculeStep.create(name='Step 1', description='First')
+        molecule.add_step(step)
+        molecule_engine._save_molecule(molecule)
+
+        molecule_engine.start_step(molecule.id, step.id, 'worker')
+        molecule_engine.fail_step(molecule.id, step.id, error='Test error')
+
+        # Create new engine and load
+        new_engine = MoleculeEngine(molecule_engine.base_path)
+        loaded = new_engine.get_molecule(molecule.id)
+
+        assert loaded.ralph_mode is True
+        assert loaded.ralph_config['max_retries'] == 3
+        assert loaded.retry_count == 1
+        assert len(loaded.failure_history) == 1

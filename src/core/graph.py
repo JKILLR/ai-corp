@@ -460,6 +460,127 @@ class EntityGraph:
     # Context Generation
     # =========================================================================
 
+    def get_context_for_agent(
+        self,
+        entity_ids: List[str],
+        agent_level: int,
+        depth_config: Optional['DepthConfig'] = None
+    ) -> EntityContext:
+        """
+        Generate context for an agent based on their organizational level.
+
+        This is the primary method for agents to request entity context.
+        The depth and breadth of context is automatically adjusted based
+        on the agent's level in the hierarchy.
+
+        Args:
+            entity_ids: Entity IDs to get context for
+            agent_level: Agent level (1=Executive, 2=VP, 3=Director, 4=Worker)
+            depth_config: Optional custom depth config (uses level defaults if None)
+
+        Returns:
+            EntityContext with appropriate depth for the agent's level
+        """
+        # Use provided config or get defaults for level
+        config = depth_config
+        if config is None:
+            # Import here to avoid circular dependency at class definition
+            config = DepthConfig.for_agent_level(agent_level)
+
+        # Limit entity IDs to max
+        limited_entity_ids = entity_ids[:config.max_entities]
+
+        profiles = []
+        relationships = []
+        recent_interactions = []
+        pending_actions = []
+
+        for entity_id in limited_entity_ids:
+            profile = self.summarizer.generate_entity_profile(entity_id)
+            if profile:
+                profiles.append(profile)
+
+                # Collect pending actions (limited)
+                for action in profile.action_items[:3]:
+                    pending_actions.append({
+                        'entity': profile.entity.name,
+                        'description': action
+                    })
+
+        # Limit pending actions
+        pending_actions = pending_actions[:config.max_interactions]
+
+        # Get pairwise relationships (limited)
+        rel_count = 0
+        for i, eid1 in enumerate(limited_entity_ids):
+            if rel_count >= config.max_relationships:
+                break
+            for eid2 in limited_entity_ids[i+1:]:
+                if rel_count >= config.max_relationships:
+                    break
+                rel_summary = self.summarizer.generate_relationship_summary(
+                    eid1, eid2, SummaryScope.RECENT
+                )
+                if rel_summary and rel_summary.interaction_count > 0:
+                    e1 = self.entity_store.get_entity(eid1)
+                    e2 = self.entity_store.get_entity(eid2)
+                    relationships.append({
+                        'entity1': e1.name if e1 else eid1,
+                        'entity2': e2.name if e2 else eid2,
+                        'summary': rel_summary.content
+                    })
+                    rel_count += 1
+
+        # Include network context if configured (depth > 0)
+        if config.include_network and config.depth > 0 and limited_entity_ids:
+            # Get network for primary entity
+            primary_id = limited_entity_ids[0]
+            connected = self.entity_store.get_connected_entities(
+                primary_id,
+                depth=config.depth
+            )
+
+            # Add network entities to context (limited)
+            network_added = 0
+            for other_id, rel in connected.items():
+                if network_added >= config.max_entities:
+                    break
+                other = self.entity_store.get_entity(other_id)
+                if other and other_id not in limited_entity_ids:
+                    relationships.append({
+                        'entity1': self.entity_store.get_entity(primary_id).name,
+                        'entity2': other.name,
+                        'summary': f"{rel.relationship_type.value} (strength: {rel.strength:.0%})",
+                        'depth': 'network'
+                    })
+                    network_added += 1
+
+        # Get recent shared interactions (limited)
+        if len(limited_entity_ids) >= 2:
+            shared = self._get_shared_interactions(
+                limited_entity_ids,
+                limit=config.max_interactions
+            )
+            for interaction in shared:
+                recent_interactions.append({
+                    'type': interaction.interaction_type.value,
+                    'timestamp': interaction.timestamp,
+                    'summary': interaction.summary
+                })
+
+        # Generate overall summary
+        summary = self.summarizer.generate_context_for_conversation(
+            limited_entity_ids
+        )
+
+        return EntityContext(
+            entities=profiles,
+            relationships=relationships[:config.max_relationships],
+            recent_interactions=recent_interactions[:config.max_interactions],
+            pending_actions=pending_actions,
+            summary=summary.content
+        )
+
     def get_context_for_entities(
         self,
         entity_ids: List[str],
@@ -763,6 +884,137 @@ class EntityGraph:
             'average_relationship_strength': round(avg_strength, 2),
             'pending_merges': len(self.resolver.pending_merges)
         }
+
+
+# =========================================================================
+# Depth Configuration - Agent Level Defaults
+# =========================================================================
+
+# Default context depth for each agent level
+# Higher levels (executives) get deeper context for strategic decisions
+# Lower levels (workers) get focused context for task execution
+AGENT_LEVEL_DEPTH_DEFAULTS = {
+    1: 3,  # Executive (COO): Deep strategic context - full network view
+    2: 2,  # VP: Departmental context - moderate network view
+    3: 1,  # Director: Team context - immediate connections only
+    4: 0,  # Worker: Task-focused - no network traversal, just direct entities
+}
+
+# Context limits per agent level (to control token usage)
+AGENT_LEVEL_CONTEXT_LIMITS = {
+    1: {  # Executive
+        'max_entities': 20,
+        'max_relationships': 30,
+        'max_interactions': 15,
+        'include_network': True,
+    },
+    2: {  # VP
+        'max_entities': 15,
+        'max_relationships': 20,
+        'max_interactions': 10,
+        'include_network': True,
+    },
+    3: {  # Director
+        'max_entities': 10,
+        'max_relationships': 10,
+        'max_interactions': 5,
+        'include_network': False,
+    },
+    4: {  # Worker
+        'max_entities': 5,
+        'max_relationships': 5,
+        'max_interactions': 3,
+        'include_network': False,
+    },
+}
+
+
+@dataclass
+class DepthConfig:
+    """
+    Configuration for context retrieval depth.
+
+    Allows customization of how much context an agent receives
+    based on their organizational level and task requirements.
+    """
+    depth: int = 1
+    max_entities: int = 10
+    max_relationships: int = 10
+    max_interactions: int = 5
+    include_network: bool = False
+
+    @classmethod
+    def for_agent_level(cls, level: int) -> 'DepthConfig':
+        """
+        Get depth configuration appropriate for an agent level.
+
+        Args:
+            level: Agent level (1=Executive, 2=VP, 3=Director, 4=Worker)
+
+        Returns:
+            DepthConfig with appropriate defaults
+        """
+        depth = AGENT_LEVEL_DEPTH_DEFAULTS.get(level, 1)
+        limits = AGENT_LEVEL_CONTEXT_LIMITS.get(level, AGENT_LEVEL_CONTEXT_LIMITS[3])
+
+        return cls(
+            depth=depth,
+            max_entities=limits['max_entities'],
+            max_relationships=limits['max_relationships'],
+            max_interactions=limits['max_interactions'],
+            include_network=limits['include_network'],
+        )
+
+    @classmethod
+    def executive(cls) -> 'DepthConfig':
+        """Get executive (COO) level configuration"""
+        return cls.for_agent_level(1)
+
+    @classmethod
+    def vp(cls) -> 'DepthConfig':
+        """Get VP level configuration"""
+        return cls.for_agent_level(2)
+
+    @classmethod
+    def director(cls) -> 'DepthConfig':
+        """Get director level configuration"""
+        return cls.for_agent_level(3)
+
+    @classmethod
+    def worker(cls) -> 'DepthConfig':
+        """Get worker level configuration (focused)"""
+        return cls.for_agent_level(4)
+
+    @classmethod
+    def custom(
+        cls,
+        depth: int,
+        max_entities: int = 10,
+        max_relationships: int = 10,
+        max_interactions: int = 5,
+        include_network: bool = False
+    ) -> 'DepthConfig':
+        """Create custom depth configuration"""
+        return cls(
+            depth=depth,
+            max_entities=max_entities,
+            max_relationships=max_relationships,
+            max_interactions=max_interactions,
+            include_network=include_network,
+        )
+
+
+def get_depth_for_level(level: int) -> int:
+    """
+    Get the default context depth for an agent level.
+
+    Args:
+        level: Agent level (1-4)
+
+    Returns:
+        Recommended depth for Entity Graph traversal
+    """
+    return AGENT_LEVEL_DEPTH_DEFAULTS.get(level, 1)
 
 
 # Convenience function
