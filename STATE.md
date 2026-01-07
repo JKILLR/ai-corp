@@ -48,7 +48,7 @@
 | **Skills System** | ✅ Complete | Role-based skill discovery from SKILL.md files |
 | **Work Scheduler** | ✅ Complete | Capability matching, load balancing, dependency resolution |
 | **Executor Integration** | ✅ Complete | CorporationExecutor ↔ WorkScheduler ↔ SkillRegistry |
-| Tests | ✅ Complete | 730+ tests passing |
+| Tests | ✅ Complete | 770+ tests passing |
 | End-to-End Test | ⏳ Ready | CLI flow works with mock backend, ready for real testing |
 | **Entity Graph** | ✅ Complete | Unified entity management (Mem0/Graphiti-inspired) |
 | **File Storage** | ✅ Complete | Internal storage + Google Drive integration |
@@ -105,7 +105,7 @@
 - `set_gate_auto_approval_policy()` - Set policy for a gate
 
 **Tests (`tests/core/test_async_gate.py`):**
-- 40 new tests covering:
+- 44 new tests covering:
   - EvaluationStatus enum
   - AsyncEvaluationResult serialization
   - AutoApprovalPolicy presets
