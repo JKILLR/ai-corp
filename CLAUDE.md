@@ -112,5 +112,6 @@ python3 -c "from src.core import MoleculeEngine; print('OK')"
 
 - Read `STATE.md` first - it has the current phase and next action
 - Check `ROADMAP.md` for what's approved vs just an idea
+- Capture random ideas in `IDEAS.md` (not approved, just brainstorming)
 - Update master docs as you work, not just at the end
 - Follow the integration checklist in `WORKFLOW.md` for new components
