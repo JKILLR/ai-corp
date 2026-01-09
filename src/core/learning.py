@@ -64,6 +64,70 @@ class FailureStrategy(Enum):
     CONTINUE = "continue"
 
 
+class FailureType(Enum):
+    """Classification of failure types for structured analysis"""
+    PROMPT_AMBIGUITY = "prompt_ambiguity"        # Unclear instructions
+    LOGIC_ERROR = "logic_error"                  # Flawed reasoning
+    HALLUCINATION = "hallucination"              # Made up information
+    COST_OVERRUN = "cost_overrun"                # Exceeded budget
+    TIMEOUT = "timeout"                          # Took too long
+    EXTERNAL_DEPENDENCY = "external_dependency"  # External service failed
+    CONTEXT_DRIFT = "context_drift"              # Lost track of goal
+    CAPABILITY_MISMATCH = "capability_mismatch"  # Wrong agent for task
+    VALIDATION_ERROR = "validation_error"        # Failed validation/gate
+    RESOURCE_EXHAUSTION = "resource_exhaustion"  # Out of memory/tokens
+    UNKNOWN = "unknown"                          # Unclassified failure
+
+    @classmethod
+    def classify(cls, error_message: str, error_type: Optional[str] = None) -> 'FailureType':
+        """
+        Attempt to classify a failure based on error message and type.
+
+        This is a heuristic classification that can be improved over time.
+        """
+        if error_type:
+            # Try direct mapping
+            try:
+                return cls(error_type)
+            except ValueError:
+                pass
+
+        # Keyword-based classification
+        error_lower = error_message.lower()
+
+        if any(kw in error_lower for kw in ['timeout', 'timed out', 'took too long']):
+            return cls.TIMEOUT
+
+        if any(kw in error_lower for kw in ['cost', 'budget', 'expensive', 'exceeded limit']):
+            return cls.COST_OVERRUN
+
+        if any(kw in error_lower for kw in ['hallucin', 'made up', 'fabricat', 'invent']):
+            return cls.HALLUCINATION
+
+        if any(kw in error_lower for kw in ['unclear', 'ambiguous', 'confusing', 'vague']):
+            return cls.PROMPT_AMBIGUITY
+
+        if any(kw in error_lower for kw in ['external', 'api', 'service', 'network', 'connection']):
+            return cls.EXTERNAL_DEPENDENCY
+
+        if any(kw in error_lower for kw in ['drift', 'off-track', 'lost context', 'diverge']):
+            return cls.CONTEXT_DRIFT
+
+        if any(kw in error_lower for kw in ['capability', 'skill', 'unable to', 'cannot']):
+            return cls.CAPABILITY_MISMATCH
+
+        if any(kw in error_lower for kw in ['logic', 'reasoning', 'incorrect', 'wrong']):
+            return cls.LOGIC_ERROR
+
+        if any(kw in error_lower for kw in ['valid', 'gate', 'check failed', 'criteria']):
+            return cls.VALIDATION_ERROR
+
+        if any(kw in error_lower for kw in ['memory', 'token', 'resource', 'exhausted']):
+            return cls.RESOURCE_EXHAUSTION
+
+        return cls.UNKNOWN
+
+
 # =============================================================================
 # Data Classes - Insights
 # =============================================================================
@@ -123,11 +187,24 @@ class Outcome:
     assigned_to: str
     department: Optional[str] = None
     capabilities_used: List[str] = field(default_factory=list)
-    error_type: Optional[str] = None
+    error_type: Optional[str] = None  # Raw error type string
     error_message: Optional[str] = None
     retry_count: int = 0
     cost_usd: float = 0.0
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    failure_type: Optional[FailureType] = None  # Classified failure type
+
+    @property
+    def classified_failure(self) -> Optional[FailureType]:
+        """Get the classified failure type, auto-classifying if needed"""
+        if self.failure_type:
+            return self.failure_type
+        if self.error_message or self.error_type:
+            return FailureType.classify(
+                self.error_message or '',
+                self.error_type
+            )
+        return None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -143,11 +220,14 @@ class Outcome:
             'error_message': self.error_message,
             'retry_count': self.retry_count,
             'cost_usd': self.cost_usd,
-            'created_at': self.created_at
+            'created_at': self.created_at,
+            'failure_type': self.failure_type.value if self.failure_type else None
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Outcome':
+        failure_type_str = data.get('failure_type')
+        failure_type = FailureType(failure_type_str) if failure_type_str else None
         return cls(
             id=data['id'],
             molecule_id=data['molecule_id'],
@@ -161,7 +241,8 @@ class Outcome:
             error_message=data.get('error_message'),
             retry_count=data.get('retry_count', 0),
             cost_usd=data.get('cost_usd', 0.0),
-            created_at=data.get('created_at', datetime.now().isoformat())
+            created_at=data.get('created_at', datetime.now().isoformat()),
+            failure_type=failure_type
         )
 
 
@@ -305,10 +386,18 @@ class FailureBead:
     molecule_id: str
     step_id: str
     attempt: int
-    error_type: str
+    error_type: str  # Raw error type string
     error_message: str
     context_snapshot: Dict[str, Any] = field(default_factory=dict)
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    failure_type: Optional[FailureType] = None  # Classified failure type
+
+    @property
+    def classified_failure(self) -> FailureType:
+        """Get the classified failure type, auto-classifying if needed"""
+        if self.failure_type:
+            return self.failure_type
+        return FailureType.classify(self.error_message, self.error_type)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -319,11 +408,14 @@ class FailureBead:
             'error_type': self.error_type,
             'error_message': self.error_message,
             'context_snapshot': self.context_snapshot,
-            'created_at': self.created_at
+            'created_at': self.created_at,
+            'failure_type': self.failure_type.value if self.failure_type else None
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'FailureBead':
+        failure_type_str = data.get('failure_type')
+        failure_type = FailureType(failure_type_str) if failure_type_str else None
         return cls(
             id=data['id'],
             molecule_id=data['molecule_id'],
@@ -332,7 +424,8 @@ class FailureBead:
             error_type=data['error_type'],
             error_message=data['error_message'],
             context_snapshot=data.get('context_snapshot', {}),
-            created_at=data.get('created_at', datetime.now().isoformat())
+            created_at=data.get('created_at', datetime.now().isoformat()),
+            failure_type=failure_type
         )
 
 

@@ -56,14 +56,64 @@
 - WorkScheduler could route tasks to appropriate backend based on complexity
 - Learning System could feed distilled knowledge to local training
 
+**Tiered Model Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    LOCAL MODEL HIERARCHY                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  COO Model (70-200B parameters)                             │
+│  ├── Largest model for deepest understanding                │
+│  ├── Trained on full corp context + history                 │
+│  ├── Handles strategic reasoning, complex decisions         │
+│  └── Single instance, always available                      │
+│                                                             │
+│  Worker Models (7-13B parameters each)                      │
+│  ├── Smaller, specialized per skill/domain                  │
+│  ├── Multiple can run in parallel                           │
+│  ├── Examples:                                              │
+│  │   ├── code-review-model (trained on PR feedback)        │
+│  │   ├── business-analysis-model                           │
+│  │   ├── frontend-specialist-model                         │
+│  │   └── testing-specialist-model                          │
+│  └── Learn what works/fails for their domain               │
+│                                                             │
+│  Overnight Training Cycle                                   │
+│  ├── Collect day's data (successes, failures, patterns)    │
+│  ├── Queue training jobs by priority                        │
+│  ├── Fine-tune models on new data                          │
+│  ├── Validate against test set                              │
+│  └── Deploy updated models for next day                    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Model Routing Logic:**
+- Claude API: Complex novel tasks, critical decisions needing latest capabilities
+- COO Local Model: Strategic planning, context-heavy decisions for this corp
+- Worker Local Models: Routine domain-specific tasks, pattern matching
+- Fallback: If local model confidence < threshold, escalate to Claude
+
+**Overnight Training Pipeline:**
+1. Evolution Daemon exports day's outcomes to training format
+2. Data filtered by quality (successful patterns prioritized)
+3. Each model trains on relevant subset (COO gets all, workers get domain-specific)
+4. Validation run against held-out test cases
+5. If validation passes, hot-swap models at session start
+6. Failed training logged for human review
+
 **Hardware Requirements:**
-- GPU with sufficient VRAM (RTX 4090, A100, etc.)
-- Or cloud GPU instances (RunPod, Lambda Labs, etc.)
+- COO Model: 80-160GB VRAM (2-4x A100 80GB or equivalent)
+- Worker Models: 16-24GB VRAM each (RTX 4090 or A6000)
+- Training: Additional GPU capacity for overnight fine-tuning
+- Or: Cloud GPU cluster (RunPod, Lambda Labs, etc.)
 
 **Dependencies:**
 - Need LLM fine-tuning infrastructure (likely using Axolotl, Unsloth, or similar)
 - Model serving (vLLM, TGI, Ollama)
 - Training data pipeline from Learning System
+- Model registry for version management
 
 **When to Revisit:** When hardware is available and core system is generating revenue
 
