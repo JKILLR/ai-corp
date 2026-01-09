@@ -206,7 +206,46 @@ However, these are *per-request* operations that consume Claude tokens. The Wisd
 
 | Idea | Description | Context |
 |------|-------------|---------|
-| - | - | - |
+| **SimpleMem-Inspired Retrieval** | See detailed section below | Adaptive retrieval, token budgeting |
+
+### SimpleMem-Inspired Adaptive Retrieval
+
+**Source:** [SimpleMem: Efficient Lifelong Memory for LLM Agents](https://github.com/aiming-lab/SimpleMem) (Liu et al., 2025)
+
+**Key Insights from SimpleMem:**
+
+1. **Semantic Lossless Compression** - Transform raw dialogue into atomic, self-contained facts at write time
+   - "He'll meet Bob tomorrow" → "Alice meets Bob at Starbucks on 2025-11-16T14:00:00"
+   - Resolve coreferences and convert relative timestamps ONCE at ingestion
+   - Query-time retrieval becomes cheap (no LLM needed)
+
+2. **Three-Tier Indexing** - Parallel retrieval paths for different query types
+   - Semantic: Dense embeddings (1024-dim) for conceptual similarity
+   - Lexical: BM25-style keyword matching for exact terms
+   - Symbolic: Metadata filtering (timestamps, entities, person IDs)
+
+3. **Adaptive Retrieval Depth** - Dynamic k based on query complexity
+   - Formula: `k_dyn = k_base × (1 + δ × C_q)` where C_q is query complexity
+   - Simple queries → ~100 tokens, Complex queries → ~1000 tokens
+   - Achieves 30x token reduction vs full-context methods
+
+**What We Can Implement Now (No Local LLM Needed):**
+
+| Feature | Implementation | Benefit |
+|---------|----------------|---------|
+| Query Complexity Scoring | Heuristic based on word count, entity count, question words | Route simple/complex queries differently |
+| Adaptive Retrieval Depth | Upgrade `search_relevant()` to use dynamic max_results | Right amount of context per query |
+| Token Budget Enforcement | Add token_budget param to search methods | Cost control, connects to Economic Metadata |
+
+**What Needs Local LLM (Future):**
+- Atomic fact extraction from raw text
+- Write-time disambiguation (coreference resolution)
+- Synthesis of facts into wisdom summaries
+
+**Integration with Existing Systems:**
+- `knowledge.py:search_relevant()` - Add adaptive depth
+- `memory.py:search_all()` - Add token budget enforcement
+- Molecule `actual_cost` field - Track token usage per retrieval
 
 ---
 
