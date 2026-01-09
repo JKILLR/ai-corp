@@ -1,6 +1,6 @@
 # AI Corp Roadmap
 
-> **Last Updated:** 2026-01-07
+> **Last Updated:** 2026-01-09
 > **Purpose:** Single source of truth for approved plans and priorities
 > **Update Rule:** Add new items when approved, move to "Completed" when done
 
@@ -24,15 +24,28 @@
 
 ### P0 - Immediate (Now)
 
-**All P0/P1 items complete!** Moving to P2 priorities.
+**System Refinements** - Enhancements identified from external architecture review (Manus AI, Grok, ChatGPT).
 
-Next up: Swarm Molecule Type or Composite Molecules
+These are small, clean extensions (~300 lines total) that complete the system's capabilities:
+1. Economic Metadata on Molecules
+2. Continuous Workflow Support
+3. Continuous Contract Validation
+4. Failure Taxonomy in Learning System
 
 ---
 
 ## Approved Plans (Prioritized)
 
-### P1 - High Priority
+### P1 - High Priority (Current)
+
+| Plan | Description | Design Doc | Notes |
+|------|-------------|------------|-------|
+| **Economic Metadata** | Add cost/value/confidence to Molecules | `AI_CORP_ARCHITECTURE.md` | ~50 lines, enables ROI reasoning |
+| **Continuous Workflows** | Add WorkflowType + LoopConfig to Molecules | `AI_CORP_ARCHITECTURE.md` | ~100 lines, enables operational loops |
+| **Continuous Validation** | Add ValidationMode to SuccessContract | `AI_CORP_ARCHITECTURE.md` | ~60 lines, ongoing validation |
+| **Failure Taxonomy** | Add FailureType enum to Learning System | `AI_CORP_ARCHITECTURE.md` | ~80 lines, structured failure analysis |
+
+### P1 - High Priority (Complete)
 
 | Plan | Description | Design Doc | Notes |
 |------|-------------|------------|-------|
@@ -42,6 +55,7 @@ Next up: Swarm Molecule Type or Composite Molecules
 | ~~Context Synthesizer~~ | ~~Transform raw context into understanding~~ | `LEARNING_SYSTEM_DESIGN.md` | ✅ Complete (Phase 2) |
 | ~~Depth-Based Context~~ | ~~Agent-level defaults for context retrieval depth~~ | - | ✅ Complete |
 | ~~Async Gate Approvals~~ | ~~Allow gates to run asynchronously~~ | - | ✅ Complete |
+| ~~Architecture Review~~ | ~~Verify all systems integrated correctly~~ | - | ✅ Complete (E2E tests) |
 
 ### P2 - Medium Priority
 
@@ -97,6 +111,7 @@ Next up: Swarm Molecule Type or Composite Molecules
 | Foundation Corp Bootstrap | 2026-01-07 | Structure, hierarchy, gates, templates ready |
 | Depth-Based Context | 2026-01-07 | Agent-level depth for Entity Graph context |
 | Async Gate Approvals | 2026-01-07 | Async evaluation + auto-approval policies |
+| Architecture Review | 2026-01-09 | E2E integration tests, all 27 modules verified |
 
 ---
 
@@ -116,6 +131,10 @@ Decisions that affect how we build features. Reference before implementing.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
+| System refinements | Extend existing, don't create new systems | External feedback suggested new agent types - rejected in favor of extending Molecule/Contract/Learning |
+| Economic reasoning | Metadata on Molecules | ChatGPT identified lack of cost/value reasoning - solved with fields, not new system |
+| Continuous operations | WorkflowType on Molecules | Enables operational loops without separate orchestration layer |
+| Failure classification | FailureType enum in Learning | Improves pattern extraction without new components |
 | Storage format | YAML + Git | Human-readable, version controlled, works with beads |
 | LLM backends | Swappable (ClaudeCode/API/Mock) | Flexibility for testing and deployment |
 | Discovery mode | Terminal conversation | Web UI later; keep terminal-first |

@@ -50,13 +50,23 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 | **Context Synthesizer** | ✅ Done | Transform raw context into actionable understanding |
 | Test Suite | ✅ Done | 770+ tests passing |
 
-### Planned Components (P1)
+### Planned Components (P1 - Current)
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
+| **Economic Metadata** | P1 | Cost/value/confidence tracking on Molecules |
+| **Continuous Workflows** | P1 | WorkflowType + LoopConfig for operational loops |
+| **Continuous Validation** | P1 | ValidationMode for ongoing contract validation |
+| **Failure Taxonomy** | P1 | FailureType classification in Learning System |
+| Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
+
+### Completed Components (P1)
+
+| Component | Status | Description |
+|-----------|--------|-------------|
 | **Depth-Based Context** | ✅ Done | Agent-level defaults for Entity Graph retrieval depth |
 | **Async Gate Approvals** | ✅ Done | Async evaluation with auto-approval policies |
-| Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
+| **Architecture Review** | ✅ Done | E2E integration tests, 27 modules verified |
 
 ### Future Components (P2)
 
@@ -219,6 +229,58 @@ molecule:
 - `Molecule` - Workflow with steps, RACI, progress tracking
 - `MoleculeStep` - Individual step with checkpoints
 - `Checkpoint` - Recovery point for crash resilience
+
+#### Economic Metadata (P1 - Planned)
+
+Every molecule carries economic metadata for ROI reasoning:
+
+```yaml
+molecule:
+  id: MOL-123
+  name: "Build User Dashboard"
+
+  # ECONOMIC METADATA
+  estimated_cost: 2.50      # Estimated token/compute cost in USD
+  estimated_value: 500.00   # Expected value of completion
+  actual_cost: 0.00         # Tracked after execution
+  confidence: 0.75          # 0.0-1.0 confidence in estimates
+
+  # Derived metrics (calculated)
+  roi_ratio: 200.0          # estimated_value / estimated_cost
+```
+
+**Key concepts:**
+- `estimated_cost` and `estimated_value` set before execution
+- `actual_cost` tracked during execution via LLM cost tracking
+- `confidence` indicates certainty of estimates
+- Enables prioritizing high-ROI work and killing low-value molecules early
+
+#### Continuous Workflow Support (P1 - Planned)
+
+Molecules can be configured for operational loops:
+
+```yaml
+molecule:
+  id: MOL-OPS-001
+  name: "System Monitoring Loop"
+
+  # WORKFLOW TYPE
+  workflow_type: continuous  # project | continuous | hybrid
+
+  # LOOP CONFIGURATION (for continuous/hybrid)
+  loop_config:
+    interval_seconds: 300       # Run every 5 minutes
+    max_iterations: null        # null = infinite
+    exit_conditions:
+      - condition: "manual_stop"
+      - condition: "error_threshold_exceeded"
+        threshold: 5
+```
+
+**Workflow Types:**
+- `project` - Default, linear execution (current behavior)
+- `continuous` - Loops indefinitely until exit condition
+- `hybrid` - Project with optional continuation phase
 
 #### Molecule Execution Modes
 
@@ -612,6 +674,43 @@ contract = coo._extract_contract(conversation)
 - `SuccessCriterion` - Single measurable criterion (boolean checklist)
 - `ContractManager` - CRUD operations for contracts
 
+#### Continuous Contract Validation (P1 - Planned)
+
+Contracts can be configured for ongoing validation in operational workflows:
+
+```yaml
+contract:
+  id: CTR-OPS-001
+  molecule_id: MOL-OPS-001
+
+  # VALIDATION MODE
+  validation_mode: continuous  # one_time | continuous | periodic
+
+  # For continuous/periodic modes
+  validation_interval: 3600    # Validate every hour (seconds)
+  consecutive_failures: 0      # Track failure streak
+  max_consecutive_failures: 3  # Escalate after N failures
+
+  # One-time criteria (validated once at start)
+  success_criteria:
+    - description: "System deployed"
+      met: true
+
+  # Continuous criteria (validated after each loop)
+  continuous_criteria:
+    - description: "Error rate below 1%"
+      check_command: "python -c 'import metrics; print(metrics.error_rate() < 0.01)'"
+    - description: "Response time under 500ms"
+      check_command: "python -c 'import metrics; print(metrics.p95_latency() < 500)'"
+```
+
+**Validation Modes:**
+- `one_time` - Default, validate once at project completion
+- `continuous` - Validate after each loop iteration
+- `periodic` - Validate at specified intervals
+
+**Escalation:** After `max_consecutive_failures`, alert is raised to human/COO.
+
 ### 10. Skill System
 
 Role-based skill discovery with 5-layer inheritance for dynamic capability matching.
@@ -793,6 +892,41 @@ A two-phase system that extracts insights from completed work and continuously i
 - Meta-learner tracks which sources are most effective
 - Evolution Daemon runs on three time scales (hourly/daily/weekly)
 - Context Synthesizer produces LLM-ready prompts with recommendations
+
+#### Failure Taxonomy (P1 - Planned)
+
+Structured classification of failures for better pattern extraction:
+
+```python
+class FailureType(Enum):
+    """Classification of failure types for structured analysis"""
+    PROMPT_AMBIGUITY = "prompt_ambiguity"      # Unclear instructions
+    LOGIC_ERROR = "logic_error"                # Flawed reasoning
+    HALLUCINATION = "hallucination"            # Made up information
+    COST_OVERRUN = "cost_overrun"              # Exceeded budget
+    TIMEOUT = "timeout"                         # Took too long
+    EXTERNAL_DEPENDENCY = "external_dependency" # External service failed
+    CONTEXT_DRIFT = "context_drift"            # Lost track of goal
+    CAPABILITY_MISMATCH = "capability_mismatch" # Wrong agent for task
+```
+
+**Integration with Distiller:**
+- Each failure is classified by type during extraction
+- Patterns can be generated per failure type
+- Meta-learner tracks failure rates by type
+- Enables targeted mitigations (e.g., "reduce prompt ambiguity failures by adding examples")
+
+**Failure Record Structure:**
+```yaml
+failure:
+  molecule_id: MOL-123
+  step_id: step_2
+  failure_type: hallucination
+  description: "Agent fabricated API endpoint that doesn't exist"
+  context: "Was implementing integration with third-party service"
+  mitigation_applied: "Added verification step to check API docs"
+  outcome: resolved  # resolved | recurring | unresolved
+```
 
 ---
 

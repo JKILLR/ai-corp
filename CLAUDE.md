@@ -27,13 +27,14 @@ Before making any changes, read these files:
 
 ## Current Priority
 
-**All P1 items complete!** ✅
+**System Refinements (P1)** - Small, clean extensions from external architecture review:
 
-- Learning System Phase 1 + 2 (Distiller, Meta-Learner, Evolution Daemon, Context Synthesizer)
-- Depth-Based Context (Agent-level defaults for Entity Graph)
-- Async Gate Approvals (Async evaluation + auto-approval policies)
+1. **Economic Metadata** - Add cost/value/confidence to Molecules (~50 lines)
+2. **Continuous Workflows** - Add WorkflowType + LoopConfig (~100 lines)
+3. **Continuous Validation** - Add ValidationMode to Contracts (~60 lines)
+4. **Failure Taxonomy** - Add FailureType to Learning System (~80 lines)
 
-**Next (P2):** Swarm Molecule Type or Composite Molecules
+**Then (P2):** Swarm Molecule Type or Composite Molecules
 
 ---
 
@@ -69,7 +70,7 @@ ai-corp/
 │   └── cli/            # Command-line interface
 ├── templates/          # Organization templates
 ├── foundation/         # Foundation Corp (AI Corp building AI Corp)
-├── tests/              # Test suite (770+ tests)
+├── tests/              # Test suite (778+ tests)
 ├── docs/archive/       # Implemented design docs (historical)
 └── [Master Docs]       # STATE.md, ROADMAP.md, AI_CORP_ARCHITECTURE.md
 ```
