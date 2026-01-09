@@ -26,21 +26,90 @@
 |------|-------------|---------|
 | **Local LLM Integration** | See detailed section below | Hardware-dependent, critical for scale |
 
-### Local LLM Integration (Future - Hardware Dependent)
+### Local LLM Integration + Wisdom Store (Future - Hardware Dependent)
 
-**Core Concept:** AI Corp runs its own local LLM models alongside Claude for cost optimization, context absorption, and specialized skills.
+**Core Concept:** AI Corp runs its own local LLM models alongside Claude for cost optimization, context absorption, and specialized skills—enabling the COO to have deep "wisdom" about large data corpuses without unlimited token spend.
 
-**Three Use Cases:**
+**The Problem: Storage vs Wisdom**
+
+Current memory system can *store* data efficiently, but there's a gap between:
+- **Storage**: Holding documents, chunks, and metadata
+- **Wisdom**: Deep understanding that informs decisions, sees patterns, connects concepts
+
+For COO to have wisdom about websites, X posts, blogs, documents, papers, etc., we need:
+1. Cost-efficient ingestion (can't send everything to Claude)
+2. Semantic understanding (not just keyword search)
+3. Synthesis capabilities (turn facts into insights)
+4. Persistent knowledge that survives context windows
+
+**Solution: Wisdom Store Architecture**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        WISDOM STORE PIPELINE                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. INGESTION LAYER                                                 │
+│     ├── Web scraping (pages, X posts, blogs)                        │
+│     ├── Document extraction (PDF, DOCX, papers)                     │
+│     ├── Code/repo analysis                                          │
+│     └── Cost: ~$0 (local processing)                                │
+│                                                                     │
+│  2. CHUNKING + EMBEDDING LAYER                                      │
+│     ├── Smart chunking (semantic boundaries, not arbitrary)         │
+│     ├── Local embedding models (all-MiniLM, BGE, etc.)              │
+│     ├── Vector storage (ChromaDB, FAISS, pgvector)                  │
+│     └── Cost: ~$0 (local models)                                    │
+│                                                                     │
+│  3. FACT EXTRACTION LAYER                                           │
+│     ├── Local LLM extracts key facts from chunks                    │
+│     ├── Structured output: entities, relationships, claims          │
+│     ├── Knowledge graph construction                                │
+│     └── Cost: Local compute only                                    │
+│                                                                     │
+│  4. SYNTHESIS LAYER                                                 │
+│     ├── COO Model (70-200B) synthesizes facts into insights         │
+│     ├── Identifies patterns, trends, implications                   │
+│     ├── Generates "wisdom summaries" for quick access               │
+│     └── Cost: Local GPU time                                        │
+│                                                                     │
+│  5. RETRIEVAL LAYER                                                 │
+│     ├── Semantic search over embeddings                             │
+│     ├── Knowledge graph queries                                     │
+│     ├── Pre-computed wisdom summaries                               │
+│     └── Only escalate to Claude for novel synthesis                 │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**What Claude Code SDK Already Provides:**
+
+Some ingestion capabilities exist via Claude Code SDK tools:
+- **PDF Reading**: `Read` tool can process PDFs directly (extracts text + visual content)
+- **Web Fetching**: `WebFetch` tool retrieves and processes web content
+- **Web Search**: `WebSearch` tool for real-time information
+
+However, these are *per-request* operations that consume Claude tokens. The Wisdom Store approach uses these for initial ingestion, then local models for ongoing processing.
+
+**What Needs Custom Implementation:**
+- Embedding generation (local models like BGE, all-MiniLM-L6-v2)
+- Vector storage and semantic search (ChromaDB, FAISS)
+- Knowledge graph construction and querying
+- Local LLM inference for fact extraction and synthesis
+- Cost tracking for all operations
+
+**Four Use Cases:**
 
 1. **Cost Reduction via Knowledge Distillation**
    - Claude handles complex reasoning, local models handle routine tasks
    - Feedback loop: Claude validates → local model learns → reduces Claude calls
    - Target: 60-80% reduction in API costs for repetitive operations
 
-2. **Context Sponge Models**
+2. **Context Sponge Models (Wisdom Store)**
    - Train local models on large context datasets (codebase, docs, history)
    - Acts as persistent memory that survives context windows
    - Query local model for context retrieval instead of stuffing prompts
+   - Pre-compute wisdom summaries for common query patterns
 
 3. **Specialized Skill Models**
    - Fine-tune models on specific skill datasets:
@@ -49,6 +118,12 @@
      - Legal document review
      - Code review for specific languages
    - Workers use specialized models for their domain
+
+4. **Large-Scale Data Ingestion**
+   - Ingest websites, X posts, blogs, documents, research papers
+   - Process locally without per-token costs
+   - Build knowledge graph of entities and relationships
+   - COO queries synthesized wisdom, not raw documents
 
 **Integration Points:**
 - `LLMBackendFactory` already supports swappable backends
