@@ -2,8 +2,8 @@
 
 > **Last Updated:** 2026-01-09
 > **Current Phase:** System Refinement
-> **Status:** Architecture verified, E2E tests passing, implementing refinements from external review
-> **Next Action:** Economic Metadata + Continuous Workflows + Failure Taxonomy
+> **Status:** Architecture verified, E2E tests passing, P1 refinements complete, memory system enhanced
+> **Next Action:** P2 features (Swarm Molecule, Composite Molecules) or Real Claude Testing
 
 ---
 
@@ -36,7 +36,7 @@
 | Area | Status | Notes |
 |------|--------|-------|
 | Core Infrastructure | ✅ Complete | Molecules, hooks, beads, channels, gates, pools |
-| Memory System | ✅ Complete | RLM-inspired context management |
+| Memory System | ✅ Complete | RLM-inspired context + SimpleMem adaptive retrieval |
 | Agent Hierarchy | ✅ Complete | COO, VP, Director, Worker agents |
 | LLM Integration | ✅ Complete | Swappable backends (ClaudeCode, API, Mock) |
 | Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
@@ -64,6 +64,49 @@
 ---
 
 ## Recent Changes
+
+### 2026-01-09: SimpleMem-Inspired Adaptive Retrieval
+
+**Research Source:** [SimpleMem: Efficient Lifelong Memory for LLM Agents](https://github.com/aiming-lab/SimpleMem)
+
+**Key Concepts Applied:**
+- **Adaptive Retrieval Depth** - Dynamic k based on query complexity: `k_dyn = k_base × (1 + δ × C_q)`
+- **Token Budget Enforcement** - Cap retrieval by token count to optimize context usage
+- **Query Complexity Scoring** - Heuristic scoring (0.0-1.0) for retrieval depth decisions
+
+**Memory System Enhancements (`src/core/memory.py`):**
+- `score_query_complexity(query)` - Score queries based on length, question words, comparisons, temporal refs
+- `calculate_adaptive_depth(query, base_k, sensitivity, token_budget)` - SimpleMem formula implementation
+- `estimate_retrieval_tokens(depth)` - Estimate token usage for budgeting
+- `search_all()` - Now supports `adaptive=True` and `token_budget` parameters
+- `search_all_with_stats()` - Returns results + cost tracking metadata
+
+**Knowledge System Enhancements (`src/core/knowledge.py`):**
+- `search_relevant()` - Now supports adaptive retrieval and token budgets
+- `search_relevant_with_stats()` - Returns results + complexity_score, retrieval_depth, estimated_tokens
+
+**Constants Added:**
+- `DEFAULT_BASE_K = 5` - Default retrieval depth
+- `COMPLEXITY_SENSITIVITY = 0.5` - How much complexity affects depth
+- `MAX_RETRIEVAL_DEPTH = 50` - Upper bound safety limit
+- `TOKENS_PER_RESULT = 50` - Average tokens per search result
+
+**Relationship to RLM:**
+- RLM remains the structural foundation (context as external environment, peek/grep/transform)
+- SimpleMem adds retrieval intelligence on top (how much to retrieve for a given query)
+- Complementary approaches: RLM = structure, SimpleMem = efficiency
+
+### 2026-01-09: P1 System Refinements Complete
+
+**Implemented All 4 P1 Features:**
+1. **Economic Metadata** - Added cost/value/confidence to Molecules (~50 lines)
+2. **Continuous Workflows** - Added WorkflowType + LoopConfig (~100 lines)
+3. **Continuous Validation** - Added ValidationMode to Contracts (~60 lines)
+4. **Failure Taxonomy** - Added FailureType to Learning System (~80 lines)
+
+**Code Cleanup:**
+- Simplified `FailureType.classify()` with data-driven keyword mapping
+- Reduced method from 50+ lines to clean pattern matching
 
 ### 2026-01-09: Architecture Review & External Feedback Integration
 
@@ -718,21 +761,14 @@ CorporationExecutor
 
 ## Next Actions
 
-### P1 Priority - System Refinements (Current)
-1. **Economic Metadata on Molecules** - Add cost/value/confidence tracking
-   - `estimated_cost`, `estimated_value`, `actual_cost`, `confidence` fields
-   - Enable ROI reasoning and work prioritization
-2. **Continuous Workflow Support** - Extend Molecule for operational loops
-   - `WorkflowType` enum: PROJECT, CONTINUOUS, HYBRID
-   - `LoopConfig`: interval, max_iterations, exit_conditions
-3. **Continuous Contract Validation** - Extend SuccessContract
-   - `ValidationMode` enum: ONE_TIME, CONTINUOUS, PERIODIC
-   - Consecutive failure tracking with escalation
-4. **Failure Taxonomy** - Classify failures in Learning System
-   - `FailureType` enum: prompt_ambiguity, logic_error, hallucination, cost_overrun, etc.
-   - Structured failure analysis in Distiller
+### P1 Priority - System Refinements (Complete)
+1. ~~**Economic Metadata on Molecules**~~ ✅ - cost/value/confidence tracking
+2. ~~**Continuous Workflow Support**~~ ✅ - WorkflowType + LoopConfig
+3. ~~**Continuous Contract Validation**~~ ✅ - ValidationMode enum
+4. ~~**Failure Taxonomy**~~ ✅ - FailureType classification in Learning System
+5. ~~**SimpleMem Adaptive Retrieval**~~ ✅ - Query complexity scoring, adaptive depth, token budgeting
 
-### P1 Priority (Complete)
+### P1 Priority (Complete - Previous)
 1. ~~Create pytest test suite~~ ✅ Complete (778+ tests)
 2. ~~Add monitoring~~ ✅ Complete
 3. ~~Add terminal dashboard~~ ✅ Complete

@@ -1,6 +1,6 @@
 # AI Corp Roadmap
 
-> **Last Updated:** 2026-01-09
+> **Last Updated:** 2026-01-09 (P1 Refinements Complete)
 > **Purpose:** Single source of truth for approved plans and priorities
 > **Update Rule:** Add new items when approved, move to "Completed" when done
 
@@ -24,28 +24,26 @@
 
 ### P0 - Immediate (Now)
 
-**System Refinements** - Enhancements identified from external architecture review (Manus AI, Grok, ChatGPT).
-
-These are small, clean extensions (~300 lines total) that complete the system's capabilities:
-1. Economic Metadata on Molecules
-2. Continuous Workflow Support
-3. Continuous Contract Validation
-4. Failure Taxonomy in Learning System
+**Ready for P2 Features** - All P1 system refinements complete. Options:
+1. Swarm Molecule Type (parallel research pattern)
+2. Composite Molecules (chain molecule types)
+3. Real Claude Testing (E2E with ClaudeCodeBackend)
 
 ---
 
 ## Approved Plans (Prioritized)
 
-### P1 - High Priority (Current)
-
-| Plan | Description | Design Doc | Notes |
-|------|-------------|------------|-------|
-| **Economic Metadata** | Add cost/value/confidence to Molecules | `AI_CORP_ARCHITECTURE.md` | ~50 lines, enables ROI reasoning |
-| **Continuous Workflows** | Add WorkflowType + LoopConfig to Molecules | `AI_CORP_ARCHITECTURE.md` | ~100 lines, enables operational loops |
-| **Continuous Validation** | Add ValidationMode to SuccessContract | `AI_CORP_ARCHITECTURE.md` | ~60 lines, ongoing validation |
-| **Failure Taxonomy** | Add FailureType enum to Learning System | `AI_CORP_ARCHITECTURE.md` | ~80 lines, structured failure analysis |
-
 ### P1 - High Priority (Complete)
+
+| Plan | Description | Design Doc | Status |
+|------|-------------|------------|--------|
+| ~~**Economic Metadata**~~ | Add cost/value/confidence to Molecules | `AI_CORP_ARCHITECTURE.md` | ✅ Complete |
+| ~~**Continuous Workflows**~~ | Add WorkflowType + LoopConfig to Molecules | `AI_CORP_ARCHITECTURE.md` | ✅ Complete |
+| ~~**Continuous Validation**~~ | Add ValidationMode to SuccessContract | `AI_CORP_ARCHITECTURE.md` | ✅ Complete |
+| ~~**Failure Taxonomy**~~ | Add FailureType enum to Learning System | `AI_CORP_ARCHITECTURE.md` | ✅ Complete |
+| ~~**SimpleMem Adaptive Retrieval**~~ | Query complexity scoring, adaptive depth, token budgeting | `AI_CORP_ARCHITECTURE.md` | ✅ Complete |
+
+### P1 - High Priority (Complete - Previous)
 
 | Plan | Description | Design Doc | Notes |
 |------|-------------|------------|-------|
@@ -112,6 +110,8 @@ These are small, clean extensions (~300 lines total) that complete the system's 
 | Depth-Based Context | 2026-01-07 | Agent-level depth for Entity Graph context |
 | Async Gate Approvals | 2026-01-07 | Async evaluation + auto-approval policies |
 | Architecture Review | 2026-01-09 | E2E integration tests, all 27 modules verified |
+| P1 System Refinements | 2026-01-09 | Economic Metadata, Continuous Workflows, Continuous Validation, Failure Taxonomy |
+| SimpleMem Adaptive Retrieval | 2026-01-09 | Query complexity scoring, adaptive depth, token budgeting |
 
 ---
 

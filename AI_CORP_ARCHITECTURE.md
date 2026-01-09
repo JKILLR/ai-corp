@@ -490,9 +490,9 @@ Submit → [Async Evaluation] → Check Criteria → Calculate Confidence
 - `WorkerPool` - Pool with min/max workers, capabilities
 - `Worker` - Individual worker with status, heartbeat
 
-### 8. Memory System (NEW - RLM-Inspired)
+### 8. Memory System (RLM + SimpleMem-Inspired)
 
-Based on [Recursive Language Models (arXiv:2512.24601)](https://arxiv.org/abs/2512.24601), the memory system treats context as an external environment that agents can programmatically navigate.
+Based on [Recursive Language Models (arXiv:2512.24601)](https://arxiv.org/abs/2512.24601) for structure and [SimpleMem](https://github.com/aiming-lab/SimpleMem) for retrieval efficiency. The system treats context as an external environment that agents can programmatically navigate with intelligent retrieval depth.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -531,6 +531,75 @@ Based on [Recursive Language Models (arXiv:2512.24601)](https://arxiv.org/abs/25
 - `ContextCompressor` - Create navigable summaries
 - `OrganizationalMemory` - Long-term decisions and lessons
 - `EntityAwareMemory` - Memory system with Entity Graph integration
+
+#### SimpleMem-Inspired Adaptive Retrieval
+
+Enhances retrieval efficiency using concepts from SimpleMem research:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  ADAPTIVE RETRIEVAL FLOW                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. Query Arrives                                           │
+│     └── score_query_complexity(query) → 0.0-1.0            │
+│         • Word count contribution                           │
+│         • Question words (what, where, how, why)           │
+│         • Comparison terms (compare, versus, between)       │
+│         • Aggregation words (all, every, summary)          │
+│         • Temporal references (history, timeline, trend)   │
+│         • Entity count                                      │
+│                                                             │
+│  2. Calculate Retrieval Depth                               │
+│     └── k_dyn = k_base × (1 + δ × C_q)                     │
+│         • k_base = 5 (default)                              │
+│         • δ = 0.5 (complexity sensitivity)                  │
+│         • C_q = complexity score from step 1                │
+│                                                             │
+│  3. Apply Token Budget (optional)                           │
+│     └── k_final = min(k_dyn, token_budget / tokens_per_hit)│
+│         • Prevents over-retrieval for constrained contexts  │
+│         • Connects to Economic Metadata for cost tracking   │
+│                                                             │
+│  4. Execute Search                                          │
+│     └── Return top k_final results with stats              │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Functions:**
+```python
+# Score query complexity (0.0 = simple, 1.0 = complex)
+score_query_complexity("Find the file")           # → ~0.2
+score_query_complexity("Compare all authentication
+    approaches over time and their tradeoffs")    # → ~0.8
+
+# Calculate adaptive depth
+calculate_adaptive_depth(query, base_k=5, sensitivity=0.5)
+# Simple query → depth 5
+# Complex query → depth 7-8
+
+# Search with adaptive retrieval
+results = memory.search_all(pattern, adaptive=True, token_budget=1000)
+
+# Search with stats for cost tracking
+result = knowledge.search_relevant_with_stats(query)
+# Returns: {results: [...], complexity_score: 0.6,
+#           retrieval_depth: 7, estimated_tokens: 350}
+```
+
+**Relationship to RLM:**
+| RLM (Structure) | SimpleMem (Efficiency) |
+|-----------------|------------------------|
+| Context as external environment | Adaptive retrieval depth |
+| peek/grep/transform operations | Query complexity scoring |
+| Memory windowing and persistence | Token budget enforcement |
+| Recursive context management | Cost-aware retrieval |
+
+**References:**
+- [SimpleMem: Efficient Lifelong Memory for LLM Agents](https://github.com/aiming-lab/SimpleMem)
+- 30x token reduction vs full-context methods
+- Semantic Lossless Compression (future consideration)
 
 ### 8.5. Entity Graph System (Personal Edition)
 
