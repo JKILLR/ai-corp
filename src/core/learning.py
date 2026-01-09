@@ -64,6 +64,21 @@ class FailureStrategy(Enum):
     CONTINUE = "continue"
 
 
+# Keyword mapping for FailureType classification (order matters - first match wins)
+_FAILURE_KEYWORDS = [
+    (['timeout', 'timed out', 'took too long'], 'TIMEOUT'),
+    (['cost', 'budget', 'expensive', 'exceeded limit'], 'COST_OVERRUN'),
+    (['hallucin', 'made up', 'fabricat', 'invent'], 'HALLUCINATION'),
+    (['unclear', 'ambiguous', 'confusing', 'vague'], 'PROMPT_AMBIGUITY'),
+    (['external', 'api', 'service', 'network', 'connection'], 'EXTERNAL_DEPENDENCY'),
+    (['drift', 'off-track', 'lost context', 'diverge'], 'CONTEXT_DRIFT'),
+    (['capability', 'skill', 'unable to', 'cannot'], 'CAPABILITY_MISMATCH'),
+    (['logic', 'reasoning', 'incorrect', 'wrong'], 'LOGIC_ERROR'),
+    (['valid', 'gate', 'check failed', 'criteria'], 'VALIDATION_ERROR'),
+    (['memory', 'token', 'resource', 'exhausted'], 'RESOURCE_EXHAUSTION'),
+]
+
+
 class FailureType(Enum):
     """Classification of failure types for structured analysis"""
     PROMPT_AMBIGUITY = "prompt_ambiguity"        # Unclear instructions
@@ -80,50 +95,17 @@ class FailureType(Enum):
 
     @classmethod
     def classify(cls, error_message: str, error_type: Optional[str] = None) -> 'FailureType':
-        """
-        Attempt to classify a failure based on error message and type.
-
-        This is a heuristic classification that can be improved over time.
-        """
+        """Classify failure from error message/type. First match wins."""
         if error_type:
-            # Try direct mapping
             try:
                 return cls(error_type)
             except ValueError:
                 pass
 
-        # Keyword-based classification
         error_lower = error_message.lower()
-
-        if any(kw in error_lower for kw in ['timeout', 'timed out', 'took too long']):
-            return cls.TIMEOUT
-
-        if any(kw in error_lower for kw in ['cost', 'budget', 'expensive', 'exceeded limit']):
-            return cls.COST_OVERRUN
-
-        if any(kw in error_lower for kw in ['hallucin', 'made up', 'fabricat', 'invent']):
-            return cls.HALLUCINATION
-
-        if any(kw in error_lower for kw in ['unclear', 'ambiguous', 'confusing', 'vague']):
-            return cls.PROMPT_AMBIGUITY
-
-        if any(kw in error_lower for kw in ['external', 'api', 'service', 'network', 'connection']):
-            return cls.EXTERNAL_DEPENDENCY
-
-        if any(kw in error_lower for kw in ['drift', 'off-track', 'lost context', 'diverge']):
-            return cls.CONTEXT_DRIFT
-
-        if any(kw in error_lower for kw in ['capability', 'skill', 'unable to', 'cannot']):
-            return cls.CAPABILITY_MISMATCH
-
-        if any(kw in error_lower for kw in ['logic', 'reasoning', 'incorrect', 'wrong']):
-            return cls.LOGIC_ERROR
-
-        if any(kw in error_lower for kw in ['valid', 'gate', 'check failed', 'criteria']):
-            return cls.VALIDATION_ERROR
-
-        if any(kw in error_lower for kw in ['memory', 'token', 'resource', 'exhausted']):
-            return cls.RESOURCE_EXHAUSTION
+        for keywords, failure_name in _FAILURE_KEYWORDS:
+            if any(kw in error_lower for kw in keywords):
+                return cls[failure_name]
 
         return cls.UNKNOWN
 
