@@ -27,14 +27,13 @@ Before making any changes, read these files:
 
 ## Current Priority
 
-**System Refinements (P1)** - Small, clean extensions from external architecture review:
+**All P1 Complete** - Ready for P2 features:
 
-1. **Economic Metadata** - Add cost/value/confidence to Molecules (~50 lines)
-2. **Continuous Workflows** - Add WorkflowType + LoopConfig (~100 lines)
-3. **Continuous Validation** - Add ValidationMode to Contracts (~60 lines)
-4. **Failure Taxonomy** - Add FailureType to Learning System (~80 lines)
+1. **Swarm Molecule Type** - Parallel research: scatter → cross-critique → converge
+2. **Composite Molecules** - Chain molecule types (Swarm → Ralph → escalate)
+3. **Real Claude Testing** - E2E with ClaudeCodeBackend (run from separate terminal)
 
-**Then (P2):** Swarm Molecule Type or Composite Molecules
+See `ROADMAP.md` for full priority list and `STATE.md` for recent changes.
 
 ---
 
@@ -86,7 +85,7 @@ ai-corp/
 - **Gates** - Quality checkpoints (with async evaluation + auto-approval)
 - **Success Contracts** - Measurable outcomes
 - **Entity Graph** - Unified entity management
-- **Memory System** - RLM-inspired context management
+- **Memory System** - RLM-inspired context + SimpleMem adaptive retrieval
 - **Learning System** - Extract insights, continuous improvement
   - Evolution Daemon (hourly/daily/weekly learning cycles)
   - Context Synthesizer (transform context to understanding)

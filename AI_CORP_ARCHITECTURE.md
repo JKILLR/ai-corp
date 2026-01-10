@@ -4,81 +4,7 @@
 
 A fully autonomous AI corporation where multiple Claude instances work as a unified organization with hierarchy, departments, communication channels, and quality gates - just like a real company.
 
----
-
-## Implementation Status
-
-### Completed Components
-
-| Component | Status | Description |
-|-----------|--------|-------------|
-| Organizational Structure | ✅ Done | Hierarchy, departments, roles defined in YAML |
-| Molecule Engine | ✅ Done | Persistent workflows with steps, dependencies, checkpoints |
-| Hook System | ✅ Done | Pull-based work queues for agents |
-| Bead Ledger | ✅ Done | Git-backed state persistence and audit trail |
-| Communication Channels | ✅ Done | DOWNCHAIN, UPCHAIN, PEER, BROADCAST messaging |
-| Quality Gates | ✅ Done | 5 pipeline gates with criteria and submissions |
-| RACI Model | ✅ Done | Accountability assignments for every task |
-| Worker Pools | ✅ Done | Dynamic worker scaling with capability matching |
-| Industry Templates | ✅ Done | 6 industry templates (software, construction, research, business, manufacturing, creative) |
-| Dynamic Hiring | ✅ Done | Hire VPs, Directors, Workers at runtime |
-| Memory System | ✅ Done | RLM-inspired context management for large context handling |
-| CLI Interface | ✅ Done | Full command-line interface for all operations |
-| COO Agent | ✅ Done | Primary orchestrator with task analysis and delegation |
-| Base Agent | ✅ Done | Foundation class with memory, messaging, checkpoints |
-| LLM Abstraction | ✅ Done | Swappable LLM backends (ClaudeCode, API, Mock) |
-| Message Processor | ✅ Done | Handler-pattern message processing for all agent types |
-| VP Agent Class | ✅ Done | Department leaders with delegation and gate management |
-| Director Agent Class | ✅ Done | Team managers with worker pool integration |
-| Worker Agent Class | ✅ Done | Task executors with full Claude Code capabilities |
-| Agent Executor | ✅ Done | Parallel/sequential/pool execution modes |
-| Success Contract System | ✅ Done | Measurable success criteria with bead/gate integration |
-| Discovery Conversation | ✅ Done | COO gathers requirements through natural conversation |
-| System Monitor | ✅ Done | Metrics collection, health checks, alerts |
-| Terminal Dashboard | ✅ Done | Real-time visibility with live mode |
-| Knowledge Base | ✅ Done | Scoped document management (Foundation/Project/Task) |
-| Document Ingestion | ✅ Done | RLM-inspired document processing pipeline |
-| **Skill System** | ✅ Done | Role-based skill discovery from SKILL.md files |
-| **Work Scheduler** | ✅ Done | CapabilityMatcher + LoadBalancer + DependencyResolver |
-| **Executor Integration** | ✅ Done | CorporationExecutor uses WorkScheduler + SkillRegistry |
-| **Entity Graph** | ✅ Done | Unified entity management with temporal tracking (Mem0/Graphiti-inspired) |
-| **File Storage** | ✅ Done | Internal storage + Google Drive integration |
-| **The Forge** | ✅ Done | Intention incubation system for idea development |
-| **Learning System** | ✅ Done | Knowledge Distiller, Meta-Learner, Pattern Library, Insight Store |
-| **Ralph Mode** | ✅ Done | Retry-with-failure-injection for persistent execution |
-| **Evolution Daemon** | ✅ Done | Background learning cycles (hourly/daily/weekly) |
-| **Context Synthesizer** | ✅ Done | Transform raw context into actionable understanding |
-| Test Suite | ✅ Done | 770+ tests passing |
-
-### Planned Components (P1 - Current)
-
-| Component | Priority | Description |
-|-----------|----------|-------------|
-| **Economic Metadata** | P1 | Cost/value/confidence tracking on Molecules |
-| **Continuous Workflows** | P1 | WorkflowType + LoopConfig for operational loops |
-| **Continuous Validation** | P1 | ValidationMode for ongoing contract validation |
-| **Failure Taxonomy** | P1 | FailureType classification in Learning System |
-| Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
-
-### Completed Components (P1)
-
-| Component | Status | Description |
-|-----------|--------|-------------|
-| **Depth-Based Context** | ✅ Done | Agent-level defaults for Entity Graph retrieval depth |
-| **Async Gate Approvals** | ✅ Done | Async evaluation with auto-approval policies |
-| **Architecture Review** | ✅ Done | E2E integration tests, 27 modules verified |
-
-### Future Components (P2)
-
-| Component | Priority | Description |
-|-----------|----------|-------------|
-| **Swarm Molecule Type** | P2 | Parallel research: scatter → cross-critique → converge |
-| **Composite Molecules** | P2 | Chain molecule types (Swarm → Ralph → escalate) |
-| Web UI | P2 | Browser-based dashboard and discovery chat |
-| Chapters & Guilds | P2 | Cross-team skill groups and communities |
-| Fitness Functions | P2 | Per-team success metrics |
-| Cross-dept Task Claiming | P2 | Workers claim work across departments |
-| Auto-remediation | P2 | Automatic issue resolution with human approval |
+> **Note:** For implementation status and roadmap, see `STATE.md` and `ROADMAP.md`. This document focuses on architecture design only.
 
 ---
 
@@ -1291,30 +1217,6 @@ From [Deloitte 2025 Trends](https://www.deloitte.com/global/en/services/consulti
 
 ---
 
-## Code Quality Audit
-
-### Strengths
-
-1. **Clean separation of concerns** - Each module has single responsibility
-2. **Consistent patterns** - All entities have `to_dict()`, `from_dict()`, `to_yaml()`
-3. **Proper dataclasses** - All models use dataclasses with defaults
-4. **Type hints** - Comprehensive type annotations
-5. **YAML persistence** - Human-readable state files
-6. **Git integration** - Bead ledger auto-commits changes
-7. **Lazy loading** - Memory system loads content on demand
-
-### Areas for Improvement
-
-1. **No tests** - Add pytest test suite
-2. **No type checking** - Add mypy configuration
-3. **Hardcoded analysis** - COO uses keyword matching instead of LLM
-4. **Missing agent implementations** - Only COO exists
-5. **No async support** - Could benefit from asyncio for parallel execution
-6. **No logging** - Uses print statements instead of logging module
-7. **No configuration file** - Settings are hardcoded
-
----
-
 ## Example Flow: New Feature Request
 
 ```
@@ -1427,62 +1329,6 @@ ai-corp status                                  # Quick health check summary
 | Clear accountability - always know who owns what | 100% | RACI enforced |
 | Autonomous operation - minimal CEO intervention | High | Depends on agent implementation |
 | Context handling beyond window limits | 100x | Memory system ready |
-
----
-
-## Next Steps
-
-### ✅ Completed (P0)
-1. ~~Implement VP agent classes with LLM integration~~ ✅
-2. ~~Implement Director agent classes~~ ✅
-3. ~~Implement Worker agent classes~~ ✅
-4. ~~Connect agents to actual Claude Code execution~~ ✅
-5. ~~Enable parallel agent execution~~ ✅
-6. ~~Add pytest test suite (451+ tests)~~ ✅
-7. ~~Fix Claude Code CLI integration~~ ✅
-
-### ✅ Completed (P1) - All Phases Done
-1. ~~Phase 1: Success Contract System~~ ✅
-   - SuccessContract, ContractManager with bead/gate integration
-2. ~~Phase 2: Discovery Conversation~~ ✅
-   - COO run_discovery() method with structured extraction
-3. ~~Phase 3: System Monitoring~~ ✅
-   - SystemMonitor with metrics, health checks, alerts
-4. ~~Phase 4: Terminal Dashboard~~ ✅
-   - Real-time dashboard with live mode
-5. ~~Skill System (Role-based skill discovery)~~ ✅
-   - 5-layer skill discovery from SKILL.md files
-   - Capability-to-skill mapping
-6. ~~Work Scheduler (Intelligent task assignment)~~ ✅
-   - CapabilityMatcher + LoadBalancer + DependencyResolver
-7. ~~Executor Integration~~ ✅
-   - CorporationExecutor uses WorkScheduler + SkillRegistry
-   - Session startup protocol for long-running agents
-
-### ✅ Completed (P1) - Learning System
-8. ~~Learning System Phase 1~~ ✅
-   - Distiller, Meta-Learner, Pattern Library, Ralph Mode
-9. ~~Learning System Phase 2~~ ✅
-   - Evolution Daemon (hourly/daily/weekly cycles)
-   - Context Synthesizer (transform context to understanding)
-
-### ✅ Completed - Depth-Based Context
-10. ~~Depth-Based Context~~ ✅
-    - DepthConfig class with agent-level defaults
-    - Integrated into BaseAgent with get_entity_context()
-
-### Current Priority (P1)
-1. **Async Gate Approvals** - Auto-approve when criteria met
-2. **Real Claude Testing** - End-to-end test with ClaudeCodeBackend
-
-### Future (P2)
-1. Web UI with discovery onboarding chat
-2. Add Chapters (skill-based cross-team groups)
-3. Add Guilds (communities of interest)
-4. Implement fitness functions per team
-5. Enable cross-department task claiming
-6. Auto-remediation execution (with human approval)
-7. Performance optimization for large agent swarms
 
 ---
 
