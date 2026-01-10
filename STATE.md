@@ -1,9 +1,9 @@
 # AI Corp Project State
 
-> **Last Updated:** 2026-01-09
+> **Last Updated:** 2026-01-10
 > **Current Phase:** System Refinement
-> **Status:** Architecture verified, E2E tests passing, P1 refinements complete, memory system enhanced
-> **Next Action:** P2 features (Swarm Molecule, Composite Molecules) or Real Claude Testing
+> **Status:** All P1 complete, Real Claude Testing attempted (needs separate terminal)
+> **Next Action:** Real Claude Testing (from separate terminal) or P2 features
 
 ---
 
@@ -64,6 +64,27 @@
 ---
 
 ## Recent Changes
+
+### 2026-01-10: Real Claude Testing Attempted
+
+**Goal:** Test ClaudeCodeBackend with actual Claude Code CLI
+
+**Findings:**
+- ✅ Claude Code CLI available at `/opt/node22/bin/claude` (v2.0.59)
+- ✅ Availability tests pass (4/4) - Backend detection works correctly
+- ❌ Execution tests timeout - Claude CLI hangs when called via subprocess from within a Claude Code session
+
+**Root Cause:** Nested Claude calls - running `claude -p` from within a Claude Code session causes blocking/timeout. This is expected behavior.
+
+**Solution:** Run tests from a **separate terminal** (not inside Claude Code):
+```bash
+cd /home/user/ai-corp
+python -m pytest tests/integration/test_claude_code.py::TestClaudeCodeBackendExecution -v
+```
+
+**Also Found:**
+- Default model `claude-opus-4-5-20251101` in LLMRequest may need updating to use aliases like `opus` or `sonnet`
+- Test infrastructure is complete and ready - just needs external execution
 
 ### 2026-01-09: SimpleMem-Inspired Adaptive Retrieval
 
