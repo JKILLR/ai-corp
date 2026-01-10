@@ -28,6 +28,116 @@ from enum import Enum
 import yaml
 
 
+# =============================================================================
+# SimpleMem-Inspired Adaptive Retrieval
+# Reference: https://github.com/aiming-lab/SimpleMem
+# =============================================================================
+
+# Complexity scoring weights
+_COMPLEXITY_QUESTION_WORDS = {'what', 'where', 'when', 'who', 'how', 'why', 'which'}
+_COMPLEXITY_COMPARISON_WORDS = {'compare', 'difference', 'between', 'versus', 'vs', 'relationship'}
+_COMPLEXITY_AGGREGATION_WORDS = {'all', 'every', 'across', 'throughout', 'summary', 'overview'}
+_COMPLEXITY_TEMPORAL_WORDS = {'history', 'timeline', 'evolution', 'trend', 'over time', 'since', 'before', 'after'}
+
+# Retrieval configuration
+DEFAULT_BASE_K = 5  # Base number of results for simple queries
+COMPLEXITY_SENSITIVITY = 0.5  # δ in SimpleMem formula
+MAX_RETRIEVAL_DEPTH = 50  # Hard cap on results
+TOKENS_PER_RESULT = 50  # Estimated tokens per knowledge entry
+
+
+def score_query_complexity(query: str) -> float:
+    """
+    Score query complexity on a 0.0-1.0 scale.
+
+    Inspired by SimpleMem's adaptive retrieval depth calculation.
+    Simple queries get low scores, complex multi-hop queries get high scores.
+
+    Args:
+        query: The search query string
+
+    Returns:
+        Complexity score between 0.0 (trivial) and 1.0 (highly complex)
+    """
+    if not query:
+        return 0.0
+
+    query_lower = query.lower()
+    words = query_lower.split()
+    word_count = len(words)
+
+    # Base complexity from length (normalized)
+    length_score = min(word_count / 20, 0.3)  # Max 0.3 from length
+
+    # Question word complexity
+    question_score = 0.1 if any(w in _COMPLEXITY_QUESTION_WORDS for w in words) else 0.0
+
+    # Multi-hop indicators (comparing, relating entities)
+    comparison_score = 0.2 if any(w in query_lower for w in _COMPLEXITY_COMPARISON_WORDS) else 0.0
+
+    # Aggregation queries (need more context)
+    aggregation_score = 0.2 if any(w in query_lower for w in _COMPLEXITY_AGGREGATION_WORDS) else 0.0
+
+    # Temporal queries (need historical context)
+    temporal_score = 0.2 if any(w in query_lower for w in _COMPLEXITY_TEMPORAL_WORDS) else 0.0
+
+    # Entity density (proper nouns suggest more specific retrieval)
+    # Simple heuristic: count capitalized words (excluding first word)
+    entity_count = sum(1 for w in words[1:] if w and w[0].isupper())
+    entity_score = min(entity_count * 0.1, 0.3)
+
+    total = length_score + question_score + comparison_score + aggregation_score + temporal_score + entity_score
+    return min(total, 1.0)
+
+
+def calculate_adaptive_depth(
+    query: str,
+    base_k: int = DEFAULT_BASE_K,
+    sensitivity: float = COMPLEXITY_SENSITIVITY,
+    token_budget: Optional[int] = None,
+    max_depth: int = MAX_RETRIEVAL_DEPTH
+) -> int:
+    """
+    Calculate adaptive retrieval depth based on query complexity.
+
+    Implements SimpleMem formula: k_dyn = k_base × (1 + δ × C_q)
+
+    Args:
+        query: The search query
+        base_k: Base number of results for simple queries
+        sensitivity: Complexity sensitivity factor (δ)
+        token_budget: Optional token budget to enforce
+        max_depth: Maximum results regardless of complexity
+
+    Returns:
+        Number of results to retrieve
+    """
+    complexity = score_query_complexity(query)
+    k_dyn = int(base_k * (1 + sensitivity * complexity))
+
+    # Apply token budget constraint if specified
+    if token_budget is not None:
+        budget_limit = token_budget // TOKENS_PER_RESULT
+        k_dyn = min(k_dyn, budget_limit)
+
+    # Apply hard cap
+    return max(1, min(k_dyn, max_depth))
+
+
+def estimate_retrieval_tokens(num_results: int, tokens_per_result: int = TOKENS_PER_RESULT) -> int:
+    """
+    Estimate total tokens for a retrieval operation.
+
+    Args:
+        num_results: Number of results to retrieve
+        tokens_per_result: Estimated tokens per result
+
+    Returns:
+        Estimated total tokens
+    """
+    return num_results * tokens_per_result
+
+
 class ContextType(Enum):
     """Types of context that can be stored"""
     MOLECULE = "molecule"          # Workflow state and history
@@ -367,17 +477,104 @@ class ContextEnvironment:
                 for v in self.variables.values()
             ]
 
-    def search_all(self, pattern: str, max_per_var: int = 5) -> Dict[str, List[Dict[str, Any]]]:
+    def search_all(
+        self,
+        pattern: str,
+        max_per_var: Optional[int] = None,
+        token_budget: Optional[int] = None,
+        adaptive: bool = True
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Search across all context variables.
-        Like RLM's grep capability across the environment.
+        Search across all context variables with adaptive retrieval.
+
+        Like RLM's grep capability across the environment, enhanced with
+        SimpleMem-inspired adaptive depth calculation.
+
+        Args:
+            pattern: Regex pattern to search for
+            max_per_var: Explicit max matches per variable (overrides adaptive)
+            token_budget: Optional token budget for total retrieval
+            adaptive: Whether to use adaptive depth (default True)
+
+        Returns:
+            Dict mapping variable names to list of matches
         """
+        # Calculate retrieval depth
+        if max_per_var is not None:
+            limit = max_per_var
+        elif adaptive:
+            limit = calculate_adaptive_depth(
+                query=pattern,
+                base_k=DEFAULT_BASE_K,
+                token_budget=token_budget
+            )
+        else:
+            limit = DEFAULT_BASE_K
+
         results = {}
+        total_matches = 0
+
         for name, var in self.variables.items():
-            matches = var.grep(pattern, max_matches=max_per_var)
+            # If we have a token budget, respect it
+            if token_budget is not None:
+                remaining_budget = token_budget - (total_matches * TOKENS_PER_RESULT)
+                if remaining_budget <= 0:
+                    break
+                current_limit = min(limit, remaining_budget // TOKENS_PER_RESULT)
+            else:
+                current_limit = limit
+
+            matches = var.grep(pattern, max_matches=current_limit)
             if matches:
                 results[name] = matches
+                total_matches += len(matches)
+
         return results
+
+    def search_all_with_stats(
+        self,
+        pattern: str,
+        max_per_var: Optional[int] = None,
+        token_budget: Optional[int] = None,
+        adaptive: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Search with retrieval statistics for cost tracking.
+
+        Returns both results and metadata about the retrieval operation.
+        Useful for tracking costs via Economic Metadata on Molecules.
+
+        Args:
+            pattern: Regex pattern to search for
+            max_per_var: Explicit max matches per variable
+            token_budget: Optional token budget for retrieval
+            adaptive: Whether to use adaptive depth (default True)
+
+        Returns:
+            Dict with 'results', 'complexity', 'total_matches', 'estimated_tokens'
+        """
+        complexity = score_query_complexity(pattern)
+
+        results = self.search_all(
+            pattern=pattern,
+            max_per_var=max_per_var,
+            token_budget=token_budget,
+            adaptive=adaptive
+        )
+
+        total_matches = sum(len(matches) for matches in results.values())
+
+        return {
+            'results': results,
+            'pattern': pattern,
+            'complexity_score': complexity,
+            'total_matches': total_matches,
+            'variables_searched': len(self.variables),
+            'variables_with_matches': len(results),
+            'estimated_tokens': estimate_retrieval_tokens(total_matches),
+            'token_budget': token_budget,
+            'adaptive': adaptive
+        }
 
     def create_buffer(self, name: str, purpose: str) -> MemoryBuffer:
         """Create a new memory buffer for accumulating answers"""

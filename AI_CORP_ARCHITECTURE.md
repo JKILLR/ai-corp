@@ -50,13 +50,23 @@ A fully autonomous AI corporation where multiple Claude instances work as a unif
 | **Context Synthesizer** | ✅ Done | Transform raw context into actionable understanding |
 | Test Suite | ✅ Done | 770+ tests passing |
 
-### Planned Components (P1)
+### Planned Components (P1 - Current)
 
 | Component | Priority | Description |
 |-----------|----------|-------------|
+| **Economic Metadata** | P1 | Cost/value/confidence tracking on Molecules |
+| **Continuous Workflows** | P1 | WorkflowType + LoopConfig for operational loops |
+| **Continuous Validation** | P1 | ValidationMode for ongoing contract validation |
+| **Failure Taxonomy** | P1 | FailureType classification in Learning System |
+| Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
+
+### Completed Components (P1)
+
+| Component | Status | Description |
+|-----------|--------|-------------|
 | **Depth-Based Context** | ✅ Done | Agent-level defaults for Entity Graph retrieval depth |
 | **Async Gate Approvals** | ✅ Done | Async evaluation with auto-approval policies |
-| Real Claude Testing | P1 | End-to-end test with ClaudeCodeBackend |
+| **Architecture Review** | ✅ Done | E2E integration tests, 27 modules verified |
 
 ### Future Components (P2)
 
@@ -219,6 +229,58 @@ molecule:
 - `Molecule` - Workflow with steps, RACI, progress tracking
 - `MoleculeStep` - Individual step with checkpoints
 - `Checkpoint` - Recovery point for crash resilience
+
+#### Economic Metadata (P1 - Planned)
+
+Every molecule carries economic metadata for ROI reasoning:
+
+```yaml
+molecule:
+  id: MOL-123
+  name: "Build User Dashboard"
+
+  # ECONOMIC METADATA
+  estimated_cost: 2.50      # Estimated token/compute cost in USD
+  estimated_value: 500.00   # Expected value of completion
+  actual_cost: 0.00         # Tracked after execution
+  confidence: 0.75          # 0.0-1.0 confidence in estimates
+
+  # Derived metrics (calculated)
+  roi_ratio: 200.0          # estimated_value / estimated_cost
+```
+
+**Key concepts:**
+- `estimated_cost` and `estimated_value` set before execution
+- `actual_cost` tracked during execution via LLM cost tracking
+- `confidence` indicates certainty of estimates
+- Enables prioritizing high-ROI work and killing low-value molecules early
+
+#### Continuous Workflow Support (P1 - Planned)
+
+Molecules can be configured for operational loops:
+
+```yaml
+molecule:
+  id: MOL-OPS-001
+  name: "System Monitoring Loop"
+
+  # WORKFLOW TYPE
+  workflow_type: continuous  # project | continuous | hybrid
+
+  # LOOP CONFIGURATION (for continuous/hybrid)
+  loop_config:
+    interval_seconds: 300       # Run every 5 minutes
+    max_iterations: null        # null = infinite
+    exit_conditions:
+      - condition: "manual_stop"
+      - condition: "error_threshold_exceeded"
+        threshold: 5
+```
+
+**Workflow Types:**
+- `project` - Default, linear execution (current behavior)
+- `continuous` - Loops indefinitely until exit condition
+- `hybrid` - Project with optional continuation phase
 
 #### Molecule Execution Modes
 
@@ -428,9 +490,9 @@ Submit → [Async Evaluation] → Check Criteria → Calculate Confidence
 - `WorkerPool` - Pool with min/max workers, capabilities
 - `Worker` - Individual worker with status, heartbeat
 
-### 8. Memory System (NEW - RLM-Inspired)
+### 8. Memory System (RLM + SimpleMem-Inspired)
 
-Based on [Recursive Language Models (arXiv:2512.24601)](https://arxiv.org/abs/2512.24601), the memory system treats context as an external environment that agents can programmatically navigate.
+Based on [Recursive Language Models (arXiv:2512.24601)](https://arxiv.org/abs/2512.24601) for structure and [SimpleMem](https://github.com/aiming-lab/SimpleMem) for retrieval efficiency. The system treats context as an external environment that agents can programmatically navigate with intelligent retrieval depth.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -469,6 +531,75 @@ Based on [Recursive Language Models (arXiv:2512.24601)](https://arxiv.org/abs/25
 - `ContextCompressor` - Create navigable summaries
 - `OrganizationalMemory` - Long-term decisions and lessons
 - `EntityAwareMemory` - Memory system with Entity Graph integration
+
+#### SimpleMem-Inspired Adaptive Retrieval
+
+Enhances retrieval efficiency using concepts from SimpleMem research:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  ADAPTIVE RETRIEVAL FLOW                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. Query Arrives                                           │
+│     └── score_query_complexity(query) → 0.0-1.0            │
+│         • Word count contribution                           │
+│         • Question words (what, where, how, why)           │
+│         • Comparison terms (compare, versus, between)       │
+│         • Aggregation words (all, every, summary)          │
+│         • Temporal references (history, timeline, trend)   │
+│         • Entity count                                      │
+│                                                             │
+│  2. Calculate Retrieval Depth                               │
+│     └── k_dyn = k_base × (1 + δ × C_q)                     │
+│         • k_base = 5 (default)                              │
+│         • δ = 0.5 (complexity sensitivity)                  │
+│         • C_q = complexity score from step 1                │
+│                                                             │
+│  3. Apply Token Budget (optional)                           │
+│     └── k_final = min(k_dyn, token_budget / tokens_per_hit)│
+│         • Prevents over-retrieval for constrained contexts  │
+│         • Connects to Economic Metadata for cost tracking   │
+│                                                             │
+│  4. Execute Search                                          │
+│     └── Return top k_final results with stats              │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Functions:**
+```python
+# Score query complexity (0.0 = simple, 1.0 = complex)
+score_query_complexity("Find the file")           # → ~0.2
+score_query_complexity("Compare all authentication
+    approaches over time and their tradeoffs")    # → ~0.8
+
+# Calculate adaptive depth
+calculate_adaptive_depth(query, base_k=5, sensitivity=0.5)
+# Simple query → depth 5
+# Complex query → depth 7-8
+
+# Search with adaptive retrieval
+results = memory.search_all(pattern, adaptive=True, token_budget=1000)
+
+# Search with stats for cost tracking
+result = knowledge.search_relevant_with_stats(query)
+# Returns: {results: [...], complexity_score: 0.6,
+#           retrieval_depth: 7, estimated_tokens: 350}
+```
+
+**Relationship to RLM:**
+| RLM (Structure) | SimpleMem (Efficiency) |
+|-----------------|------------------------|
+| Context as external environment | Adaptive retrieval depth |
+| peek/grep/transform operations | Query complexity scoring |
+| Memory windowing and persistence | Token budget enforcement |
+| Recursive context management | Cost-aware retrieval |
+
+**References:**
+- [SimpleMem: Efficient Lifelong Memory for LLM Agents](https://github.com/aiming-lab/SimpleMem)
+- 30x token reduction vs full-context methods
+- Semantic Lossless Compression (future consideration)
 
 ### 8.5. Entity Graph System (Personal Edition)
 
@@ -611,6 +742,43 @@ contract = coo._extract_contract(conversation)
 - `SuccessContract` - Contract with criteria, scope, constraints
 - `SuccessCriterion` - Single measurable criterion (boolean checklist)
 - `ContractManager` - CRUD operations for contracts
+
+#### Continuous Contract Validation (P1 - Planned)
+
+Contracts can be configured for ongoing validation in operational workflows:
+
+```yaml
+contract:
+  id: CTR-OPS-001
+  molecule_id: MOL-OPS-001
+
+  # VALIDATION MODE
+  validation_mode: continuous  # one_time | continuous | periodic
+
+  # For continuous/periodic modes
+  validation_interval: 3600    # Validate every hour (seconds)
+  consecutive_failures: 0      # Track failure streak
+  max_consecutive_failures: 3  # Escalate after N failures
+
+  # One-time criteria (validated once at start)
+  success_criteria:
+    - description: "System deployed"
+      met: true
+
+  # Continuous criteria (validated after each loop)
+  continuous_criteria:
+    - description: "Error rate below 1%"
+      check_command: "python -c 'import metrics; print(metrics.error_rate() < 0.01)'"
+    - description: "Response time under 500ms"
+      check_command: "python -c 'import metrics; print(metrics.p95_latency() < 500)'"
+```
+
+**Validation Modes:**
+- `one_time` - Default, validate once at project completion
+- `continuous` - Validate after each loop iteration
+- `periodic` - Validate at specified intervals
+
+**Escalation:** After `max_consecutive_failures`, alert is raised to human/COO.
 
 ### 10. Skill System
 
@@ -793,6 +961,41 @@ A two-phase system that extracts insights from completed work and continuously i
 - Meta-learner tracks which sources are most effective
 - Evolution Daemon runs on three time scales (hourly/daily/weekly)
 - Context Synthesizer produces LLM-ready prompts with recommendations
+
+#### Failure Taxonomy (P1 - Planned)
+
+Structured classification of failures for better pattern extraction:
+
+```python
+class FailureType(Enum):
+    """Classification of failure types for structured analysis"""
+    PROMPT_AMBIGUITY = "prompt_ambiguity"      # Unclear instructions
+    LOGIC_ERROR = "logic_error"                # Flawed reasoning
+    HALLUCINATION = "hallucination"            # Made up information
+    COST_OVERRUN = "cost_overrun"              # Exceeded budget
+    TIMEOUT = "timeout"                         # Took too long
+    EXTERNAL_DEPENDENCY = "external_dependency" # External service failed
+    CONTEXT_DRIFT = "context_drift"            # Lost track of goal
+    CAPABILITY_MISMATCH = "capability_mismatch" # Wrong agent for task
+```
+
+**Integration with Distiller:**
+- Each failure is classified by type during extraction
+- Patterns can be generated per failure type
+- Meta-learner tracks failure rates by type
+- Enables targeted mitigations (e.g., "reduce prompt ambiguity failures by adding examples")
+
+**Failure Record Structure:**
+```yaml
+failure:
+  molecule_id: MOL-123
+  step_id: step_2
+  failure_type: hallucination
+  description: "Agent fabricated API endpoint that doesn't exist"
+  context: "Was implementing integration with third-party service"
+  mitigation_applied: "Added verification step to check API docs"
+  outcome: resolved  # resolved | recurring | unresolved
+```
 
 ---
 

@@ -21,7 +21,10 @@ import logging
 
 from .memory import (
     ContextEnvironment, ContextVariable, ContextType,
-    OrganizationalMemory, ContextCompressor
+    OrganizationalMemory, ContextCompressor,
+    # SimpleMem-inspired adaptive retrieval
+    score_query_complexity, calculate_adaptive_depth, estimate_retrieval_tokens,
+    DEFAULT_BASE_K, TOKENS_PER_RESULT
 )
 
 logger = logging.getLogger(__name__)
@@ -386,13 +389,41 @@ class KnowledgeBase:
         self,
         query: str,
         molecule_id: Optional[str] = None,
-        max_results: int = 5
+        max_results: Optional[int] = None,
+        token_budget: Optional[int] = None,
+        adaptive: bool = True
     ) -> List[KnowledgeEntry]:
         """
-        Search for relevant knowledge (PULL mechanism).
+        Search for relevant knowledge (PULL mechanism) with adaptive retrieval.
 
         Agents can use this to find specific information they need.
+        Uses SimpleMem-inspired adaptive depth based on query complexity.
+
+        Args:
+            query: The search query
+            molecule_id: Optional molecule ID to scope the search
+            max_results: Explicit max results (overrides adaptive calculation)
+            token_budget: Optional token budget for retrieval
+            adaptive: Whether to use adaptive depth (default True)
+
+        Returns:
+            List of relevant KnowledgeEntry objects
         """
+        # Calculate retrieval depth
+        if max_results is not None:
+            # Explicit limit provided - use it directly
+            limit = max_results
+        elif adaptive:
+            # Use SimpleMem-inspired adaptive depth
+            limit = calculate_adaptive_depth(
+                query=query,
+                base_k=DEFAULT_BASE_K,
+                token_budget=token_budget
+            )
+        else:
+            # Backward compatibility - use default
+            limit = DEFAULT_BASE_K
+
         results = []
 
         # Search foundation first
@@ -406,7 +437,51 @@ class KnowledgeBase:
             ]
             results.extend(project_results)
 
-        return results[:max_results]
+        return results[:limit]
+
+    def search_relevant_with_stats(
+        self,
+        query: str,
+        molecule_id: Optional[str] = None,
+        max_results: Optional[int] = None,
+        token_budget: Optional[int] = None,
+        adaptive: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Search with retrieval statistics for cost tracking.
+
+        Returns both results and metadata about the retrieval operation.
+        Useful for tracking costs via Economic Metadata on Molecules.
+
+        Args:
+            query: The search query
+            molecule_id: Optional molecule ID to scope the search
+            max_results: Explicit max results (overrides adaptive calculation)
+            token_budget: Optional token budget for retrieval
+            adaptive: Whether to use adaptive depth (default True)
+
+        Returns:
+            Dict with 'results', 'complexity', 'depth', 'estimated_tokens'
+        """
+        complexity = score_query_complexity(query)
+
+        results = self.search_relevant(
+            query=query,
+            molecule_id=molecule_id,
+            max_results=max_results,
+            token_budget=token_budget,
+            adaptive=adaptive
+        )
+
+        return {
+            'results': results,
+            'query': query,
+            'complexity_score': complexity,
+            'retrieval_depth': len(results),
+            'estimated_tokens': estimate_retrieval_tokens(len(results)),
+            'token_budget': token_budget,
+            'adaptive': adaptive
+        }
 
     # =========================================================================
     # Integration with Memory System

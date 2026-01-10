@@ -1,9 +1,9 @@
 # AI Corp Project State
 
-> **Last Updated:** 2026-01-07
-> **Current Phase:** Async Gate Approvals Complete
-> **Status:** Gates can run asynchronously with auto-approval support
-> **Next Action:** Swarm Molecule Type (P2)
+> **Last Updated:** 2026-01-10
+> **Current Phase:** System Refinement
+> **Status:** All P1 complete, Real Claude Testing attempted (needs separate terminal)
+> **Next Action:** Real Claude Testing (from separate terminal) or P2 features
 
 ---
 
@@ -36,7 +36,7 @@
 | Area | Status | Notes |
 |------|--------|-------|
 | Core Infrastructure | ✅ Complete | Molecules, hooks, beads, channels, gates, pools |
-| Memory System | ✅ Complete | RLM-inspired context management |
+| Memory System | ✅ Complete | RLM-inspired context + SimpleMem adaptive retrieval |
 | Agent Hierarchy | ✅ Complete | COO, VP, Director, Worker agents |
 | LLM Integration | ✅ Complete | Swappable backends (ClaudeCode, API, Mock) |
 | Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
@@ -64,6 +64,100 @@
 ---
 
 ## Recent Changes
+
+### 2026-01-10: Real Claude Testing Attempted
+
+**Goal:** Test ClaudeCodeBackend with actual Claude Code CLI
+
+**Findings:**
+- ✅ Claude Code CLI available at `/opt/node22/bin/claude` (v2.0.59)
+- ✅ Availability tests pass (4/4) - Backend detection works correctly
+- ❌ Execution tests timeout - Claude CLI hangs when called via subprocess from within a Claude Code session
+
+**Root Cause:** Nested Claude calls - running `claude -p` from within a Claude Code session causes blocking/timeout. This is expected behavior.
+
+**Solution:** Run tests from a **separate terminal** (not inside Claude Code):
+```bash
+cd /home/user/ai-corp
+python -m pytest tests/integration/test_claude_code.py::TestClaudeCodeBackendExecution -v
+```
+
+**Also Found:**
+- Default model `claude-opus-4-5-20251101` in LLMRequest may need updating to use aliases like `opus` or `sonnet`
+- Test infrastructure is complete and ready - just needs external execution
+
+### 2026-01-09: SimpleMem-Inspired Adaptive Retrieval
+
+**Research Source:** [SimpleMem: Efficient Lifelong Memory for LLM Agents](https://github.com/aiming-lab/SimpleMem)
+
+**Key Concepts Applied:**
+- **Adaptive Retrieval Depth** - Dynamic k based on query complexity: `k_dyn = k_base × (1 + δ × C_q)`
+- **Token Budget Enforcement** - Cap retrieval by token count to optimize context usage
+- **Query Complexity Scoring** - Heuristic scoring (0.0-1.0) for retrieval depth decisions
+
+**Memory System Enhancements (`src/core/memory.py`):**
+- `score_query_complexity(query)` - Score queries based on length, question words, comparisons, temporal refs
+- `calculate_adaptive_depth(query, base_k, sensitivity, token_budget)` - SimpleMem formula implementation
+- `estimate_retrieval_tokens(depth)` - Estimate token usage for budgeting
+- `search_all()` - Now supports `adaptive=True` and `token_budget` parameters
+- `search_all_with_stats()` - Returns results + cost tracking metadata
+
+**Knowledge System Enhancements (`src/core/knowledge.py`):**
+- `search_relevant()` - Now supports adaptive retrieval and token budgets
+- `search_relevant_with_stats()` - Returns results + complexity_score, retrieval_depth, estimated_tokens
+
+**Constants Added:**
+- `DEFAULT_BASE_K = 5` - Default retrieval depth
+- `COMPLEXITY_SENSITIVITY = 0.5` - How much complexity affects depth
+- `MAX_RETRIEVAL_DEPTH = 50` - Upper bound safety limit
+- `TOKENS_PER_RESULT = 50` - Average tokens per search result
+
+**Relationship to RLM:**
+- RLM remains the structural foundation (context as external environment, peek/grep/transform)
+- SimpleMem adds retrieval intelligence on top (how much to retrieve for a given query)
+- Complementary approaches: RLM = structure, SimpleMem = efficiency
+
+### 2026-01-09: P1 System Refinements Complete
+
+**Implemented All 4 P1 Features:**
+1. **Economic Metadata** - Added cost/value/confidence to Molecules (~50 lines)
+2. **Continuous Workflows** - Added WorkflowType + LoopConfig (~100 lines)
+3. **Continuous Validation** - Added ValidationMode to Contracts (~60 lines)
+4. **Failure Taxonomy** - Added FailureType to Learning System (~80 lines)
+
+**Code Cleanup:**
+- Simplified `FailureType.classify()` with data-driven keyword mapping
+- Reduced method from 50+ lines to clean pattern matching
+
+### 2026-01-09: Architecture Review & External Feedback Integration
+
+**Architecture Audit Completed:**
+- Verified all 27 core modules against AI_CORP_ARCHITECTURE.md
+- All 9 integration points validated
+- Identified hub modules: memory (12 connections), molecule (10), graph (10)
+
+**E2E Integration Tests Added:**
+- `tests/integration/test_e2e_system.py` - 8 comprehensive integration tests
+- Tests verify cross-system integration:
+  - Gate → Bead → Molecule async approval flow
+  - Molecule ↔ Learning System connection
+  - Entity Graph depth configs by agent level
+  - EntityStore operations
+  - Hook work item management
+  - Channel creation and structure
+  - Bead audit trail recording
+  - Full system initialization
+
+**External Feedback Review:**
+- Reviewed feedback from Manus AI, Grok, and ChatGPT
+- Identified valuable refinements that follow our integration principles
+- Rejected over-engineering suggestions (new agent types, parallel systems)
+
+**New Approved Features (P1):**
+1. **Economic Metadata on Molecules** - Add cost/value tracking for ROI reasoning
+2. **Continuous Workflows** - Add workflow_type (PROJECT/CONTINUOUS) and loop config
+3. **Continuous Contract Validation** - Add validation_mode for ongoing validation
+4. **Failure Taxonomy** - Classify failures structurally in Learning System
 
 ### 2026-01-07: Async Gate Approvals Complete
 
@@ -688,8 +782,15 @@ CorporationExecutor
 
 ## Next Actions
 
-### P1 Priority (Complete)
-1. ~~Create pytest test suite~~ ✅ Complete (770+ tests)
+### P1 Priority - System Refinements (Complete)
+1. ~~**Economic Metadata on Molecules**~~ ✅ - cost/value/confidence tracking
+2. ~~**Continuous Workflow Support**~~ ✅ - WorkflowType + LoopConfig
+3. ~~**Continuous Contract Validation**~~ ✅ - ValidationMode enum
+4. ~~**Failure Taxonomy**~~ ✅ - FailureType classification in Learning System
+5. ~~**SimpleMem Adaptive Retrieval**~~ ✅ - Query complexity scoring, adaptive depth, token budgeting
+
+### P1 Priority (Complete - Previous)
+1. ~~Create pytest test suite~~ ✅ Complete (778+ tests)
 2. ~~Add monitoring~~ ✅ Complete
 3. ~~Add terminal dashboard~~ ✅ Complete
 4. ~~Skills & Work Scheduler~~ ✅ Complete
@@ -700,6 +801,7 @@ CorporationExecutor
 9. ~~Build Learning System~~ ✅ Complete (Phase 1 + Ralph Mode)
 10. ~~Depth-Based Context~~ ✅ Complete - Agent-level Entity Graph depth
 11. ~~Async Gate Approvals~~ ✅ Complete - Async evaluation + auto-approval
+12. ~~Architecture Review~~ ✅ Complete - E2E tests, all systems verified
 
 ### P2 Future
 1. ~~Evolution Daemon~~ ✅ Complete (background learning cycles)

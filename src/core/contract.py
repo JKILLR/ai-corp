@@ -30,6 +30,60 @@ class ContractStatus(Enum):
     AMENDED = "amended"       # Contract was amended (new version exists)
 
 
+class ValidationMode(Enum):
+    """Validation mode for contracts - supports continuous workflows"""
+    ONE_TIME = "one_time"       # Default, validate once at project completion
+    CONTINUOUS = "continuous"   # Validate after each loop iteration
+    PERIODIC = "periodic"       # Validate at specified intervals
+
+
+@dataclass
+class ContinuousCriterion:
+    """
+    A criterion for continuous validation.
+
+    Unlike standard SuccessCriterion which is validated once,
+    this is checked repeatedly in continuous/periodic modes.
+    """
+    id: str
+    description: str
+    check_command: Optional[str] = None  # Optional command to execute for validation
+    last_checked: Optional[str] = None
+    last_result: Optional[bool] = None
+    consecutive_failures: int = 0
+
+    @classmethod
+    def create(cls, description: str, check_command: Optional[str] = None) -> 'ContinuousCriterion':
+        return cls(
+            id=f"CCRIT-{uuid.uuid4().hex[:8].upper()}",
+            description=description,
+            check_command=check_command
+        )
+
+    def record_check(self, passed: bool) -> None:
+        """Record a validation check result"""
+        self.last_checked = datetime.utcnow().isoformat()
+        self.last_result = passed
+        if passed:
+            self.consecutive_failures = 0
+        else:
+            self.consecutive_failures += 1
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'description': self.description,
+            'check_command': self.check_command,
+            'last_checked': self.last_checked,
+            'last_result': self.last_result,
+            'consecutive_failures': self.consecutive_failures
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ContinuousCriterion':
+        return cls(**data)
+
+
 @dataclass
 class SuccessCriterion:
     """
@@ -106,6 +160,12 @@ class SuccessContract:
     # Discovery transcript (optional - for reference)
     discovery_transcript: Optional[str] = None
 
+    # Continuous Validation Support
+    validation_mode: ValidationMode = ValidationMode.ONE_TIME
+    validation_interval: int = 3600  # Validate every hour (seconds) for periodic mode
+    continuous_criteria: List[ContinuousCriterion] = field(default_factory=list)
+    max_consecutive_failures: int = 3  # Escalate after N failures
+
     @classmethod
     def create(
         cls,
@@ -116,7 +176,11 @@ class SuccessContract:
         in_scope: Optional[List[str]] = None,
         out_of_scope: Optional[List[str]] = None,
         constraints: Optional[List[str]] = None,
-        molecule_id: Optional[str] = None
+        molecule_id: Optional[str] = None,
+        validation_mode: ValidationMode = ValidationMode.ONE_TIME,
+        validation_interval: int = 3600,
+        continuous_criteria: Optional[List[Dict[str, Any]]] = None,
+        max_consecutive_failures: int = 3
     ) -> 'SuccessContract':
         """Create a new success contract"""
         now = datetime.utcnow().isoformat()
@@ -125,6 +189,17 @@ class SuccessContract:
         criteria = []
         for desc in (success_criteria or []):
             criteria.append(SuccessCriterion.create(desc))
+
+        # Create ContinuousCriterion objects
+        cont_criteria = []
+        for cc in (continuous_criteria or []):
+            if isinstance(cc, dict):
+                cont_criteria.append(ContinuousCriterion.create(
+                    description=cc.get('description', ''),
+                    check_command=cc.get('check_command')
+                ))
+            elif isinstance(cc, str):
+                cont_criteria.append(ContinuousCriterion.create(description=cc))
 
         return cls(
             id=f"CTR-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}",
@@ -137,7 +212,11 @@ class SuccessContract:
             constraints=constraints or [],
             created_at=now,
             created_by=created_by,
-            updated_at=now
+            updated_at=now,
+            validation_mode=validation_mode,
+            validation_interval=validation_interval,
+            continuous_criteria=cont_criteria,
+            max_consecutive_failures=max_consecutive_failures
         )
 
     def get_progress(self) -> Dict[str, Any]:
@@ -217,6 +296,55 @@ class SuccessContract:
         self.molecule_id = molecule_id
         self.updated_at = datetime.utcnow().isoformat()
 
+    def add_continuous_criterion(
+        self,
+        description: str,
+        check_command: Optional[str] = None
+    ) -> ContinuousCriterion:
+        """Add a continuous validation criterion"""
+        criterion = ContinuousCriterion.create(description, check_command)
+        self.continuous_criteria.append(criterion)
+        self.updated_at = datetime.utcnow().isoformat()
+        return criterion
+
+    def check_continuous_criterion(
+        self,
+        criterion_id: str,
+        passed: bool
+    ) -> bool:
+        """Record a check result for a continuous criterion"""
+        for cc in self.continuous_criteria:
+            if cc.id == criterion_id:
+                cc.record_check(passed)
+                self.updated_at = datetime.utcnow().isoformat()
+                return True
+        return False
+
+    def get_continuous_status(self) -> Dict[str, Any]:
+        """Get status of continuous validation"""
+        if not self.continuous_criteria:
+            return {
+                'has_continuous': False,
+                'all_passing': True,
+                'failures': 0,
+                'needs_escalation': False
+            }
+
+        failures = sum(1 for cc in self.continuous_criteria if cc.last_result is False)
+        max_consecutive = max(
+            (cc.consecutive_failures for cc in self.continuous_criteria),
+            default=0
+        )
+
+        return {
+            'has_continuous': True,
+            'all_passing': failures == 0,
+            'failures': failures,
+            'max_consecutive_failures': max_consecutive,
+            'needs_escalation': max_consecutive >= self.max_consecutive_failures,
+            'criteria': [cc.to_dict() for cc in self.continuous_criteria]
+        }
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
@@ -234,7 +362,12 @@ class SuccessContract:
             'updated_at': self.updated_at,
             'amended_at': self.amended_at,
             'previous_version_id': self.previous_version_id,
-            'discovery_transcript': self.discovery_transcript
+            'discovery_transcript': self.discovery_transcript,
+            # Continuous Validation Support
+            'validation_mode': self.validation_mode.value,
+            'validation_interval': self.validation_interval,
+            'continuous_criteria': [cc.to_dict() for cc in self.continuous_criteria],
+            'max_consecutive_failures': self.max_consecutive_failures
         }
 
     @classmethod
@@ -243,6 +376,15 @@ class SuccessContract:
         data['success_criteria'] = [
             SuccessCriterion.from_dict(c) for c in data.get('success_criteria', [])
         ]
+        # Handle Continuous Validation fields with defaults for backward compatibility
+        validation_mode_str = data.pop('validation_mode', 'one_time')
+        data['validation_mode'] = ValidationMode(validation_mode_str)
+        data.setdefault('validation_interval', 3600)
+        continuous_criteria_data = data.pop('continuous_criteria', [])
+        data['continuous_criteria'] = [
+            ContinuousCriterion.from_dict(cc) for cc in continuous_criteria_data
+        ]
+        data.setdefault('max_consecutive_failures', 3)
         return cls(**data)
 
     def to_yaml(self) -> str:

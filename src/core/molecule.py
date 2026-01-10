@@ -46,6 +46,59 @@ class StepStatus(Enum):
     SKIPPED = "skipped"
 
 
+class WorkflowType(Enum):
+    """Type of workflow for the molecule"""
+    PROJECT = "project"       # Default, linear execution
+    CONTINUOUS = "continuous" # Loops indefinitely until exit condition
+    HYBRID = "hybrid"         # Project with optional continuation phase
+
+
+@dataclass
+class ExitCondition:
+    """An exit condition for continuous workflows"""
+    condition: str
+    threshold: Optional[float] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'condition': self.condition,
+            'threshold': self.threshold
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ExitCondition':
+        return cls(
+            condition=data['condition'],
+            threshold=data.get('threshold')
+        )
+
+
+@dataclass
+class LoopConfig:
+    """Configuration for continuous/hybrid workflows"""
+    interval_seconds: int = 300  # Default 5 minutes
+    max_iterations: Optional[int] = None  # None = infinite
+    exit_conditions: List[ExitCondition] = field(default_factory=list)
+    current_iteration: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'interval_seconds': self.interval_seconds,
+            'max_iterations': self.max_iterations,
+            'exit_conditions': [ec.to_dict() for ec in self.exit_conditions],
+            'current_iteration': self.current_iteration
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'LoopConfig':
+        return cls(
+            interval_seconds=data.get('interval_seconds', 300),
+            max_iterations=data.get('max_iterations'),
+            exit_conditions=[ExitCondition.from_dict(ec) for ec in data.get('exit_conditions', [])],
+            current_iteration=data.get('current_iteration', 0)
+        )
+
+
 @dataclass
 class Checkpoint:
     """A checkpoint within a step for crash recovery"""
@@ -180,6 +233,21 @@ class Molecule:
     ralph_config: Optional[Dict[str, Any]] = None  # Serialized RalphConfig
     retry_count: int = 0
     failure_history: List[Dict[str, Any]] = field(default_factory=list)
+    # Economic Metadata - enables ROI reasoning and cost tracking
+    estimated_cost: float = 0.0      # Estimated token/compute cost in USD
+    estimated_value: float = 0.0     # Expected value of completion
+    actual_cost: float = 0.0         # Tracked during execution
+    confidence: float = 0.5          # 0.0-1.0 confidence in estimates
+    # Continuous Workflow Support
+    workflow_type: WorkflowType = WorkflowType.PROJECT
+    loop_config: Optional[LoopConfig] = None
+
+    @property
+    def roi_ratio(self) -> Optional[float]:
+        """Calculate ROI ratio (estimated_value / estimated_cost)"""
+        if self.estimated_cost > 0:
+            return self.estimated_value / self.estimated_cost
+        return None
 
     @classmethod
     def create(
@@ -190,7 +258,12 @@ class Molecule:
         priority: str = "P2_MEDIUM",
         parent_molecule_id: Optional[str] = None,
         ralph_mode: bool = False,
-        ralph_config: Optional[Dict[str, Any]] = None
+        ralph_config: Optional[Dict[str, Any]] = None,
+        estimated_cost: float = 0.0,
+        estimated_value: float = 0.0,
+        confidence: float = 0.5,
+        workflow_type: WorkflowType = WorkflowType.PROJECT,
+        loop_config: Optional[LoopConfig] = None
     ) -> 'Molecule':
         now = datetime.utcnow().isoformat()
         return cls(
@@ -203,7 +276,12 @@ class Molecule:
             priority=priority,
             parent_molecule_id=parent_molecule_id,
             ralph_mode=ralph_mode,
-            ralph_config=ralph_config
+            ralph_config=ralph_config,
+            estimated_cost=estimated_cost,
+            estimated_value=estimated_value,
+            confidence=confidence,
+            workflow_type=workflow_type,
+            loop_config=loop_config
         )
 
     def add_step(self, step: MoleculeStep) -> None:
@@ -364,7 +442,15 @@ class Molecule:
             'ralph_mode': self.ralph_mode,
             'ralph_config': self.ralph_config,
             'retry_count': self.retry_count,
-            'failure_history': self.failure_history
+            'failure_history': self.failure_history,
+            # Economic Metadata
+            'estimated_cost': self.estimated_cost,
+            'estimated_value': self.estimated_value,
+            'actual_cost': self.actual_cost,
+            'confidence': self.confidence,
+            # Continuous Workflow Support
+            'workflow_type': self.workflow_type.value,
+            'loop_config': self.loop_config.to_dict() if self.loop_config else None
         }
 
     @classmethod
@@ -377,6 +463,16 @@ class Molecule:
         data.setdefault('ralph_config', None)
         data.setdefault('retry_count', 0)
         data.setdefault('failure_history', [])
+        # Handle Economic Metadata with defaults for backward compatibility
+        data.setdefault('estimated_cost', 0.0)
+        data.setdefault('estimated_value', 0.0)
+        data.setdefault('actual_cost', 0.0)
+        data.setdefault('confidence', 0.5)
+        # Handle Continuous Workflow fields with defaults
+        workflow_type_str = data.pop('workflow_type', 'project')
+        data['workflow_type'] = WorkflowType(workflow_type_str)
+        loop_config_data = data.pop('loop_config', None)
+        data['loop_config'] = LoopConfig.from_dict(loop_config_data) if loop_config_data else None
         return cls(**data)
 
     def to_yaml(self) -> str:
@@ -425,7 +521,12 @@ class MoleculeEngine:
         priority: str = "P2_MEDIUM",
         parent_molecule_id: Optional[str] = None,
         ralph_mode: bool = False,
-        ralph_config: Optional[Dict[str, Any]] = None
+        ralph_config: Optional[Dict[str, Any]] = None,
+        estimated_cost: float = 0.0,
+        estimated_value: float = 0.0,
+        confidence: float = 0.5,
+        workflow_type: WorkflowType = WorkflowType.PROJECT,
+        loop_config: Optional[LoopConfig] = None
     ) -> Molecule:
         """
         Create a new molecule.
@@ -438,6 +539,11 @@ class MoleculeEngine:
             parent_molecule_id: Optional parent molecule for sub-tasks
             ralph_mode: Enable retry-with-failure-injection
             ralph_config: Configuration for Ralph Mode (max_retries, cost_cap, etc.)
+            estimated_cost: Estimated cost in USD
+            estimated_value: Expected value of completion in USD
+            confidence: Confidence in estimates (0.0-1.0)
+            workflow_type: Type of workflow (project/continuous/hybrid)
+            loop_config: Configuration for continuous/hybrid workflows
         """
         molecule = Molecule.create(
             name=name,
@@ -446,7 +552,12 @@ class MoleculeEngine:
             priority=priority,
             parent_molecule_id=parent_molecule_id,
             ralph_mode=ralph_mode,
-            ralph_config=ralph_config
+            ralph_config=ralph_config,
+            estimated_cost=estimated_cost,
+            estimated_value=estimated_value,
+            confidence=confidence,
+            workflow_type=workflow_type,
+            loop_config=loop_config
         )
         self._save_molecule(molecule)
         return molecule
