@@ -179,7 +179,10 @@ async def send_coo_message(request: COOMessageRequest):
         monitor = get_monitor()
         metrics = monitor.collect_metrics()
         molecules = get_molecule_engine()
-        active_molecules = molecules.list_molecules(status='active')
+        active_molecules = molecules.list_active_molecules()
+
+        # Check if this looks like a confirmation of a previous delegation proposal
+        confirmation_context = _check_for_confirmation(request.message, thread_id, coo)
 
         system_prompt = """You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational - you're a trusted executive, not a formal system.
 
@@ -246,16 +249,40 @@ CEO'S MESSAGE:
 
 Respond naturally as the COO. Handle simple things directly. For bigger asks, propose a plan or ask clarifying questions conversationally."""
 
-        response = coo.llm.execute(LLMRequest(
-            prompt=prompt,
-            system_prompt=system_prompt,
-            working_directory=get_corp_path()
-        ))
+        # Check if CEO is confirming a pending delegation
+        if confirmation_context.get('should_delegate'):
+            pending = confirmation_context['pending_delegation']
+            result = _execute_delegation(coo, pending, thread_id)
 
-        if response.success:
-            coo_response = response.content
+            if result.get('success'):
+                coo_response = (
+                    f"Done. I've created the project '{result['molecule_name']}' and delegated it to the team. "
+                    f"They'll work through {result['step_count']} phases including research, analysis, and review. "
+                    f"I'll keep you posted on progress. Anything else you'd like me to focus them on?"
+                )
+                actions_taken.append({
+                    'action': 'delegation',
+                    'molecule_id': result['molecule_id'],
+                    'delegations': result['delegations']
+                })
+            else:
+                coo_response = f"I ran into an issue setting that up: {result.get('error')}. Want me to try a different approach?"
+
         else:
-            coo_response = "I apologize, I'm having trouble processing that right now. Could you try again?"
+            # Normal COO response
+            response = coo.llm.execute(LLMRequest(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                working_directory=get_corp_path()
+            ))
+
+            if response.success:
+                coo_response = response.content
+
+                # Check if COO is proposing delegation - store for later confirmation
+                _extract_delegation_proposal(coo_response, thread_id, delegation_context)
+            else:
+                coo_response = "I apologize, I'm having trouble processing that right now. Could you try again?"
 
     except Exception as e:
         coo_response = f"I encountered an issue: {str(e)}. Let me try to help anyway - what would you like to know?"
@@ -333,6 +360,133 @@ def _get_suggested_departments(project_type: str) -> List[str]:
         'general': ['research', 'engineering', 'quality']
     }
     return department_map.get(project_type, ['engineering'])
+
+
+# Store pending delegation proposals per thread
+_pending_delegations: Dict[str, Dict[str, Any]] = {}
+
+
+def _check_for_confirmation(message: str, thread_id: str, coo) -> Dict[str, Any]:
+    """
+    Check if the user's message is confirming a pending delegation proposal.
+
+    Returns context about whether to proceed with delegation.
+    """
+    message_lower = message.lower().strip()
+
+    # Confirmation phrases
+    confirmation_phrases = [
+        'yes', 'yeah', 'yep', 'yup', 'sure', 'ok', 'okay', 'do it',
+        'go ahead', 'kick it off', 'start it', 'let\'s do it',
+        'sounds good', 'that works', 'proceed', 'go for it',
+        'please do', 'make it happen', 'get started', 'begin',
+        'approved', 'confirmed', 'absolutely', 'definitely'
+    ]
+
+    is_confirmation = any(phrase in message_lower for phrase in confirmation_phrases)
+
+    # Check if there's a pending delegation for this thread
+    pending = _pending_delegations.get(thread_id)
+
+    if is_confirmation and pending:
+        return {
+            'is_confirmation': True,
+            'pending_delegation': pending,
+            'should_delegate': True
+        }
+
+    return {
+        'is_confirmation': is_confirmation,
+        'pending_delegation': None,
+        'should_delegate': False
+    }
+
+
+def _extract_delegation_proposal(coo_response: str, thread_id: str, delegation_context: Dict[str, Any]) -> None:
+    """
+    Check if the COO's response proposes delegation and store it for later confirmation.
+    """
+    response_lower = coo_response.lower()
+
+    # Phrases that indicate COO is proposing delegation
+    proposal_indicators = [
+        'want me to', 'shall i', 'should i', 'i can have the team',
+        'kick that off', 'get them started', 'spin up', 'delegate',
+        'have the team', 'assign this', 'put the team on'
+    ]
+
+    if any(indicator in response_lower for indicator in proposal_indicators):
+        # Store the pending delegation
+        _pending_delegations[thread_id] = {
+            'proposed_at': datetime.utcnow().isoformat(),
+            'project_type': delegation_context.get('suggested_project_type', 'research'),
+            'departments': delegation_context.get('suggested_departments', ['research', 'engineering']),
+            'context': delegation_context
+        }
+
+
+def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[str, Any]:
+    """
+    Execute the pending delegation - create molecule and delegate to VPs.
+    """
+    # Get recent conversation to extract title/description
+    thread = coo.get_thread(thread_id)
+    if not thread:
+        return {'success': False, 'error': 'Thread not found'}
+
+    # Find the original request from conversation
+    messages = thread.get('messages', [])
+    title = "Codebase Review"
+    description = "Comprehensive review requested by CEO"
+
+    # Look for the original request (user messages before the proposal)
+    for msg in reversed(messages[:-2]):  # Skip last 2 (confirmation + proposal)
+        if msg.get('role') == 'user':  # CEO messages are stored as 'user'
+            description = msg.get('content', description)
+            # Create title from first part of description
+            title = description.split('.')[0][:50] if '.' in description else description[:50]
+            break
+
+    try:
+        # Create molecule through COO
+        molecule = coo.receive_ceo_task(
+            title=title,
+            description=description,
+            priority="P2_MEDIUM",
+            context={
+                'project_type': pending.get('project_type', 'research'),
+                'thread_id': thread_id,
+                'auto_delegated': True
+            }
+        )
+
+        # Start the molecule
+        molecules = get_molecule_engine()
+        molecule = molecules.start_molecule(molecule.id)
+
+        # Delegate to VPs
+        delegations = coo.delegate_molecule(molecule)
+
+        # Link to thread
+        try:
+            coo.link_thread_to_molecule(thread_id, molecule.id)
+        except Exception:
+            pass
+
+        # Clear the pending delegation
+        if thread_id in _pending_delegations:
+            del _pending_delegations[thread_id]
+
+        return {
+            'success': True,
+            'molecule_id': molecule.id,
+            'molecule_name': molecule.name,
+            'delegations': delegations,
+            'step_count': len(molecule.steps)
+        }
+
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
 
 
 @app.get("/api/coo/threads")
