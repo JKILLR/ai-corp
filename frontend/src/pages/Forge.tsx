@@ -40,118 +40,9 @@ interface ForgeSession {
   startedAt: Date;
 }
 
-// Mock data
-const mockIntentions: Intention[] = [
-  {
-    id: 'int-001',
-    title: 'Add voice control to the dashboard',
-    description: 'Users should be able to navigate and control the dashboard using voice commands. Think "Hey AI Corp, show me project status"',
-    type: 'idea',
-    status: 'captured',
-    priority: 3,
-    source: 'ceo',
-    capturedAt: new Date(Date.now() - 1000 * 60 * 30),
-    tags: ['ux', 'accessibility']
-  },
-  {
-    id: 'int-002',
-    title: 'Reduce customer churn by 20%',
-    description: 'Our monthly churn is currently at 8%. We need strategies and features that can bring this down to 6.4% or lower.',
-    type: 'goal',
-    status: 'queued',
-    priority: 1,
-    source: 'ceo',
-    capturedAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    tags: ['growth', 'retention']
-  },
-  {
-    id: 'int-003',
-    title: 'Become the default tool for AI agent orchestration',
-    description: 'In 2 years, when someone thinks about orchestrating AI agents, AI Corp should be the first name that comes to mind.',
-    type: 'vision',
-    status: 'incubating',
-    priority: 2,
-    source: 'ceo',
-    capturedAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    tags: ['strategy', 'market']
-  },
-  {
-    id: 'int-004',
-    title: 'Users abandoning during onboarding',
-    description: 'Analytics show 40% of users drop off during the onboarding flow. We need to understand why and fix it.',
-    type: 'problem',
-    status: 'ready',
-    priority: 1,
-    source: 'coo_insight',
-    capturedAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
-    tags: ['onboarding', 'ux']
-  },
-  {
-    id: 'int-005',
-    title: 'Make the agent interactions feel magical',
-    description: 'When users watch agents work, it should feel like watching something intelligent and alive, not mechanical.',
-    type: 'wish',
-    status: 'on_hold',
-    priority: 4,
-    source: 'ceo',
-    capturedAt: new Date(Date.now() - 1000 * 60 * 60 * 72),
-    tags: ['ux', 'design']
-  }
-];
-
-const mockActiveSession: ForgeSession = {
-  id: 'forge-abc123',
-  intentionTitle: 'Become the default tool for AI agent orchestration',
-  phase: 'exploring',
-  agents: [
-    { id: 'research-001', role: 'Explorer', status: 'active' },
-    { id: 'product-001', role: 'Vision Architect', status: 'active' },
-    { id: 'research-002', role: 'Trend Analyst', status: 'thinking' }
-  ],
-  workspaceEntries: [
-    {
-      id: 'ws-001',
-      agentId: 'research-001',
-      agentRole: 'Explorer',
-      type: 'finding',
-      content: 'Current market leaders: LangChain (dev-focused), AutoGPT (consumer), CrewAI (emerging). Gap exists for enterprise orchestration with human oversight.',
-      timestamp: new Date(Date.now() - 1000 * 60 * 15)
-    },
-    {
-      id: 'ws-002',
-      agentId: 'product-001',
-      agentRole: 'Vision Architect',
-      type: 'insight',
-      content: 'Key differentiator potential: "Human-in-the-loop" is seen as a limitation by competitors, but enterprises see it as a requirement. We should position oversight as a feature, not a bug.',
-      timestamp: new Date(Date.now() - 1000 * 60 * 12)
-    },
-    {
-      id: 'ws-003',
-      agentId: 'research-002',
-      agentRole: 'Trend Analyst',
-      type: 'finding',
-      content: 'Enterprise AI adoption growing 40% YoY. 73% cite "lack of control/visibility" as primary concern with autonomous agents. This aligns with our COO/CEO model.',
-      timestamp: new Date(Date.now() - 1000 * 60 * 8)
-    },
-    {
-      id: 'ws-004',
-      agentId: 'research-001',
-      agentRole: 'Explorer',
-      type: 'connection',
-      content: 'Connecting market gap (enterprise orchestration) + differentiator (human oversight) + trend (control concerns) = Position as "Enterprise AI Orchestration with Built-in Governance"',
-      timestamp: new Date(Date.now() - 1000 * 60 * 5)
-    },
-    {
-      id: 'ws-005',
-      agentId: 'product-001',
-      agentRole: 'Vision Architect',
-      type: 'synthesis',
-      content: 'EMERGING THESIS: To become default, focus on enterprise segment first. Key pillars: 1) Visibility (see what agents do), 2) Control (gates, approvals), 3) Auditability (bead ledger). Marketing angle: "The orchestration platform your compliance team will love."',
-      timestamp: new Date(Date.now() - 1000 * 60 * 2)
-    }
-  ],
-  startedAt: new Date(Date.now() - 1000 * 60 * 20)
-};
+// Empty - no mock data. Will come from API
+const emptyIntentions: Intention[] = [];
+const emptySession: ForgeSession | null = null;
 
 // Helper functions
 const getTypeIcon = (type: Intention['type']) => {
@@ -321,13 +212,13 @@ export function Forge() {
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [filter, setFilter] = useState<'all' | 'inbox' | 'queue' | 'ready' | 'hold'>('all');
 
-  const inbox = mockIntentions.filter(i => i.status === 'captured');
-  const queue = mockIntentions.filter(i => i.status === 'queued');
-  const incubating = mockIntentions.filter(i => i.status === 'incubating');
-  const ready = mockIntentions.filter(i => i.status === 'ready');
-  const onHold = mockIntentions.filter(i => i.status === 'on_hold');
+  const inbox = emptyIntentions.filter(i => i.status === 'captured');
+  const queue = emptyIntentions.filter(i => i.status === 'queued');
+  const incubating = emptyIntentions.filter(i => i.status === 'incubating');
+  const ready = emptyIntentions.filter(i => i.status === 'ready');
+  const onHold = emptyIntentions.filter(i => i.status === 'on_hold');
 
-  const filteredIntentions = filter === 'all' ? mockIntentions :
+  const filteredIntentions = filter === 'all' ? emptyIntentions :
     filter === 'inbox' ? inbox :
     filter === 'queue' ? queue :
     filter === 'ready' ? ready :
@@ -461,7 +352,7 @@ export function Forge() {
 
         {/* Right Panel - Active Incubation / Details */}
         <div className="col-span-8">
-          {mockActiveSession ? (
+          {emptySession ? (
             <GlassCard className="h-full">
               <div className="p-4 border-b border-white/10">
                 <div className="flex items-center justify-between">
@@ -470,21 +361,21 @@ export function Forge() {
                       <Brain className="w-5 h-5 text-purple-400" />
                       <h2 className="text-lg font-medium text-white">Active Incubation</h2>
                       <span className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-400 rounded-full">
-                        {mockActiveSession.phase}
+                        {emptySession.phase}
                       </span>
                     </div>
-                    <p className="text-sm text-white/60 mt-1">{mockActiveSession.intentionTitle}</p>
+                    <p className="text-sm text-white/60 mt-1">{emptySession.intentionTitle}</p>
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-white/40">Running for</div>
-                    <div className="text-sm text-white/70">{formatTimeAgo(mockActiveSession.startedAt)}</div>
+                    <div className="text-sm text-white/70">{formatTimeAgo(emptySession.startedAt)}</div>
                   </div>
                 </div>
 
                 {/* Agent Status */}
                 <div className="flex items-center gap-2 mt-4 flex-wrap">
                   <span className="text-xs text-white/40 mr-2">Team:</span>
-                  {mockActiveSession.agents.map(agent => (
+                  {emptySession.agents.map(agent => (
                     <AgentStatusBadge key={agent.id} agent={agent} />
                   ))}
                 </div>
@@ -495,11 +386,11 @@ export function Forge() {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-medium text-white/70">Shared Workspace</h3>
                   <span className="text-xs text-white/40">
-                    {mockActiveSession.workspaceEntries.length} entries
+                    {emptySession.workspaceEntries.length} entries
                   </span>
                 </div>
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                  {mockActiveSession.workspaceEntries.map(entry => (
+                  {emptySession.workspaceEntries.map(entry => (
                     <WorkspaceEntryCard key={entry.id} entry={entry} />
                   ))}
                 </div>
