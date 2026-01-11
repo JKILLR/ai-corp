@@ -252,61 +252,192 @@ molecule:
 **Standard Molecule** (Current)
 Sequential or parallel steps with optional gates. Single execution attempt per step.
 
-**Swarm Molecule** (P2 - Planned)
+**Swarm Molecule** (✅ Complete)
 Parallel research pattern: multiple workers attack a problem simultaneously, cross-critique, and converge.
 
-```yaml
-molecule:
-  id: MOL-SWARM-RESEARCH
-  name: "Architecture Research"
-  type: swarm_molecule
+```python
+# WorkflowType enum
+class WorkflowType(Enum):
+    PROJECT = "project"      # Default linear
+    CONTINUOUS = "continuous" # Loops indefinitely
+    HYBRID = "hybrid"        # Project with continuation
+    SWARM = "swarm"          # Scatter→Critique→Converge
 
-  swarm_config:
-    parallel_workers: 5
-    rounds: 4
-    convergence_target: 1  # End with single report
+# Convergence strategies
+class ConvergenceStrategy(Enum):
+    VOTE = "vote"            # Majority vote
+    SYNTHESIZE = "synthesize" # LLM synthesis (default)
+    BEST = "best"            # Pick highest-scored
+    MERGE = "merge"          # Combine non-conflicting
 
-  worker_shards:
-    - id: worker_academic
-      focus: "arXiv, papers"
-    - id: worker_code
-      focus: "GitHub, implementations"
-    - id: worker_social
-      focus: "discussions, experiences"
-    - id: worker_contrarian
-      focus: "criticisms, limitations"
-
-  round_rules:
-    round_1: {type: "parallel_gather"}
-    round_2: {type: "cross_critique"}  # Each reads all others
-    round_3: {type: "directed_merge"}   # Director forces convergence
-    round_4: {type: "final_synthesis"}
+# Configuration
+@dataclass
+class SwarmConfig:
+    scatter_count: int = 3           # Parallel workers (must be >= 2)
+    critique_enabled: bool = True    # Enable cross-critique
+    critique_rounds: int = 1         # Number of critique iterations
+    convergence_strategy: ConvergenceStrategy = ConvergenceStrategy.SYNTHESIZE
+    min_agreement: float = 0.6       # For VOTE strategy
+    timeout_seconds: int = 300
 ```
 
-**Composite Molecule** (P2 - Planned)
-Chain molecule types together with escalation.
-
-```yaml
-molecule:
-  id: MOL-COMPOSITE-001
-  type: composite_molecule
-
-  phases:
-    - phase: 1
-      name: "swarm_research"
-      type: swarm_molecule
-      # Swarm explores the problem space
-
-    - phase: 2
-      name: "ralph_execution"
-      type: persistent_molecule
-      depends_on: "swarm_research"
-      config:
-        ralph_mode: true
-        on_failure:
-          after_retries: 10
-          action: "escalate_to_swarm"  # Go back to Phase 1
+**Swarm Pattern Flow:**
 ```
+┌─────────────────────────────────────────────────────────────────┐
+│  PHASE 1: SCATTER (Parallel)                                    │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                      │
+│  │ Worker 1 │  │ Worker 2 │  │ Worker 3 │  ← No dependencies   │
+│  │ Research │  │ Research │  │ Research │    (run in parallel) │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                      │
+├───────┴──────────────┴──────────────┴───────────────────────────┤
+│  PHASE 2: CRITIQUE (Optional, Multi-round)                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                      │
+│  │ Critique │  │ Critique │  │ Critique │  ← Depends on scatter│
+│  │ Worker 1 │  │ Worker 2 │  │ Worker 3 │    or prev round     │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                      │
+├───────┴──────────────┴──────────────┴───────────────────────────┤
+│  PHASE 3: CONVERGE                                              │
+│                  ┌───────────────┐                              │
+│                  │   Synthesize  │  ← Depends on final round   │
+│                  │   Results     │    only (not all critiques) │
+│                  └───────────────┘                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Usage:**
+```python
+# Create swarm molecule
+config = SwarmConfig(scatter_count=3, critique_enabled=True, critique_rounds=2)
+mol = engine.create_molecule(
+    name="Architecture Research",
+    description="What's the best approach for X?",
+    created_by="vp_research",
+    workflow_type=WorkflowType.SWARM,
+    swarm_config=config
+)
+
+# start_molecule() expands into scatter/critique/converge steps
+mol = engine.start_molecule(mol.id)
+# mol.steps now contains 3 scatter + 6 critique (2 rounds) + 1 converge = 10 steps
+```
+
+**Step Metadata:**
+```python
+mol.metadata['swarm_scatter_steps']   # List of scatter step IDs
+mol.metadata['swarm_critique_steps']  # List of critique step IDs
+mol.metadata['swarm_converge_step']   # Converge step ID
+```
+
+**Composite Molecule** (✅ Complete)
+Chain molecule types together with escalation support.
+
+```python
+# Phase types for composite workflows
+class PhaseType(Enum):
+    STANDARD = "standard"   # Regular linear steps
+    SWARM = "swarm"         # Parallel research (scatter → critique → converge)
+    RALPH = "ralph"         # Persistent execution with retry-on-failure
+
+# What to do when a phase fails
+class EscalationAction(Enum):
+    FAIL = "fail"                     # Mark composite as failed
+    RETRY = "retry"                   # Retry the same phase
+    ESCALATE_TO_PREVIOUS = "escalate_to_previous"  # Go back to previous phase
+    ESCALATE_TO_SWARM = "escalate_to_swarm"        # Start new swarm research
+
+# Configuration for a single phase
+@dataclass
+class CompositePhase:
+    name: str
+    phase_type: PhaseType
+    description: str = ""
+    config: Optional[Dict] = None     # Phase-specific config (SwarmConfig, etc.)
+    on_failure: EscalationAction = EscalationAction.FAIL
+    max_failures: int = 3
+    cost_cap: Optional[float] = None  # For Ralph phases
+
+# Configuration for composite workflow
+@dataclass
+class CompositeConfig:
+    phases: List[CompositePhase]
+    escalation_enabled: bool = True
+    max_escalations: int = 2
+    current_phase: int = 0
+    escalation_count: int = 0
+```
+
+**Composite Pattern Flow:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  PHASE 1: SWARM (Research)                                      │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Scatter → Critique → Converge (child molecule)             │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                           │ success                              │
+│                           ▼                                      │
+│  PHASE 2: RALPH (Execute)                                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Persistent execution with retry (child molecule)           │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                           │ failure                              │
+│                           ▼                                      │
+│  ESCALATION: Back to Swarm (new research)                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ "Additional research needed after failure: {reason}"       │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Usage:**
+```python
+# Create composite: Swarm → Ralph with escalation
+phases = [
+    CompositePhase(
+        name='Research',
+        phase_type=PhaseType.SWARM,
+        config={'scatter_count': 3, 'critique_enabled': True},
+        on_failure=EscalationAction.RETRY
+    ),
+    CompositePhase(
+        name='Implementation',
+        phase_type=PhaseType.RALPH,
+        on_failure=EscalationAction.ESCALATE_TO_SWARM,
+        max_failures=3,
+        cost_cap=5.0
+    )
+]
+
+mol = engine.create_molecule(
+    name='Build Feature X',
+    description='Research and implement feature X',
+    created_by='coo',
+    workflow_type=WorkflowType.COMPOSITE,
+    composite_config=CompositeConfig(phases=phases)
+)
+
+# Starting creates first phase child (Swarm molecule)
+mol = engine.start_molecule(mol.id)
+# mol.child_molecule_ids[0] is the Swarm research molecule
+
+# On phase completion, advance to next
+engine.advance_composite_phase(mol.id)  # Creates Ralph execution molecule
+
+# On phase failure, handle escalation
+engine.handle_composite_phase_failure(mol.id, child_id, "Task failed")
+# Creates new Swarm molecule if escalation configured
+```
+
+**MoleculeEngine Methods:**
+- `_start_composite_phase()`: Create child molecule for current phase
+- `advance_composite_phase()`: Move to next phase on success
+- `handle_composite_phase_failure()`: Handle failures with escalation
+
+**Metadata Tracking:**
+- `composite_current_phase`: Current phase index
+- `composite_current_child`: Active child molecule ID
+- `composite_phase_history`: Phase execution history
+- `composite_failures`: Failure records
+- `composite_escalations`: Escalation records
 
 **Pattern:** "Swarm expands, Ralph executes." Use Swarm for exploration, Ralph for relentless execution.
 
@@ -1073,6 +1204,47 @@ corp = CorporationExecutor(corp_path)
 corp.initialize(departments=['engineering', 'product'])
 corp.run_cycle()              # COO -> VPs -> Directors -> Workers
 corp.run_continuous()         # Continuous corporation operation
+```
+
+#### Orchestration Layer (✅ Complete)
+
+The orchestration layer enables autonomous `run_cycle()` execution without manual workarounds.
+
+**Key Components:**
+
+1. **Hook Cache Refresh** (`src/core/hook.py`)
+   ```python
+   hook_manager.refresh_hook(hook_id)          # Refresh single hook
+   hook_manager.refresh_hook_for_owner(owner)  # Refresh agent's hook
+   hook_manager.refresh_all_hooks()            # Refresh all hooks
+   ```
+
+2. **Automatic Refresh Between Tiers**
+   ```python
+   def run_cycle():
+       results['coo'] = executive_executor.run_once()
+       _refresh_all_agent_hooks()   # VPs see COO's delegated work
+       results['vps'] = vp_executor.run_once()
+       _refresh_all_agent_hooks()   # Directors see VP's delegated work
+       results['directors'] = director_executor.run_once()
+       _refresh_all_agent_hooks()   # Workers see Director's delegated work
+       results['workers'] = worker_executor.run_once()
+   ```
+
+3. **Capability Configuration**
+   - VPs/Directors: `['development', 'coding', 'research', 'analysis', 'design', 'testing', 'review']`
+   - Workers: `['development', 'coding', 'implementation', 'execution']`
+
+4. **Director-Worker Chain**
+   - Directors have `direct_reports` pointing to their Workers
+   - Workers registered in Director's pool
+   - Workers claim from Director's hook (shared pool queue)
+
+**Flow:**
+```
+COO creates work → VP hook updated → _refresh_all_agent_hooks() →
+VP sees work → VP delegates → Director hook updated → _refresh_all_agent_hooks() →
+Director sees work → Director delegates → Workers claim from Director's hook
 ```
 
 ---

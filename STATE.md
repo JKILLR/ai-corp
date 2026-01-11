@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-11
-> **Current Phase:** P2 - Swarm Molecule Type Complete
-> **Status:** ✅ Real Claude Testing SUCCESSFUL + Orchestration Layer + Swarm Molecules
-> **Next Action:** P2 Features (Composite Molecules)
+> **Current Phase:** P2 - Composite Molecules Complete
+> **Status:** ✅ Real Claude Testing SUCCESSFUL + Orchestration + Swarm + Composite Molecules
+> **Next Action:** P2 Features (Data Source Connectors) or P3
 
 ---
 
@@ -63,10 +63,68 @@
 | **Async Gate Approvals** | ✅ Complete | Async evaluation, auto-approval policies |
 | **Orchestration Layer** | ✅ Complete | P2: Autonomous execution with hook refresh |
 | **Swarm Molecule Type** | ✅ Complete | P2: Parallel research with scatter→critique→converge |
+| **Composite Molecules** | ✅ Complete | P2: Chain molecule types (Swarm→Ralph→escalate) |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-11: Composite Molecules Complete (P2)
+
+**Goal:** Enable chaining different workflow types together with escalation support.
+
+**Pattern:** Swarm (research) → Ralph (execute) → escalate on failure
+
+**New Types (`src/core/molecule.py`):**
+
+```python
+class WorkflowType(Enum):
+    COMPOSITE = "composite"  # Chain molecule types together
+
+class PhaseType(Enum):
+    STANDARD = "standard"   # Regular linear steps
+    SWARM = "swarm"         # Parallel research
+    RALPH = "ralph"         # Persistent execution with retry
+
+class EscalationAction(Enum):
+    FAIL = "fail"                     # Mark composite as failed
+    RETRY = "retry"                   # Retry the same phase
+    ESCALATE_TO_PREVIOUS = "escalate_to_previous"
+    ESCALATE_TO_SWARM = "escalate_to_swarm"
+
+@dataclass
+class CompositePhase:
+    name: str
+    phase_type: PhaseType
+    description: str = ""
+    config: Optional[Dict] = None     # Phase-specific config
+    on_failure: EscalationAction = EscalationAction.FAIL
+    max_failures: int = 3
+    cost_cap: Optional[float] = None  # For Ralph phases
+
+@dataclass
+class CompositeConfig:
+    phases: List[CompositePhase]
+    escalation_enabled: bool = True
+    max_escalations: int = 2
+    current_phase: int = 0
+    escalation_count: int = 0
+```
+
+**MoleculeEngine Methods:**
+- `_start_composite_phase()`: Create child molecule for current phase
+- `advance_composite_phase()`: Move to next phase on success
+- `handle_composite_phase_failure()`: Handle failures with escalation
+
+**Metadata Tracking:**
+- `composite_current_phase`: Current phase index
+- `composite_current_child`: Active child molecule ID
+- `composite_phase_history`: Phase execution history
+- `composite_failures`: Failure records
+- `composite_escalations`: Escalation records
+
+**Exports Updated:**
+- `CompositeConfig`, `CompositePhase`, `PhaseType`, `EscalationAction` from `src/core`
 
 ### 2026-01-11: Swarm Molecule Type Complete (P2)
 
@@ -969,7 +1027,7 @@ CorporationExecutor
 2. ~~Context Synthesizer~~ ✅ Complete (part of Phase 2)
 3. ~~Orchestration Layer~~ ✅ Complete (autonomous CorporationExecutor)
 4. ~~Swarm Molecule Type~~ ✅ Complete (scatter→critique→converge)
-5. Composite Molecules (chain molecule types)
+5. ~~Composite Molecules~~ ✅ Complete (Swarm→Ralph→escalate chain)
 6. Local model training (Phase 3 of Learning System)
 7. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
 8. Apex Corp Registry

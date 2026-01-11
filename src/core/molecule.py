@@ -52,6 +52,7 @@ class WorkflowType(Enum):
     CONTINUOUS = "continuous" # Loops indefinitely until exit condition
     HYBRID = "hybrid"         # Project with optional continuation phase
     SWARM = "swarm"           # Parallel research: scatter → critique → converge
+    COMPOSITE = "composite"   # Chain molecule types: Swarm → Ralph → escalate
 
 
 class ConvergenceStrategy(Enum):
@@ -60,6 +61,21 @@ class ConvergenceStrategy(Enum):
     SYNTHESIZE = "synthesize"  # LLM synthesizes all inputs
     BEST = "best"           # Pick highest-scored result
     MERGE = "merge"         # Combine non-conflicting parts
+
+
+class PhaseType(Enum):
+    """Type of phase in a composite molecule"""
+    STANDARD = "standard"   # Regular linear steps
+    SWARM = "swarm"         # Parallel research (scatter → critique → converge)
+    RALPH = "ralph"         # Persistent execution with retry-on-failure
+
+
+class EscalationAction(Enum):
+    """What to do when a phase fails"""
+    FAIL = "fail"                     # Mark composite as failed
+    RETRY = "retry"                   # Retry the same phase
+    ESCALATE_TO_PREVIOUS = "escalate_to_previous"  # Go back to previous phase
+    ESCALATE_TO_SWARM = "escalate_to_swarm"        # Start new swarm research
 
 
 @dataclass
@@ -150,6 +166,117 @@ class SwarmConfig:
             min_agreement=data.get('min_agreement', 0.6),
             timeout_seconds=data.get('timeout_seconds', 300)
         )
+
+
+@dataclass
+class CompositePhase:
+    """
+    A single phase in a composite molecule.
+
+    Phases execute sequentially, with each phase potentially using
+    a different workflow type (Standard, Swarm, Ralph).
+
+    Example pattern: Swarm (research) → Ralph (execute) → escalate on failure
+    """
+    name: str
+    phase_type: PhaseType
+    description: str = ""
+    # Phase-specific configuration (serialized SwarmConfig, etc.)
+    config: Optional[Dict[str, Any]] = None
+    # What to do when this phase fails
+    on_failure: EscalationAction = EscalationAction.FAIL
+    # Max failures before escalation action triggers
+    max_failures: int = 3
+    # For Ralph phases: cost cap before giving up
+    cost_cap: Optional[float] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'name': self.name,
+            'phase_type': self.phase_type.value,
+            'description': self.description,
+            'config': self.config,
+            'on_failure': self.on_failure.value,
+            'max_failures': self.max_failures,
+            'cost_cap': self.cost_cap
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'CompositePhase':
+        return cls(
+            name=data['name'],
+            phase_type=PhaseType(data['phase_type']),
+            description=data.get('description', ''),
+            config=data.get('config'),
+            on_failure=EscalationAction(data.get('on_failure', 'fail')),
+            max_failures=data.get('max_failures', 3),
+            cost_cap=data.get('cost_cap')
+        )
+
+
+@dataclass
+class CompositeConfig:
+    """
+    Configuration for composite workflow molecules.
+
+    Composite molecules chain different workflow types together,
+    enabling patterns like "Swarm explores, Ralph executes":
+
+    1. Swarm Phase: Parallel research to understand the problem
+    2. Ralph Phase: Persistent execution with retry-on-failure
+    3. Escalation: If Ralph fails, go back to Swarm for more research
+
+    Integration:
+    - Creates child molecules for each phase
+    - Tracks phase completion via parent-child relationship
+    - Uses Learning System for cross-phase pattern extraction
+    """
+    phases: List[CompositePhase] = field(default_factory=list)
+    # Allow escalation back to earlier phases on failure
+    escalation_enabled: bool = True
+    # Max times to escalate before final failure
+    max_escalations: int = 2
+    # Current phase index (0-based, updated during execution)
+    current_phase: int = 0
+    # Number of escalations that have occurred
+    escalation_count: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'phases': [p.to_dict() for p in self.phases],
+            'escalation_enabled': self.escalation_enabled,
+            'max_escalations': self.max_escalations,
+            'current_phase': self.current_phase,
+            'escalation_count': self.escalation_count
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'CompositeConfig':
+        phases = [CompositePhase.from_dict(p) for p in data.get('phases', [])]
+        return cls(
+            phases=phases,
+            escalation_enabled=data.get('escalation_enabled', True),
+            max_escalations=data.get('max_escalations', 2),
+            current_phase=data.get('current_phase', 0),
+            escalation_count=data.get('escalation_count', 0)
+        )
+
+    def get_current_phase(self) -> Optional[CompositePhase]:
+        """Get the current phase configuration."""
+        if 0 <= self.current_phase < len(self.phases):
+            return self.phases[self.current_phase]
+        return None
+
+    def has_next_phase(self) -> bool:
+        """Check if there's another phase after current."""
+        return self.current_phase < len(self.phases) - 1
+
+    def advance_phase(self) -> Optional[CompositePhase]:
+        """Advance to next phase and return it."""
+        if self.has_next_phase():
+            self.current_phase += 1
+            return self.get_current_phase()
+        return None
 
 
 @dataclass
@@ -296,6 +423,8 @@ class Molecule:
     loop_config: Optional[LoopConfig] = None
     # Swarm Workflow Support
     swarm_config: Optional[SwarmConfig] = None
+    # Composite Workflow Support
+    composite_config: Optional[CompositeConfig] = None
 
     @property
     def roi_ratio(self) -> Optional[float]:
@@ -319,7 +448,8 @@ class Molecule:
         confidence: float = 0.5,
         workflow_type: WorkflowType = WorkflowType.PROJECT,
         loop_config: Optional[LoopConfig] = None,
-        swarm_config: Optional[SwarmConfig] = None
+        swarm_config: Optional[SwarmConfig] = None,
+        composite_config: Optional[CompositeConfig] = None
     ) -> 'Molecule':
         now = datetime.utcnow().isoformat()
         return cls(
@@ -338,7 +468,8 @@ class Molecule:
             confidence=confidence,
             workflow_type=workflow_type,
             loop_config=loop_config,
-            swarm_config=swarm_config
+            swarm_config=swarm_config,
+            composite_config=composite_config
         )
 
     def add_step(self, step: MoleculeStep) -> None:
@@ -509,7 +640,9 @@ class Molecule:
             'workflow_type': self.workflow_type.value,
             'loop_config': self.loop_config.to_dict() if self.loop_config else None,
             # Swarm Workflow Support
-            'swarm_config': self.swarm_config.to_dict() if self.swarm_config else None
+            'swarm_config': self.swarm_config.to_dict() if self.swarm_config else None,
+            # Composite Workflow Support
+            'composite_config': self.composite_config.to_dict() if self.composite_config else None
         }
 
     @classmethod
@@ -535,6 +668,9 @@ class Molecule:
         # Handle Swarm Workflow fields with defaults
         swarm_config_data = data.pop('swarm_config', None)
         data['swarm_config'] = SwarmConfig.from_dict(swarm_config_data) if swarm_config_data else None
+        # Handle Composite Workflow fields with defaults
+        composite_config_data = data.pop('composite_config', None)
+        data['composite_config'] = CompositeConfig.from_dict(composite_config_data) if composite_config_data else None
         return cls(**data)
 
     def to_yaml(self) -> str:
@@ -589,7 +725,8 @@ class MoleculeEngine:
         confidence: float = 0.5,
         workflow_type: WorkflowType = WorkflowType.PROJECT,
         loop_config: Optional[LoopConfig] = None,
-        swarm_config: Optional[SwarmConfig] = None
+        swarm_config: Optional[SwarmConfig] = None,
+        composite_config: Optional[CompositeConfig] = None
     ) -> Molecule:
         """
         Create a new molecule.
@@ -605,9 +742,10 @@ class MoleculeEngine:
             estimated_cost: Estimated cost in USD
             estimated_value: Expected value of completion in USD
             confidence: Confidence in estimates (0.0-1.0)
-            workflow_type: Type of workflow (project/continuous/hybrid)
+            workflow_type: Type of workflow (project/continuous/hybrid/swarm/composite)
             loop_config: Configuration for continuous/hybrid workflows
             swarm_config: Configuration for swarm workflows (scatter/critique/converge)
+            composite_config: Configuration for composite workflows (phase chains)
         """
         molecule = Molecule.create(
             name=name,
@@ -622,7 +760,8 @@ class MoleculeEngine:
             confidence=confidence,
             workflow_type=workflow_type,
             loop_config=loop_config,
-            swarm_config=swarm_config
+            swarm_config=swarm_config,
+            composite_config=composite_config
         )
         self._save_molecule(molecule)
         return molecule
@@ -678,6 +817,10 @@ class MoleculeEngine:
         # For swarm molecules, expand into scatter/critique/converge steps
         if molecule.workflow_type == WorkflowType.SWARM and molecule.swarm_config:
             self._expand_swarm_steps(molecule)
+
+        # For composite molecules, create the first phase's child molecule
+        if molecule.workflow_type == WorkflowType.COMPOSITE and molecule.composite_config:
+            self._start_composite_phase(molecule)
 
         molecule.status = MoleculeStatus.ACTIVE
         molecule.started_at = datetime.utcnow().isoformat()
@@ -775,6 +918,231 @@ class MoleculeEngine:
         molecule.metadata['swarm_scatter_steps'] = scatter_step_ids
         molecule.metadata['swarm_critique_steps'] = critique_step_ids
         molecule.metadata['swarm_converge_step'] = converge_step.id
+
+    def _get_composite_molecule(self, molecule_id: str) -> Optional[tuple]:
+        """
+        Get and validate a composite molecule.
+
+        Returns (molecule, config) tuple if valid, None otherwise.
+        """
+        molecule = self.get_molecule(molecule_id)
+        if not molecule or molecule.workflow_type != WorkflowType.COMPOSITE:
+            return None
+        config = molecule.composite_config
+        if not config or not config.phases:
+            return None
+        return (molecule, config)
+
+    def _start_composite_phase(self, molecule: Molecule) -> Optional[Molecule]:
+        """
+        Start the current phase of a composite molecule.
+
+        Creates a child molecule for the current phase with the appropriate
+        workflow type (Standard, Swarm, or Ralph).
+
+        Returns the created child molecule, or None if no phases remain.
+        """
+        config = molecule.composite_config
+        if not config or not config.phases:
+            return None
+
+        phase = config.get_current_phase()
+        if not phase:
+            return None
+
+        # Determine workflow type and config for the child molecule
+        child_workflow_type = WorkflowType.PROJECT
+        child_swarm_config = None
+        child_ralph_mode = False
+        child_ralph_config = None
+
+        if phase.phase_type == PhaseType.SWARM:
+            child_workflow_type = WorkflowType.SWARM
+            # Use phase config or create default SwarmConfig
+            if phase.config:
+                child_swarm_config = SwarmConfig.from_dict(phase.config)
+            else:
+                child_swarm_config = SwarmConfig()  # Defaults
+
+        elif phase.phase_type == PhaseType.RALPH:
+            child_ralph_mode = True
+            child_ralph_config = {
+                'max_retries': phase.max_failures,
+                'cost_cap': phase.cost_cap,
+                'restart_strategy': 'smart'
+            }
+
+        # Create child molecule for this phase
+        child_molecule = self.create_molecule(
+            name=f"{molecule.name} - Phase {config.current_phase + 1}: {phase.name}",
+            description=phase.description or molecule.description,
+            created_by=molecule.created_by,
+            priority=molecule.priority,
+            parent_molecule_id=molecule.id,
+            workflow_type=child_workflow_type,
+            swarm_config=child_swarm_config,
+            ralph_mode=child_ralph_mode,
+            ralph_config=child_ralph_config
+        )
+
+        # Link child to parent
+        molecule.child_molecule_ids.append(child_molecule.id)
+
+        # Store phase tracking in parent metadata
+        molecule.metadata['composite_current_phase'] = config.current_phase
+        molecule.metadata['composite_current_child'] = child_molecule.id
+        molecule.metadata.setdefault('composite_phase_history', []).append({
+            'phase_index': config.current_phase,
+            'phase_name': phase.name,
+            'child_molecule_id': child_molecule.id,
+            'started_at': datetime.utcnow().isoformat()
+        })
+
+        # Save parent molecule with updated metadata and child links
+        self._save_molecule(molecule)
+
+        # Start the child molecule
+        child_molecule = self.start_molecule(child_molecule.id)
+
+        return child_molecule
+
+    def advance_composite_phase(self, molecule_id: str) -> Optional[Molecule]:
+        """
+        Advance a composite molecule to its next phase.
+
+        Called when the current phase's child molecule completes successfully.
+        Creates a new child molecule for the next phase if one exists.
+
+        Returns the new child molecule, or None if composite is complete.
+        """
+        result = self._get_composite_molecule(molecule_id)
+        if not result:
+            return None
+        molecule, config = result
+
+        # Advance to next phase
+        next_phase = config.advance_phase()
+        if not next_phase:
+            # No more phases - composite is complete
+            return None
+
+        # Update metadata to track phase progression
+        molecule.metadata['composite_current_phase'] = config.current_phase
+
+        # Save updated phase index and metadata
+        self._save_molecule(molecule)
+
+        # Start the new phase
+        return self._start_composite_phase(molecule)
+
+    def handle_composite_phase_failure(
+        self,
+        molecule_id: str,
+        failed_child_id: str,
+        failure_reason: str
+    ) -> Optional[Molecule]:
+        """
+        Handle failure of a phase in a composite molecule.
+
+        Based on the phase's on_failure action:
+        - FAIL: Mark composite as failed
+        - RETRY: Create new child for same phase
+        - ESCALATE_TO_PREVIOUS: Go back to previous phase
+        - ESCALATE_TO_SWARM: Create new swarm research phase
+
+        If escalation_enabled is False, all non-FAIL actions are treated as FAIL.
+
+        Returns the new child molecule if escalation occurred, None otherwise.
+        """
+        result = self._get_composite_molecule(molecule_id)
+        if not result:
+            return None
+        molecule, config = result
+
+        phase = config.get_current_phase()
+        if not phase:
+            return None
+
+        # Record failure in history
+        molecule.metadata.setdefault('composite_failures', []).append({
+            'phase_index': config.current_phase,
+            'child_molecule_id': failed_child_id,
+            'reason': failure_reason,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+
+        # Determine action based on phase configuration
+        action = phase.on_failure
+
+        # If escalation is disabled, treat all non-FAIL actions as FAIL
+        if not config.escalation_enabled and action != EscalationAction.FAIL:
+            action = EscalationAction.FAIL
+
+        if action == EscalationAction.FAIL:
+            # Mark composite as failed
+            molecule.status = MoleculeStatus.FAILED
+            self._save_molecule(molecule)
+            return None
+
+        if action == EscalationAction.RETRY:
+            # Check if we've exceeded max escalations
+            if config.escalation_count >= config.max_escalations:
+                molecule.status = MoleculeStatus.FAILED
+                self._save_molecule(molecule)
+                return None
+            config.escalation_count += 1
+            self._save_molecule(molecule)
+            return self._start_composite_phase(molecule)
+
+        if action == EscalationAction.ESCALATE_TO_PREVIOUS:
+            if config.current_phase > 0 and config.escalation_count < config.max_escalations:
+                config.current_phase -= 1
+                config.escalation_count += 1
+                molecule.metadata['composite_current_phase'] = config.current_phase
+                self._save_molecule(molecule)
+                return self._start_composite_phase(molecule)
+            # Can't go back further or exceeded escalations
+            molecule.status = MoleculeStatus.FAILED
+            self._save_molecule(molecule)
+            return None
+
+        if action == EscalationAction.ESCALATE_TO_SWARM:
+            if config.escalation_count >= config.max_escalations:
+                molecule.status = MoleculeStatus.FAILED
+                self._save_molecule(molecule)
+                return None
+
+            # Create ad-hoc swarm phase to gather more research
+            config.escalation_count += 1
+            swarm_config = SwarmConfig(
+                scatter_count=3,
+                critique_enabled=True,
+                critique_rounds=1
+            )
+
+            child_molecule = self.create_molecule(
+                name=f"{molecule.name} - Escalation Swarm #{config.escalation_count}",
+                description=f"Additional research needed after failure:\n{failure_reason}\n\nOriginal goal: {molecule.description}",
+                created_by=molecule.created_by,
+                priority=molecule.priority,
+                parent_molecule_id=molecule.id,
+                workflow_type=WorkflowType.SWARM,
+                swarm_config=swarm_config
+            )
+
+            molecule.child_molecule_ids.append(child_molecule.id)
+            molecule.metadata['composite_current_child'] = child_molecule.id
+            molecule.metadata.setdefault('composite_escalations', []).append({
+                'from_phase': config.current_phase,
+                'child_molecule_id': child_molecule.id,
+                'reason': failure_reason,
+                'timestamp': datetime.utcnow().isoformat()
+            })
+
+            self._save_molecule(molecule)
+            return self.start_molecule(child_molecule.id)
+
+        return None
 
     def start_step(self, molecule_id: str, step_id: str, assigned_to: str) -> MoleculeStep:
         """Start working on a step"""

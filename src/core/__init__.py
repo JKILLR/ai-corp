@@ -23,7 +23,9 @@ This module provides the core infrastructure for the AI Corporation:
 
 from .molecule import (
     Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine,
-    WorkflowType, SwarmConfig, ConvergenceStrategy, LoopConfig
+    WorkflowType, SwarmConfig, ConvergenceStrategy, LoopConfig,
+    # Composite Workflow Support
+    CompositeConfig, CompositePhase, PhaseType, EscalationAction
 )
 from .hook import Hook, HookManager
 from .bead import Bead, BeadLedger
@@ -119,7 +121,10 @@ from .learning import (
 )
 
 __all__ = [
+    # Molecule System
     'Molecule', 'MoleculeStep', 'MoleculeStatus', 'MoleculeEngine',
+    'WorkflowType', 'SwarmConfig', 'ConvergenceStrategy', 'LoopConfig',
+    'CompositeConfig', 'CompositePhase', 'PhaseType', 'EscalationAction',
     'Hook', 'HookManager',
     'Bead', 'BeadLedger',
     'Channel', 'ChannelType', 'ChannelManager',

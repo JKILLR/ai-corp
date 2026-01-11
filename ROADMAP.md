@@ -1,6 +1,6 @@
 # AI Corp Roadmap
 
-> **Last Updated:** 2026-01-11 (Real Claude Testing Complete)
+> **Last Updated:** 2026-01-11 (Composite Molecules Complete)
 > **Purpose:** Single source of truth for approved plans and priorities
 > **Update Rule:** Add new items when approved, move to "Completed" when done
 
@@ -24,10 +24,9 @@
 
 ### P0 - Immediate (Now)
 
-**System Verified** - All P1 complete + Real Claude Testing **SUCCESSFUL**. Ready for P2:
-1. Swarm Molecule Type (parallel research pattern)
-2. Composite Molecules (chain molecule types)
-3. Orchestration Layer (automatic work flow without manual agent.run() calls)
+**P2 Progress:** Orchestration Layer + Swarm + Composite Molecules **ALL COMPLETE**. Next:
+1. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
+2. Or move to P3 features (Apex Corp Registry, Web UI)
 
 ---
 
@@ -59,8 +58,9 @@
 
 | Plan | Description | Design Doc | Notes |
 |------|-------------|------------|-------|
-| Swarm Molecule Type | Parallel research: scatter → cross-critique → converge | `AI_CORP_ARCHITECTURE.md` | New molecule type |
-| Composite Molecules | Chain molecule types (Swarm → Ralph → escalate) | `AI_CORP_ARCHITECTURE.md` | Orchestration pattern |
+| ~~Orchestration Layer~~ | Autonomous CorporationExecutor with hook refresh | `AI_CORP_ARCHITECTURE.md` | ✅ Complete |
+| ~~Swarm Molecule Type~~ | Parallel research: scatter → cross-critique → converge | `AI_CORP_ARCHITECTURE.md` | ✅ Complete |
+| ~~Composite Molecules~~ | Chain molecule types (Swarm → Ralph → escalate) | `AI_CORP_ARCHITECTURE.md` | ✅ Complete |
 | Data Source Connectors | Gmail, iMessage, Calendar for Personal edition | `INTEGRATIONS_DESIGN.md` | For Personal assistant use case |
 
 ### P3 - Future / Low Priority
@@ -88,6 +88,9 @@
 
 | Feature | Completed | Notes |
 |---------|-----------|-------|
+| **Composite Molecules** | **2026-01-11** | **Swarm→Ralph→escalate with CompositeConfig and phase transitions** |
+| **Swarm Molecule Type** | **2026-01-11** | **Scatter→Critique→Converge pattern with SwarmConfig** |
+| **Orchestration Layer** | **2026-01-11** | **Autonomous CorporationExecutor with hook refresh between tiers** |
 | **Real Claude Testing** | **2026-01-11** | **Full agent chain: CEO → COO → VP → Director → Worker → Claude CLI** |
 | Core Infrastructure | 2026-01-05 | Molecules, hooks, beads, channels, gates, pools |
 | Agent Hierarchy | 2026-01-05 | COO, VP, Director, Worker agents |
