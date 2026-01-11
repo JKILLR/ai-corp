@@ -156,7 +156,7 @@ molecule:
 - `MoleculeStep` - Individual step with checkpoints
 - `Checkpoint` - Recovery point for crash resilience
 
-#### Economic Metadata (P1 - Planned)
+#### Economic Metadata (✅ Complete)
 
 Every molecule carries economic metadata for ROI reasoning:
 
@@ -181,7 +181,7 @@ molecule:
 - `confidence` indicates certainty of estimates
 - Enables prioritizing high-ROI work and killing low-value molecules early
 
-#### Continuous Workflow Support (P1 - Planned)
+#### Continuous Workflow Support (✅ Complete)
 
 Molecules can be configured for operational loops:
 
@@ -800,7 +800,7 @@ contract = coo._extract_contract(conversation)
 - `SuccessCriterion` - Single measurable criterion (boolean checklist)
 - `ContractManager` - CRUD operations for contracts
 
-#### Continuous Contract Validation (P1 - Planned)
+#### Continuous Contract Validation (✅ Complete)
 
 Contracts can be configured for ongoing validation in operational workflows:
 
@@ -1019,7 +1019,7 @@ A two-phase system that extracts insights from completed work and continuously i
 - Evolution Daemon runs on three time scales (hourly/daily/weekly)
 - Context Synthesizer produces LLM-ready prompts with recommendations
 
-#### Failure Taxonomy (P1 - Planned)
+#### Failure Taxonomy (✅ Complete)
 
 Structured classification of failures for better pattern extraction:
 

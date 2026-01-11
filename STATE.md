@@ -994,8 +994,9 @@ CorporationExecutor
 | Issue | Severity | Notes |
 |-------|----------|-------|
 | No async support | Low | Could improve performance |
-| Hook cache staleness | Low | Workaround: force reload before agent runs (see demo.py) |
-| No orchestration layer | Medium | Manual agent.run() calls needed; automatic flow is P2 |
+| ~~Hook cache staleness~~ | ~~Low~~ | ✅ Fixed: `refresh_hook()` methods added in orchestration layer |
+| ~~No orchestration layer~~ | ~~Medium~~ | ✅ Fixed: P2 complete - `run_cycle()` works autonomously |
+| **Single-shot agent execution** | **High** | Agents run via `claude --print` (single-shot) - no multi-turn iteration |
 
 ---
 
