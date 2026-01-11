@@ -51,6 +51,7 @@ Examples:
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 # Add src to path for imports
@@ -92,12 +93,17 @@ def get_corp_path() -> Path:
     return cwd / 'corp'
 
 
-def _run_corporation_executor(corp_path: Path, cycles: int = 1) -> None:
+def _run_corporation_executor(corp_path: Path, cycles: int = 1, skip_coo: bool = False) -> None:
     """
     Run the CorporationExecutor to process work through all agent tiers.
 
     This is the key function that connects CEO task submission to full
     autonomous execution through COO → VP → Director → Worker hierarchy.
+
+    Args:
+        corp_path: Path to the corporation
+        cycles: Number of execution cycles
+        skip_coo: If True, skip COO tier (used when delegation already happened)
     """
     print()
     print("=" * 60)
@@ -114,7 +120,12 @@ def _run_corporation_executor(corp_path: Path, cycles: int = 1) -> None:
 
     for cycle in range(1, cycles + 1):
         print(f"--- Cycle {cycle}/{cycles} ---")
-        results = executor.run_cycle()
+
+        if skip_coo:
+            # Skip COO since delegation already happened
+            results = executor.run_cycle_skip_coo()
+        else:
+            results = executor.run_cycle()
 
         # Show summary for each tier
         for tier, result in results.items():
@@ -123,7 +134,6 @@ def _run_corporation_executor(corp_path: Path, cycles: int = 1) -> None:
 
         if cycle < cycles:
             print("  Waiting before next cycle...")
-            import time
             time.sleep(5)
 
     print()
@@ -140,8 +150,8 @@ def cmd_ceo(args):
     print(f"Description: {args.description or args.title}")
     print()
 
+    # Create molecule (with or without discovery)
     if args.discover:
-        # Run discovery conversation to create Success Contract first
         print("=" * 60)
         print("DISCOVERY MODE: Creating Success Contract")
         print("=" * 60)
@@ -151,24 +161,13 @@ def cmd_ceo(args):
             title=args.title,
             description=args.description or args.title,
             priority=args.priority,
-            interactive=True  # Always interactive from CLI
+            interactive=True
         )
 
         print(f"\nContract created: {contract.id}")
         print(f"Molecule created: {molecule.id}")
         print(f"Steps: {len(molecule.steps)}")
-
-        if args.start or args.execute:
-            print("\nStarting molecule and delegating work...")
-            molecule = coo.molecule_engine.start_molecule(molecule.id)
-            delegations = coo.delegate_molecule(molecule)
-            print(f"Delegated {len(delegations)} steps")
-
-            if args.execute:
-                _run_corporation_executor(corp_path, args.cycles)
-
     else:
-        # Legacy behavior - direct molecule creation without discovery
         molecule = coo.receive_ceo_task(
             title=args.title,
             description=args.description or args.title,
@@ -178,14 +177,17 @@ def cmd_ceo(args):
         print(f"Created molecule: {molecule.id}")
         print(f"Steps: {len(molecule.steps)}")
 
-        if args.start or args.execute:
-            print("\nStarting molecule and delegating work...")
-            molecule = coo.molecule_engine.start_molecule(molecule.id)
-            delegations = coo.delegate_molecule(molecule)
-            print(f"Delegated {len(delegations)} steps")
+    # Start and delegate if requested
+    if args.start or args.execute:
+        print("\nStarting molecule and delegating work...")
+        molecule = coo.molecule_engine.start_molecule(molecule.id)
+        delegations = coo.delegate_molecule(molecule)
+        print(f"Delegated {len(delegations)} steps")
 
-            if args.execute:
-                _run_corporation_executor(corp_path, args.cycles)
+        # Run full hierarchy if --execute
+        if args.execute:
+            # skip_coo=True because we already delegated above
+            _run_corporation_executor(corp_path, args.cycles, skip_coo=True)
 
     print("\nDone!")
 
