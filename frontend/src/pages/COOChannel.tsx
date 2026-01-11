@@ -472,7 +472,6 @@ export function COOChannel() {
       <Terminal
         isOpen={isTerminalOpen}
         onClose={() => setIsTerminalOpen(false)}
-        onExecute={(prompt) => console.log('Execute:', prompt)}
         threadId={threadId}
       />
     </div>

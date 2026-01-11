@@ -41,7 +41,6 @@ interface StreamEvent {
 interface TerminalProps {
   isOpen: boolean;
   onClose: () => void;
-  onExecute: (prompt: string) => void;
   threadId?: string;
 }
 

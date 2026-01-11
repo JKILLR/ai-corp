@@ -1193,7 +1193,7 @@ Execute this task using your available tools. Read files, run commands, make cha
             from src.core.llm import LLMRequest, ClaudeCodeBackend
 
             backend = ClaudeCodeBackend()
-            request = LLMRequest(
+            llm_request = LLMRequest(
                 prompt=full_prompt,
                 system_prompt=system_prompt,
                 working_directory=get_corp_path(),
@@ -1206,43 +1206,66 @@ Execute this task using your available tools. Read files, run commands, make cha
                 "content": "Starting execution..."
             })
 
-            # Run in executor to not block event loop
+            # Use asyncio.Queue for true streaming between thread and websocket
             import asyncio
+            import queue
             from concurrent.futures import ThreadPoolExecutor
 
+            event_queue: queue.Queue = queue.Queue()
+            all_events: list = []
+
+            def run_streaming():
+                """Run streaming in thread, put events in queue"""
+                try:
+                    for event in backend.execute_streaming(llm_request):
+                        event_queue.put(event)
+                except Exception as e:
+                    from src.core.llm import StreamEvent
+                    event_queue.put(StreamEvent(event_type='error', content=str(e)))
+                finally:
+                    event_queue.put(None)  # Signal completion
+
+            # Start streaming in background thread
             executor = ThreadPoolExecutor(max_workers=1)
-            loop = asyncio.get_event_loop()
+            future = executor.submit(run_streaming)
 
-            def stream_events():
-                """Generator wrapper that collects events"""
-                events = []
-                for event in backend.execute_streaming(request):
-                    events.append(event)
-                return events
+            # Stream events to websocket as they arrive
+            try:
+                while True:
+                    # Non-blocking check with timeout
+                    try:
+                        event = event_queue.get(timeout=0.1)
+                    except queue.Empty:
+                        # Check if thread is still running
+                        if future.done():
+                            break
+                        continue
 
-            # Get all events (streaming happens in thread)
-            events = await loop.run_in_executor(executor, stream_events)
+                    if event is None:  # Completion signal
+                        break
 
-            # Send events to websocket
-            for event in events:
-                event_dict = {
-                    "type": event.event_type,
-                    "content": event.content,
-                }
-                if event.tool_name:
-                    event_dict["tool_name"] = event.tool_name
-                if event.tool_input:
-                    event_dict["tool_input"] = event.tool_input
-                if event.tool_result:
-                    event_dict["tool_result"] = event.tool_result
+                    all_events.append(event)
 
-                await websocket.send_json(event_dict)
+                    event_dict = {
+                        "type": event.event_type,
+                        "content": event.content,
+                    }
+                    if event.tool_name:
+                        event_dict["tool_name"] = event.tool_name
+                    if event.tool_input:
+                        event_dict["tool_input"] = event.tool_input
+                    if event.tool_result:
+                        event_dict["tool_result"] = event.tool_result
+
+                    await websocket.send_json(event_dict)
+            finally:
+                executor.shutdown(wait=False)
 
             # Add COO response to thread if thread_id provided
             if thread_id:
                 # Collect final content
                 final_content = "".join(
-                    e.content for e in events
+                    e.content for e in all_events
                     if e.event_type == 'content' and e.content
                 )
                 if final_content:

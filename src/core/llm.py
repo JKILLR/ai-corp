@@ -18,7 +18,7 @@ import json
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Callable, TYPE_CHECKING
+from typing import Optional, List, Dict, Any, Callable, TYPE_CHECKING, Iterator
 
 if TYPE_CHECKING:
     from .skills import SkillRegistry
@@ -257,7 +257,7 @@ class ClaudeCodeBackend(LLMBackend):
                 error=str(e)
             )
 
-    def execute_streaming(self, request: LLMRequest):
+    def execute_streaming(self, request: LLMRequest) -> 'Iterator[StreamEvent]':
         """
         Execute an LLM request via Claude Code CLI with streaming output.
 
@@ -318,6 +318,9 @@ class ClaudeCodeBackend(LLMBackend):
                 process.stdin.write(request.prompt)
                 process.stdin.close()
 
+            # Collect stderr in background while reading stdout
+            stderr_output = []
+
             # Read streaming JSON output line by line
             if process.stdout:
                 for line in process.stdout:
@@ -337,17 +340,19 @@ class ClaudeCodeBackend(LLMBackend):
                             content=line
                         )
 
+            # Read any remaining stderr
+            if process.stderr:
+                stderr_output = process.stderr.read()
+
             # Wait for process to complete
             process.wait()
 
             # Check for errors
-            if process.returncode != 0 and process.stderr:
-                stderr = process.stderr.read()
-                if stderr:
-                    yield StreamEvent(
-                        event_type='error',
-                        content=stderr
-                    )
+            if process.returncode != 0 and stderr_output:
+                yield StreamEvent(
+                    event_type='error',
+                    content=stderr_output
+                )
 
             yield StreamEvent(event_type='done')
 
