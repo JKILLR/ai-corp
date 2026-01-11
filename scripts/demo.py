@@ -250,6 +250,14 @@ def main():
         worker.identity.capabilities.extend(['development', 'coding', 'implementation'])
         print_substep("Backend Worker created")
 
+        # CRITICAL: Register worker in Director's pool so Director can delegate to it
+        if director.worker_pool:
+            director.pool_manager.add_worker_to_pool(
+                pool_id=director.worker_pool.id,
+                role_id=worker.identity.role_id
+            )
+            print_substep(f"Worker registered in pool: {director.worker_pool.name}")
+
         # Step 4: Submit task
         print_step(4, "Submitting task as CEO")
 
@@ -338,12 +346,17 @@ def main():
             print("  " + "-" * 40)
 
             try:
-                # Force reload worker's hook too
-                hook_id = worker.hook.id
-                if hook_id in worker.hook_manager._hooks:
-                    del worker.hook_manager._hooks[hook_id]
-                worker.hook = worker.hook_manager.get_hook_for_owner('role', worker.identity.role_id)
-                print_substep(f"Worker hook reloaded: {worker.hook.get_stats() if worker.hook else 'None'}")
+                # IMPORTANT: Director adds work to its own hook as a shared pool queue.
+                # Workers need to claim from Director's hook, not their own hook.
+                # Reload Director's hook first to see any delegated work
+                hook_id = director.hook.id
+                if hook_id in director.hook_manager._hooks:
+                    del director.hook_manager._hooks[hook_id]
+                director.hook = director.hook_manager.get_hook_for_owner('role', director.identity.role_id)
+
+                # Point worker at Director's hook (shared pool queue)
+                worker.hook = director.hook
+                print_substep(f"Worker using Director's pool queue: {worker.hook.get_stats() if worker.hook else 'None'}")
 
                 worker_result = worker.run() or {}
                 print()
