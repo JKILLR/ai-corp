@@ -43,8 +43,10 @@ DELEGATION_CAPABILITIES = frozenset([
     'development', 'coding', 'implementation', 'research',
     'analysis', 'design', 'testing', 'review'
 ])
+# Workers need ALL capabilities to execute any type of delegated work
 EXECUTION_CAPABILITIES = frozenset([
-    'development', 'coding', 'implementation', 'execution'
+    'development', 'coding', 'implementation', 'execution',
+    'research', 'analysis', 'design', 'testing', 'review', 'qa', 'security', 'planning'
 ])
 
 
