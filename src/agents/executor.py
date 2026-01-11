@@ -320,6 +320,14 @@ class CorporationExecutor:
     Integrates:
     - SkillRegistry: Role-based skill discovery for agents
     - WorkScheduler: Intelligent task assignment with capability matching
+    - HookManager: Centralized hook management with cache refresh
+
+    Key fixes for autonomous operation (from demo.py learnings):
+    1. Hook cache refresh between tiers
+    2. VP/Director capabilities for delegation
+    3. direct_reports chain configuration
+    4. Worker pool registration
+    5. Workers use Director's hook (shared pool queue)
     """
 
     def __init__(
@@ -337,6 +345,10 @@ class CorporationExecutor:
         # Initialize work scheduler with skill registry
         self.scheduler = WorkScheduler(corp_path, self.skill_registry)
 
+        # Shared hook manager for cache control
+        from ..core.hook import HookManager
+        self.hook_manager = HookManager(corp_path)
+
         # Agent instances (also registered with scheduler)
         self.coo: Optional[COOAgent] = None
         self.vps: Dict[str, VPAgent] = {}
@@ -352,6 +364,9 @@ class CorporationExecutor:
         self.director_executor: Optional[AgentExecutor] = None
         self.worker_executor: Optional[AgentExecutor] = None
 
+        # Mapping of director_id -> [worker_role_ids]
+        self._director_workers: Dict[str, List[str]] = {}
+
     def initialize(self, departments: Optional[List[str]] = None) -> None:
         """
         Initialize the corporation with all agents.
@@ -360,6 +375,9 @@ class CorporationExecutor:
         - Agent instances with skill_registry attached
         - Scheduler registration for capability-based work assignment
         - Tier-based executors for hierarchical processing
+        - Delegation chains (direct_reports, capabilities)
+        - Worker pool registrations
+        - Workers configured to use Director's hook (pool queue)
 
         Args:
             departments: List of departments to initialize (None for all)
@@ -375,21 +393,18 @@ class CorporationExecutor:
         self._register_agent(self.coo, 'executive')
         logger.info("Created COO agent")
 
-        # Create VPs with skill registry
-        for dept in departments:
-            vp = create_vp_agent(dept, self.corp_path)
-            vp.set_skill_registry(self.skill_registry)
-            self.vps[vp.identity.role_id] = vp
-            self._register_agent(vp, 'vp')
-            logger.info(f"Created VP: {vp.identity.role_name}")
-
-        # Create Directors (sample - would normally read from config)
+        # Create Directors FIRST (so we know which directors exist for VP configuration)
+        # Director configs: (role_id, name, dept, focus, reports_to_vp)
         director_configs = [
+            ('director_engineering', 'Director of Engineering', 'engineering', 'Engineering Implementation', 'vp_engineering'),
             ('dir_frontend', 'Frontend Director', 'engineering', 'Frontend', 'vp_engineering'),
             ('dir_backend', 'Backend Director', 'engineering', 'Backend', 'vp_engineering'),
             ('dir_qa', 'QA Director', 'quality', 'Quality Assurance', 'vp_quality'),
             ('dir_product', 'Product Director', 'product', 'Product Management', 'vp_product'),
         ]
+
+        # Track which directors report to which VP
+        vp_directors: Dict[str, List[str]] = {}
 
         for role_id, name, dept, focus, reports_to in director_configs:
             if dept in departments:
@@ -397,14 +412,27 @@ class CorporationExecutor:
                     role_id, name, dept, focus, reports_to, self.corp_path
                 )
                 director.set_skill_registry(self.skill_registry)
+
+                # FIX #2: Add broad capabilities for delegation
+                director.identity.capabilities.extend([
+                    'development', 'coding', 'implementation', 'research',
+                    'analysis', 'design', 'testing', 'review'
+                ])
+
                 self.directors[director.identity.role_id] = director
                 self._register_agent(director, 'director')
                 logger.info(f"Created Director: {director.identity.role_name}")
 
-        # Create Workers (sample)
+                # Track for VP configuration
+                if reports_to not in vp_directors:
+                    vp_directors[reports_to] = []
+                vp_directors[reports_to].append(role_id)
+
+        # Create Workers (before VPs, so we can set up pools)
+        # Worker configs: (worker_type, dept, reports_to_director)
         worker_configs = [
+            ('backend', 'engineering', 'director_engineering'),
             ('frontend', 'engineering', 'dir_frontend'),
-            ('backend', 'engineering', 'dir_backend'),
             ('qa', 'quality', 'dir_qa'),
         ]
 
@@ -414,9 +442,50 @@ class CorporationExecutor:
                     worker_type, dept, reports_to, self.corp_path
                 )
                 worker.set_skill_registry(self.skill_registry)
+
+                # FIX #2: Add execution capabilities
+                worker.identity.capabilities.extend([
+                    'development', 'coding', 'implementation', 'execution'
+                ])
+
                 self.workers[worker.identity.role_id] = worker
                 self._register_agent(worker, 'worker')
                 logger.info(f"Created Worker: {worker.identity.role_name}")
+
+                # Track for director pool registration
+                if reports_to not in self._director_workers:
+                    self._director_workers[reports_to] = []
+                self._director_workers[reports_to].append(worker.identity.role_id)
+
+        # FIX #4: Register workers in Director pools
+        self._configure_director_pools()
+
+        # FIX #5: Configure workers to use Director's hook (pool queue)
+        self._configure_worker_hooks()
+
+        # Create VPs with proper direct_reports configuration
+        for dept in departments:
+            vp = create_vp_agent(dept, self.corp_path)
+            vp.set_skill_registry(self.skill_registry)
+
+            # FIX #2: Add broad capabilities so VPs can claim any delegated work
+            vp.identity.capabilities.extend([
+                'development', 'coding', 'research', 'analysis',
+                'design', 'testing', 'implementation', 'review'
+            ])
+
+            # FIX #3: Set direct_reports to actual directors that exist
+            vp_role_id = vp.identity.role_id
+            if vp_role_id in vp_directors:
+                vp.identity.direct_reports = vp_directors[vp_role_id]
+                logger.info(f"Configured {vp_role_id} direct_reports: {vp.identity.direct_reports}")
+
+            self.vps[vp.identity.role_id] = vp
+            self._register_agent(vp, 'vp')
+            logger.info(f"Created VP: {vp.identity.role_name}")
+
+        # FIX #3: Set director direct_reports to their workers
+        self._configure_director_reports()
 
         # Create executors for each tier
         self.executive_executor = AgentExecutor(
@@ -425,24 +494,86 @@ class CorporationExecutor:
         self.executive_executor.register_agent(self.coo)
 
         self.vp_executor = AgentExecutor(
-            self.corp_path, ExecutionMode.PARALLEL, max_workers=len(self.vps)
+            self.corp_path, ExecutionMode.PARALLEL, max_workers=len(self.vps) or 1
         )
-        self.vp_executor.register_agents(list(self.vps.values()))
+        if self.vps:
+            self.vp_executor.register_agents(list(self.vps.values()))
 
         self.director_executor = AgentExecutor(
-            self.corp_path, ExecutionMode.PARALLEL, max_workers=len(self.directors)
+            self.corp_path, ExecutionMode.PARALLEL, max_workers=len(self.directors) or 1
         )
-        self.director_executor.register_agents(list(self.directors.values()))
+        if self.directors:
+            self.director_executor.register_agents(list(self.directors.values()))
 
         self.worker_executor = AgentExecutor(
-            self.corp_path, ExecutionMode.PARALLEL, max_workers=len(self.workers)
+            self.corp_path, ExecutionMode.PARALLEL, max_workers=len(self.workers) or 1
         )
-        self.worker_executor.register_agents(list(self.workers.values()))
+        if self.workers:
+            self.worker_executor.register_agents(list(self.workers.values()))
 
         logger.info(
             f"Corporation initialized: 1 COO, {len(self.vps)} VPs, "
             f"{len(self.directors)} Directors, {len(self.workers)} Workers"
         )
+
+    def _configure_director_pools(self) -> None:
+        """
+        FIX #4: Register workers in their Director's worker pool.
+
+        Directors have worker pools that workers claim from. This ensures
+        workers are properly registered so Directors can delegate to them.
+        """
+        for director_id, worker_ids in self._director_workers.items():
+            director = self.directors.get(director_id)
+            if not director:
+                logger.warning(f"Director {director_id} not found for pool registration")
+                continue
+
+            if not director.worker_pool:
+                logger.warning(f"Director {director_id} has no worker pool")
+                continue
+
+            for worker_id in worker_ids:
+                worker = self.workers.get(worker_id)
+                if worker:
+                    director.pool_manager.add_worker_to_pool(
+                        pool_id=director.worker_pool.id,
+                        role_id=worker.identity.role_id
+                    )
+                    logger.info(f"Registered {worker_id} in {director_id}'s pool")
+
+    def _configure_worker_hooks(self) -> None:
+        """
+        FIX #5: Configure workers to use Director's hook (shared pool queue).
+
+        In the pool model, Directors add work to their own hook as a shared queue.
+        Workers claim from that Director's hook, not their individual hooks.
+        """
+        for director_id, worker_ids in self._director_workers.items():
+            director = self.directors.get(director_id)
+            if not director:
+                continue
+
+            for worker_id in worker_ids:
+                worker = self.workers.get(worker_id)
+                if worker:
+                    # Point worker at Director's hook (shared pool queue)
+                    worker.hook = director.hook
+                    # Also share the hook_manager reference
+                    worker.hook_manager = director.hook_manager
+                    logger.info(f"Configured {worker_id} to use {director_id}'s hook")
+
+    def _configure_director_reports(self) -> None:
+        """
+        FIX #3: Set Director's direct_reports to their workers.
+
+        This allows Directors to validate LLM delegation suggestions.
+        """
+        for director_id, worker_ids in self._director_workers.items():
+            director = self.directors.get(director_id)
+            if director:
+                director.identity.direct_reports = worker_ids.copy()
+                logger.info(f"Configured {director_id} direct_reports: {worker_ids}")
 
     def run_cycle(self) -> Dict[str, ExecutionResult]:
         """
@@ -453,23 +584,76 @@ class CorporationExecutor:
         2. VPs (process delegations, delegate to directors)
         3. Directors (process delegations, assign to workers)
         4. Workers (execute tasks)
+
+        FIX #1: Hooks are refreshed before each tier runs to ensure
+        agents see work delegated by the previous tier.
         """
         results = {}
 
-        # Run each tier
+        # Run each tier with hook refresh between them
         logger.info("=== Running COO ===")
         results['coo'] = self.executive_executor.run_once()
+
+        # FIX #1: Refresh hooks before VP tier
+        logger.info("Refreshing hooks before VP tier...")
+        self._refresh_all_agent_hooks()
 
         logger.info("=== Running VPs ===")
         results['vps'] = self.vp_executor.run_once()
 
+        # FIX #1: Refresh hooks before Director tier
+        logger.info("Refreshing hooks before Director tier...")
+        self._refresh_all_agent_hooks()
+
         logger.info("=== Running Directors ===")
         results['directors'] = self.director_executor.run_once()
+
+        # FIX #1: Refresh hooks before Worker tier
+        logger.info("Refreshing hooks before Worker tier...")
+        self._refresh_all_agent_hooks()
 
         logger.info("=== Running Workers ===")
         results['workers'] = self.worker_executor.run_once()
 
         return results
+
+    def _refresh_all_agent_hooks(self) -> None:
+        """
+        FIX #1: Refresh all hooks from disk and update agent references.
+
+        This ensures agents see work delegated by other agents in previous
+        tiers. Without this, the HookManager cache shows stale data.
+        """
+        # Refresh the shared hook manager's cache
+        self.hook_manager.refresh_all_hooks()
+
+        # Update each agent's hook reference to get fresh data
+        if self.coo:
+            refreshed = self.hook_manager.refresh_hook_for_owner(
+                'role', self.coo.identity.role_id
+            )
+            if refreshed:
+                self.coo.hook = refreshed
+
+        for vp in self.vps.values():
+            refreshed = self.hook_manager.refresh_hook_for_owner(
+                'role', vp.identity.role_id
+            )
+            if refreshed:
+                vp.hook = refreshed
+
+        for director in self.directors.values():
+            refreshed = self.hook_manager.refresh_hook_for_owner(
+                'role', director.identity.role_id
+            )
+            if refreshed:
+                director.hook = refreshed
+                # Also update workers that use this director's hook
+                worker_ids = self._director_workers.get(director.identity.role_id, [])
+                for worker_id in worker_ids:
+                    worker = self.workers.get(worker_id)
+                    if worker:
+                        worker.hook = director.hook
 
     def run_continuous(
         self,

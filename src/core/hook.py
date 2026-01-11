@@ -471,6 +471,74 @@ class HookManager:
         hook_file = self.hooks_path / f"{hook.id}.yaml"
         hook_file.write_text(hook.to_yaml())
 
+    def refresh_hook(self, hook_id: str) -> Optional[Hook]:
+        """
+        Refresh a hook from disk, bypassing the cache.
+
+        Use this when you know the hook file has been modified by another
+        agent and you need fresh data.
+
+        Args:
+            hook_id: The hook ID to refresh
+
+        Returns:
+            The refreshed Hook, or None if not found
+        """
+        # Clear from cache first
+        self._hooks.pop(hook_id, None)
+
+        # Reload from disk
+        hook_file = self.hooks_path / f"{hook_id}.yaml"
+        if hook_file.exists():
+            hook = Hook.from_yaml(hook_file.read_text())
+            self._hooks[hook_id] = hook
+            return hook
+        return None
+
+    def refresh_hook_for_owner(self, owner_type: str, owner_id: str) -> Optional[Hook]:
+        """
+        Refresh a hook by owner, bypassing the cache.
+
+        Args:
+            owner_type: 'role', 'department', or 'pool'
+            owner_id: The owner's ID
+
+        Returns:
+            The refreshed Hook, or None if not found
+        """
+        # Find the hook file on disk (not from cache)
+        for hook_file in self.hooks_path.glob("HOOK-*.yaml"):
+            hook = Hook.from_yaml(hook_file.read_text())
+            if hook.owner_type == owner_type and hook.owner_id == owner_id:
+                # Update cache with fresh data
+                self._hooks[hook.id] = hook
+                return hook
+        return None
+
+    def refresh_all_hooks(self) -> List[Hook]:
+        """
+        Refresh all hooks from disk, clearing the entire cache.
+
+        Use this between execution tiers to ensure all agents
+        see the latest work assignments.
+
+        Returns:
+            List of all refreshed hooks
+        """
+        # Clear entire cache
+        self._hooks.clear()
+
+        # Reload all from disk
+        hooks = []
+        for hook_file in self.hooks_path.glob("HOOK-*.yaml"):
+            try:
+                hook = Hook.from_yaml(hook_file.read_text())
+                self._hooks[hook.id] = hook
+                hooks.append(hook)
+            except Exception as e:
+                print(f"Error refreshing hook {hook_file}: {e}")
+        return hooks
+
     def delete_hook(self, hook_id: str) -> bool:
         """Delete a hook"""
         hook_file = self.hooks_path / f"{hook_id}.yaml"
