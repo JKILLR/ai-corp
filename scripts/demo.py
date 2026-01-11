@@ -120,17 +120,20 @@ def show_beads(ledger: BeadLedger, limit: int = 5):
     print("\n  Recent Audit Trail (Beads):")
     print("  " + "-" * 40)
 
-    beads = ledger.list_beads(limit=limit)
-    if not beads:
-        print("  No beads recorded yet")
-        return
+    try:
+        beads = ledger.get_recent_entries(limit=limit)
+        if not beads:
+            print("  No beads recorded yet")
+            return
 
-    for bead in beads[:limit]:
-        timestamp = bead.created_at[:19] if bead.created_at else "unknown"
-        print(f"  [{timestamp}] {bead.event_type}")
-        print(f"    Actor: {bead.actor_id}")
-        if bead.summary:
-            print(f"    Summary: {bead.summary[:50]}...")
+        for bead in beads[:limit]:
+            timestamp = bead.created_at[:19] if bead.created_at else "unknown"
+            print(f"  [{timestamp}] {bead.event_type}")
+            print(f"    Actor: {bead.actor_id}")
+            if bead.summary:
+                print(f"    Summary: {bead.summary[:50]}...")
+    except Exception as e:
+        print(f"  Could not read beads: {e}")
 
 
 def show_hooks(hook_manager: HookManager):
