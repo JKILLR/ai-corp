@@ -585,7 +585,8 @@ Always maintain professional communication and follow the organizational hierarc
             step_id=self.current_step.id if self.current_step else None,
             status=status,
             summary=summary,
-            blockers=blockers
+            blockers=blockers,
+            result=result
         )
 
     def _send_escalation(

@@ -378,9 +378,15 @@ class ChannelManager:
         step_id: Optional[str],
         status: str,
         summary: str,
-        blockers: Optional[List[str]] = None
+        blockers: Optional[List[str]] = None,
+        result: Optional[Dict[str, Any]] = None
     ) -> Message:
         """Send a status update (upchain)"""
+        attachments = {
+            'status': status,
+            'blockers': blockers or [],
+            'result': result or {}
+        }
         return self.send_message(
             sender_id=sender_id,
             sender_role=sender_role,
@@ -392,7 +398,7 @@ class ChannelManager:
             message_type="status_update",
             molecule_id=molecule_id,
             step_id=step_id,
-            attachments={'status': status, 'blockers': blockers or []}
+            attachments=attachments
         )
 
     def send_escalation(
