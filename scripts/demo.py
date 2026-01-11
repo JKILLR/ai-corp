@@ -127,11 +127,11 @@ def show_beads(ledger: BeadLedger, limit: int = 5):
             return
 
         for bead in beads[:limit]:
-            timestamp = bead.created_at[:19] if bead.created_at else "unknown"
-            print(f"  [{timestamp}] {bead.event_type}")
-            print(f"    Actor: {bead.actor_id}")
-            if bead.summary:
-                print(f"    Summary: {bead.summary[:50]}...")
+            timestamp = bead.timestamp[:19] if bead.timestamp else "unknown"
+            print(f"  [{timestamp}] {bead.action}")
+            print(f"    Actor: {bead.agent_id}")
+            if bead.message:
+                print(f"    Message: {bead.message[:50]}...")
     except Exception as e:
         print(f"  Could not read beads: {e}")
 
@@ -235,11 +235,15 @@ def main():
         # Also configure VP to use our director
         vp.identity.direct_reports = ['director_engineering']
 
+        # Configure Director to know about our worker
+        director.identity.direct_reports = ['worker_backend_01']
+
         # Create Worker (uses worker_type instead of role_id)
+        # worker_type="backend" creates role_id="worker_backend_01"
         worker = create_worker_agent(
             worker_type="backend",
             department="engineering",
-            reports_to="dir_backend",
+            reports_to="director_engineering",
             corp_path=corp_path
         )
         # Workers are executors - need all capabilities they might be assigned
