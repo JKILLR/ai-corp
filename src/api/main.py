@@ -182,7 +182,7 @@ async def send_coo_message(request: COOMessageRequest):
         active_molecules = molecules.list_active_molecules()
 
         # Check if this looks like a confirmation of a previous delegation proposal
-        confirmation_context = _check_for_confirmation(request.message, thread_id, coo)
+        confirmation_context = _check_for_confirmation(request.message, thread_id)
 
         system_prompt = """You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational - you're a trusted executive, not a formal system.
 
@@ -311,23 +311,23 @@ def _analyze_for_delegation(message: str) -> Dict[str, Any]:
     """
     message_lower = message.lower()
 
-    # Keywords that suggest delegation/project work
-    delegation_keywords = [
+    # Action keywords that suggest work needs to be done
+    action_keywords = [
         'review', 'audit', 'analyze', 'research', 'investigate',
         'implement', 'build', 'create', 'develop', 'design',
         'improve', 'optimize', 'refactor', 'test', 'fix',
-        'comprehensive', 'entire', 'all', 'full', 'complete',
         'project', 'task', 'work', 'help with'
     ]
 
-    # Keywords suggesting scale/scope
+    # Scale keywords suggesting this is a big effort
     scale_keywords = [
         'codebase', 'repo', 'repository', 'system', 'project',
-        'entire', 'all', 'whole', 'everything', 'comprehensive'
+        'entire', 'all', 'whole', 'everything', 'comprehensive',
+        'full', 'complete'
     ]
 
     # Determine if this looks like a delegation request
-    has_action = any(kw in message_lower for kw in delegation_keywords[:15])
+    has_action = any(kw in message_lower for kw in action_keywords)
     has_scale = any(kw in message_lower for kw in scale_keywords)
 
     # Determine likely project type
@@ -365,25 +365,53 @@ def _get_suggested_departments(project_type: str) -> List[str]:
 # Store pending delegation proposals per thread
 _pending_delegations: Dict[str, Dict[str, Any]] = {}
 
+# Cleanup stale pending delegations (older than 1 hour)
+def _cleanup_stale_delegations() -> None:
+    """Remove pending delegations older than 1 hour."""
+    now = datetime.utcnow()
+    stale_threads = []
+    for thread_id, pending in _pending_delegations.items():
+        proposed_at = datetime.fromisoformat(pending.get('proposed_at', now.isoformat()))
+        if (now - proposed_at).total_seconds() > 3600:  # 1 hour
+            stale_threads.append(thread_id)
+    for thread_id in stale_threads:
+        del _pending_delegations[thread_id]
 
-def _check_for_confirmation(message: str, thread_id: str, coo) -> Dict[str, Any]:
+
+def _check_for_confirmation(message: str, thread_id: str) -> Dict[str, Any]:
     """
     Check if the user's message is confirming a pending delegation proposal.
 
     Returns context about whether to proceed with delegation.
     """
+    # Cleanup old pending delegations periodically
+    _cleanup_stale_delegations()
+
     message_lower = message.lower().strip()
 
-    # Confirmation phrases
-    confirmation_phrases = [
+    # Short confirmation phrases (message should be mostly just the confirmation)
+    short_confirmations = [
         'yes', 'yeah', 'yep', 'yup', 'sure', 'ok', 'okay', 'do it',
-        'go ahead', 'kick it off', 'start it', 'let\'s do it',
-        'sounds good', 'that works', 'proceed', 'go for it',
-        'please do', 'make it happen', 'get started', 'begin',
-        'approved', 'confirmed', 'absolutely', 'definitely'
+        'go ahead', 'go for it', 'please do', 'approved', 'confirmed',
+        'absolutely', 'definitely', 'sounds good', 'that works', 'proceed'
     ]
 
-    is_confirmation = any(phrase in message_lower for phrase in confirmation_phrases)
+    # Longer confirmation phrases that can appear in longer messages
+    action_confirmations = [
+        'kick it off', 'start it', 'let\'s do it', 'make it happen',
+        'get started', 'get them started', 'begin', 'spin it up'
+    ]
+
+    # Check for short standalone confirmations (message is ~the confirmation itself)
+    is_short_confirmation = (
+        len(message_lower.split()) <= 5 and
+        any(phrase in message_lower for phrase in short_confirmations)
+    )
+
+    # Check for action confirmations (can be in longer messages)
+    is_action_confirmation = any(phrase in message_lower for phrase in action_confirmations)
+
+    is_confirmation = is_short_confirmation or is_action_confirmation
 
     # Check if there's a pending delegation for this thread
     pending = _pending_delegations.get(thread_id)
@@ -439,13 +467,17 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
     title = "Codebase Review"
     description = "Comprehensive review requested by CEO"
 
-    # Look for the original request (user messages before the proposal)
-    for msg in reversed(messages[:-2]):  # Skip last 2 (confirmation + proposal)
-        if msg.get('role') == 'user':  # CEO messages are stored as 'user'
-            description = msg.get('content', description)
-            # Create title from first part of description
-            title = description.split('.')[0][:50] if '.' in description else description[:50]
-            break
+    # Look for the original CEO request (skip recent confirmation/proposal exchanges)
+    # Find user messages that contain substantive requests, not just confirmations
+    for msg in reversed(messages):
+        if msg.get('role') == 'user':
+            content = msg.get('content', '')
+            # Skip short confirmation messages
+            if len(content.split()) > 5:
+                description = content
+                # Create title from first sentence or first 50 chars
+                title = description.split('.')[0][:50] if '.' in description else description[:50]
+                break
 
     try:
         # Create molecule through COO
