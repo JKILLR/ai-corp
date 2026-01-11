@@ -12,6 +12,7 @@ Key concepts:
 """
 
 import json
+import logging
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -19,6 +20,8 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field, asdict
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 class WorkItemPriority(Enum):
@@ -456,7 +459,7 @@ class HookManager:
                 self._hooks[hook.id] = hook
                 hooks.append(hook)
             except Exception as e:
-                print(f"Error loading hook {hook_file}: {e}")
+                logger.error(f"Error loading hook {hook_file}: {e}")
         return hooks
 
     def get_all_queued_work(self) -> List[WorkItem]:
@@ -536,7 +539,7 @@ class HookManager:
                 self._hooks[hook.id] = hook
                 hooks.append(hook)
             except Exception as e:
-                print(f"Error refreshing hook {hook_file}: {e}")
+                logger.error(f"Error refreshing hook {hook_file}: {e}")
         return hooks
 
     def delete_hook(self, hook_id: str) -> bool:
