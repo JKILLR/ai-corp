@@ -21,7 +21,10 @@ This module provides the core infrastructure for the AI Corporation:
 - Learning: Learning System with Ralph Mode for persistent execution
 """
 
-from .molecule import Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine
+from .molecule import (
+    Molecule, MoleculeStep, MoleculeStatus, MoleculeEngine,
+    WorkflowType, SwarmConfig, ConvergenceStrategy, LoopConfig
+)
 from .hook import Hook, HookManager
 from .bead import Bead, BeadLedger
 from .channel import Channel, ChannelType, ChannelManager
