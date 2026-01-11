@@ -140,6 +140,10 @@ async def send_coo_message(request: COOMessageRequest):
     Send a message to the COO and get a response.
 
     This is the primary interaction endpoint for CEO-COO conversation.
+    The COO can:
+    1. Answer questions directly using tools
+    2. Recognize delegation-worthy requests and offer to create projects
+    3. Delegate work to the agent hierarchy (VP → Director → Worker)
     """
     coo = get_coo()
 
@@ -160,8 +164,11 @@ async def send_coo_message(request: COOMessageRequest):
         message_type='message'
     )
 
-    # Generate COO response
-    # Use the LLM interface with full tool access
+    # Check if this looks like a delegation request
+    actions_taken = []
+    delegation_context = _analyze_for_delegation(request.message)
+
+    # Generate COO response with full tool access and delegation awareness
     try:
         from src.core.llm import LLMRequest
 
@@ -171,40 +178,73 @@ async def send_coo_message(request: COOMessageRequest):
         # Get system status for context
         monitor = get_monitor()
         metrics = monitor.collect_metrics()
+        molecules = get_molecule_engine()
+        active_molecules = molecules.list_molecules(status='active')
 
-        system_prompt = """You are the COO of AI Corp, a strategic partner to the CEO.
+        system_prompt = """You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational - you're a trusted executive, not a formal system.
 
-You have FULL ACCESS to Claude Code tools including:
-- Read: Read files from the codebase
-- Glob: Search for files by pattern
-- Grep: Search code for patterns
-- Bash: Execute commands
-- WebFetch/WebSearch: Access web resources
+## YOUR CAPABILITIES
 
-When the CEO asks you to review code, analyze the codebase, or investigate something,
-USE YOUR TOOLS to actually read the files and provide real analysis.
+1. **Direct Work** - You have full access to Claude Code tools (Read, Glob, Grep, Bash, WebFetch, WebSearch). Use them freely to investigate, analyze, or answer questions.
 
-The AI Corp codebase is at the current working directory. Key paths:
-- src/core/ - Core systems (molecules, gates, memory, etc.)
+2. **Team Delegation** - You manage the organization:
+   - VP Engineering → Directors → Workers (coding, implementation)
+   - VP Research → Researchers (analysis, investigation)
+   - VP Product → Product team (design, planning)
+   - VP Quality → QA team (testing, review)
+
+## HOW TO RESPOND
+
+**For simple questions or quick tasks:**
+Just handle it directly. Read files, search code, answer the question.
+
+**For bigger projects that need the team:**
+When the CEO asks for something substantial (review the codebase, implement a feature, audit for improvements), respond naturally:
+
+1. Acknowledge what they're asking for
+2. If anything is unclear, just ask - like a normal conversation
+3. Propose a plan: "I can spin up a research project and have the team dig into this. They'll review [X, Y, Z] and report back with findings. Want me to kick that off?"
+4. Or offer to do initial analysis yourself first: "Want me to take a quick look first, then we can decide if we need the full team on it?"
+
+**Be natural:**
+- Don't use jargon like "discovery session", "success contract", or "molecule"
+- Don't offer numbered options like a menu
+- Just talk like a capable executive would
+- Ask clarifying questions conversationally if needed
+- Propose concrete next steps
+
+## THE CODEBASE
+
+Located at the current working directory:
+- src/core/ - Core systems (molecules, gates, memory, hooks, channels)
 - src/agents/ - Agent implementations (COO, VP, Director, Worker)
-- src/api/ - API server (this)
+- src/api/ - API server
 - docs/ - Documentation
 - STATE.md, ROADMAP.md, AI_CORP_ARCHITECTURE.md - Master docs
 
-Be proactive. If asked about code or improvements, actually read the files."""
+## KEY BEHAVIOR
+
+- Be proactive but not pushy
+- When delegation makes sense, propose it naturally
+- Get confirmation before spinning up team projects
+- You're a partner, not a menu system"""
 
         prompt = f"""CONVERSATION CONTEXT:
 {thread_context}
 
 CURRENT SYSTEM STATE:
 - Active agents: {len(metrics.agents) if metrics.agents else 0}
+- Active projects: {len(active_molecules)}
 - System health: Operational
 - Corp path: {get_corp_path()}
+
+DELEGATION ANALYSIS:
+{json.dumps(delegation_context, indent=2)}
 
 CEO'S MESSAGE:
 {request.message}
 
-Respond as the COO. If the CEO asks about code or improvements, use your tools to investigate."""
+Respond naturally as the COO. Handle simple things directly. For bigger asks, propose a plan or ask clarifying questions conversationally."""
 
         response = coo.llm.execute(LLMRequest(
             prompt=prompt,
@@ -232,15 +272,74 @@ Respond as the COO. If the CEO asks about code or improvements, use your tools t
         response=coo_response,
         thread_id=thread_id,
         timestamp=datetime.utcnow().isoformat(),
-        actions_taken=[]
+        actions_taken=actions_taken
     )
+
+
+def _analyze_for_delegation(message: str) -> Dict[str, Any]:
+    """
+    Analyze a message to determine if it's requesting delegation.
+
+    Returns context about what type of project this might be.
+    """
+    message_lower = message.lower()
+
+    # Keywords that suggest delegation/project work
+    delegation_keywords = [
+        'review', 'audit', 'analyze', 'research', 'investigate',
+        'implement', 'build', 'create', 'develop', 'design',
+        'improve', 'optimize', 'refactor', 'test', 'fix',
+        'comprehensive', 'entire', 'all', 'full', 'complete',
+        'project', 'task', 'work', 'help with'
+    ]
+
+    # Keywords suggesting scale/scope
+    scale_keywords = [
+        'codebase', 'repo', 'repository', 'system', 'project',
+        'entire', 'all', 'whole', 'everything', 'comprehensive'
+    ]
+
+    # Determine if this looks like a delegation request
+    has_action = any(kw in message_lower for kw in delegation_keywords[:15])
+    has_scale = any(kw in message_lower for kw in scale_keywords)
+
+    # Determine likely project type
+    project_type = 'general'
+    if any(kw in message_lower for kw in ['research', 'analyze', 'investigate', 'review', 'audit']):
+        project_type = 'research'
+    elif any(kw in message_lower for kw in ['implement', 'build', 'create', 'develop', 'code']):
+        project_type = 'engineering'
+    elif any(kw in message_lower for kw in ['design', 'plan', 'propose']):
+        project_type = 'product'
+    elif any(kw in message_lower for kw in ['test', 'qa', 'quality']):
+        project_type = 'quality'
+
+    return {
+        'likely_delegation': has_action and has_scale,
+        'has_action_keywords': has_action,
+        'has_scale_keywords': has_scale,
+        'suggested_project_type': project_type,
+        'suggested_departments': _get_suggested_departments(project_type)
+    }
+
+
+def _get_suggested_departments(project_type: str) -> List[str]:
+    """Get suggested departments based on project type."""
+    department_map = {
+        'research': ['research', 'engineering'],
+        'engineering': ['engineering', 'quality'],
+        'product': ['product', 'engineering'],
+        'quality': ['quality', 'engineering'],
+        'general': ['research', 'engineering', 'quality']
+    }
+    return department_map.get(project_type, ['engineering'])
 
 
 @app.get("/api/coo/threads")
 async def list_coo_threads():
     """List all conversation threads with the COO."""
     coo = get_coo()
-    threads = coo.list_conversation_threads()
+    threads = coo.list_threads()  # Fixed method name
     return {"threads": threads}
 
 
@@ -248,10 +347,171 @@ async def list_coo_threads():
 async def get_coo_thread(thread_id: str):
     """Get a specific conversation thread."""
     coo = get_coo()
-    thread = coo.get_conversation_thread(thread_id)
+    thread = coo.get_thread(thread_id)  # Fixed method name
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
     return thread
+
+
+# =============================================================================
+# COO Delegation Endpoints
+# =============================================================================
+
+class DelegationRequest(BaseModel):
+    """Request to delegate work to the agent hierarchy."""
+    title: str
+    description: str
+    project_type: str = "research"  # research, engineering, product, quality
+    priority: str = "P2_MEDIUM"
+    thread_id: Optional[str] = None  # Link to conversation thread
+
+
+class DelegationResponse(BaseModel):
+    """Response from delegation request."""
+    molecule_id: str
+    molecule_name: str
+    status: str
+    delegations: List[Dict[str, Any]]
+    message: str
+
+
+@app.post("/api/coo/delegate", response_model=DelegationResponse)
+async def delegate_to_team(request: DelegationRequest):
+    """
+    Create a project and delegate work to the agent hierarchy.
+
+    This endpoint allows the CEO to trigger actual delegation after
+    the COO has suggested it in conversation.
+
+    The flow:
+    1. COO creates a Molecule (project with steps)
+    2. COO analyzes scope and assigns to appropriate departments
+    3. Work items are placed in VP hooks
+    4. Returns delegation status for the CEO
+
+    To run the agents and process the delegated work, use the
+    CorporationExecutor or run `python scripts/demo.py`.
+    """
+    coo = get_coo()
+
+    try:
+        # Create the molecule through COO
+        molecule = coo.receive_ceo_task(
+            title=request.title,
+            description=request.description,
+            priority=request.priority,
+            context={
+                'project_type': request.project_type,
+                'thread_id': request.thread_id
+            }
+        )
+
+        # Start the molecule
+        molecules = get_molecule_engine()
+        molecule = molecules.start_molecule(molecule.id)
+
+        # Delegate to VPs
+        delegations = coo.delegate_molecule(molecule)
+
+        # Link to thread if provided
+        if request.thread_id:
+            try:
+                coo.link_thread_to_molecule(request.thread_id, molecule.id)
+            except Exception:
+                pass  # Non-critical if linking fails
+
+        # Record in bead for audit trail
+        coo.bead.create(
+            entity_type='delegation',
+            entity_id=molecule.id,
+            data={
+                'title': request.title,
+                'delegations': delegations,
+                'project_type': request.project_type
+            },
+            message=f"CEO delegated: {request.title}"
+        )
+
+        return DelegationResponse(
+            molecule_id=molecule.id,
+            molecule_name=molecule.name,
+            status='delegated',
+            delegations=delegations,
+            message=f"Created project '{molecule.name}' with {len(molecule.steps)} steps. "
+                    f"Delegated {len(delegations)} work items to VPs. "
+                    f"Run the corporation executor to process the work."
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Delegation failed: {str(e)}")
+
+
+@app.get("/api/coo/delegation-status/{molecule_id}")
+async def get_delegation_status(molecule_id: str):
+    """Get the status of a delegated project."""
+    molecules = get_molecule_engine()
+    molecule = molecules.get_molecule(molecule_id)
+
+    if not molecule:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    progress = molecule.get_progress()
+
+    return {
+        'molecule_id': molecule.id,
+        'name': molecule.name,
+        'status': molecule.status.value,
+        'progress': progress,
+        'steps': [
+            {
+                'id': s.id,
+                'name': s.name,
+                'status': s.status.value,
+                'assigned_to': s.assigned_to,
+                'department': s.department
+            }
+            for s in molecule.steps
+        ]
+    }
+
+
+@app.post("/api/coo/run-cycle")
+async def run_corporation_cycle():
+    """
+    Run one cycle of the corporation to process delegated work.
+
+    This triggers:
+    1. VPs to pick up delegated work
+    2. VPs to delegate to Directors
+    3. Directors to assign to Workers
+    4. Workers to execute tasks
+
+    Note: This is a synchronous operation that may take time.
+    For production, consider using background tasks or WebSockets.
+    """
+    from src.agents.executor import CorporationExecutor
+
+    try:
+        executor = CorporationExecutor(get_corp_path())
+        executor.initialize(['engineering', 'research', 'product', 'quality'])
+
+        # Run one cycle, skipping COO since we've already delegated
+        results = executor.run_cycle_skip_coo()
+
+        return {
+            'status': 'completed',
+            'results': {
+                tier: {
+                    'completed': r.completed,
+                    'failed': r.failed,
+                    'total': r.total_agents
+                }
+                for tier, r in results.items()
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Execution failed: {str(e)}")
 
 
 # =============================================================================
