@@ -51,6 +51,15 @@ class WorkflowType(Enum):
     PROJECT = "project"       # Default, linear execution
     CONTINUOUS = "continuous" # Loops indefinitely until exit condition
     HYBRID = "hybrid"         # Project with optional continuation phase
+    SWARM = "swarm"           # Parallel research: scatter → critique → converge
+
+
+class ConvergenceStrategy(Enum):
+    """How to combine results from swarm workers"""
+    VOTE = "vote"           # Majority vote on answers
+    SYNTHESIZE = "synthesize"  # LLM synthesizes all inputs
+    BEST = "best"           # Pick highest-scored result
+    MERGE = "merge"         # Combine non-conflicting parts
 
 
 @dataclass
@@ -96,6 +105,50 @@ class LoopConfig:
             max_iterations=data.get('max_iterations'),
             exit_conditions=[ExitCondition.from_dict(ec) for ec in data.get('exit_conditions', [])],
             current_iteration=data.get('current_iteration', 0)
+        )
+
+
+@dataclass
+class SwarmConfig:
+    """
+    Configuration for swarm workflow molecules.
+
+    Swarm Pattern:
+    1. Scatter: N workers research the same question independently
+    2. Critique: Workers cross-review each other's findings (optional)
+    3. Converge: Synthesize results into unified answer
+
+    Integration:
+    - Uses Channels for worker communication during critique
+    - Uses WorkScheduler for parallel assignment
+    - Results feed into Learning System for pattern extraction
+    """
+    scatter_count: int = 3                    # Number of parallel workers
+    critique_enabled: bool = True             # Enable cross-critique phase
+    critique_rounds: int = 1                  # Number of critique iterations
+    convergence_strategy: ConvergenceStrategy = ConvergenceStrategy.SYNTHESIZE
+    min_agreement: float = 0.6                # For VOTE strategy: min agreement threshold
+    timeout_seconds: int = 300                # Max time per phase
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'scatter_count': self.scatter_count,
+            'critique_enabled': self.critique_enabled,
+            'critique_rounds': self.critique_rounds,
+            'convergence_strategy': self.convergence_strategy.value,
+            'min_agreement': self.min_agreement,
+            'timeout_seconds': self.timeout_seconds
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SwarmConfig':
+        return cls(
+            scatter_count=data.get('scatter_count', 3),
+            critique_enabled=data.get('critique_enabled', True),
+            critique_rounds=data.get('critique_rounds', 1),
+            convergence_strategy=ConvergenceStrategy(data.get('convergence_strategy', 'synthesize')),
+            min_agreement=data.get('min_agreement', 0.6),
+            timeout_seconds=data.get('timeout_seconds', 300)
         )
 
 
@@ -241,6 +294,8 @@ class Molecule:
     # Continuous Workflow Support
     workflow_type: WorkflowType = WorkflowType.PROJECT
     loop_config: Optional[LoopConfig] = None
+    # Swarm Workflow Support
+    swarm_config: Optional[SwarmConfig] = None
 
     @property
     def roi_ratio(self) -> Optional[float]:
@@ -263,7 +318,8 @@ class Molecule:
         estimated_value: float = 0.0,
         confidence: float = 0.5,
         workflow_type: WorkflowType = WorkflowType.PROJECT,
-        loop_config: Optional[LoopConfig] = None
+        loop_config: Optional[LoopConfig] = None,
+        swarm_config: Optional[SwarmConfig] = None
     ) -> 'Molecule':
         now = datetime.utcnow().isoformat()
         return cls(
@@ -281,7 +337,8 @@ class Molecule:
             estimated_value=estimated_value,
             confidence=confidence,
             workflow_type=workflow_type,
-            loop_config=loop_config
+            loop_config=loop_config,
+            swarm_config=swarm_config
         )
 
     def add_step(self, step: MoleculeStep) -> None:
@@ -450,7 +507,9 @@ class Molecule:
             'confidence': self.confidence,
             # Continuous Workflow Support
             'workflow_type': self.workflow_type.value,
-            'loop_config': self.loop_config.to_dict() if self.loop_config else None
+            'loop_config': self.loop_config.to_dict() if self.loop_config else None,
+            # Swarm Workflow Support
+            'swarm_config': self.swarm_config.to_dict() if self.swarm_config else None
         }
 
     @classmethod
@@ -473,6 +532,9 @@ class Molecule:
         data['workflow_type'] = WorkflowType(workflow_type_str)
         loop_config_data = data.pop('loop_config', None)
         data['loop_config'] = LoopConfig.from_dict(loop_config_data) if loop_config_data else None
+        # Handle Swarm Workflow fields with defaults
+        swarm_config_data = data.pop('swarm_config', None)
+        data['swarm_config'] = SwarmConfig.from_dict(swarm_config_data) if swarm_config_data else None
         return cls(**data)
 
     def to_yaml(self) -> str:
@@ -526,7 +588,8 @@ class MoleculeEngine:
         estimated_value: float = 0.0,
         confidence: float = 0.5,
         workflow_type: WorkflowType = WorkflowType.PROJECT,
-        loop_config: Optional[LoopConfig] = None
+        loop_config: Optional[LoopConfig] = None,
+        swarm_config: Optional[SwarmConfig] = None
     ) -> Molecule:
         """
         Create a new molecule.
@@ -544,6 +607,7 @@ class MoleculeEngine:
             confidence: Confidence in estimates (0.0-1.0)
             workflow_type: Type of workflow (project/continuous/hybrid)
             loop_config: Configuration for continuous/hybrid workflows
+            swarm_config: Configuration for swarm workflows (scatter/critique/converge)
         """
         molecule = Molecule.create(
             name=name,
@@ -557,7 +621,8 @@ class MoleculeEngine:
             estimated_value=estimated_value,
             confidence=confidence,
             workflow_type=workflow_type,
-            loop_config=loop_config
+            loop_config=loop_config,
+            swarm_config=swarm_config
         )
         self._save_molecule(molecule)
         return molecule
@@ -610,11 +675,106 @@ class MoleculeEngine:
         if molecule.status not in (MoleculeStatus.DRAFT, MoleculeStatus.PENDING):
             raise ValueError(f"Molecule must be DRAFT or PENDING to start, got {molecule.status}")
 
+        # For swarm molecules, expand into scatter/critique/converge steps
+        if molecule.workflow_type == WorkflowType.SWARM and molecule.swarm_config:
+            self._expand_swarm_steps(molecule)
+
         molecule.status = MoleculeStatus.ACTIVE
         molecule.started_at = datetime.utcnow().isoformat()
         molecule.updated_at = datetime.utcnow().isoformat()
         self._save_molecule(molecule)
         return molecule
+
+    def _expand_swarm_steps(self, molecule: Molecule) -> None:
+        """
+        Expand a swarm molecule into scatter/critique/converge steps.
+
+        Swarm Pattern:
+        1. Scatter Phase: N parallel research steps (no dependencies)
+        2. Critique Phase: Each worker critiques others' work (depends on scatter)
+        3. Converge Phase: Synthesize all results into final answer
+
+        The original molecule description becomes the research question.
+        """
+        config = molecule.swarm_config
+        if not config:
+            return
+
+        # Validate configuration
+        if config.scatter_count < 2:
+            raise ValueError(f"Swarm requires scatter_count >= 2, got {config.scatter_count}")
+
+        # Extract department once (avoid repetition)
+        department = molecule.raci.responsible[0] if molecule.raci.responsible else None
+
+        scatter_step_ids = []
+        critique_step_ids = []
+
+        # Phase 1: Scatter - N parallel research steps
+        for i in range(config.scatter_count):
+            step = MoleculeStep.create(
+                name=f"Scatter Research #{i+1}",
+                description=f"Research the following question independently:\n\n{molecule.description}",
+                department=department,
+                required_capabilities=['research', 'analysis'],
+                depends_on=[]  # No dependencies - all run in parallel
+            )
+            molecule.add_step(step)
+            scatter_step_ids.append(step.id)
+
+        # Phase 2: Critique (if enabled)
+        if config.critique_enabled:
+            for round_num in range(config.critique_rounds):
+                round_step_ids = []
+                for i in range(config.scatter_count):
+                    # First round depends on scatter, subsequent rounds on previous critique round
+                    if round_num == 0:
+                        deps = scatter_step_ids
+                    else:
+                        # Depend on previous round's critique steps
+                        prev_round_start = (round_num - 1) * config.scatter_count
+                        deps = critique_step_ids[prev_round_start:prev_round_start + config.scatter_count]
+
+                    step = MoleculeStep.create(
+                        name=f"Critique Round {round_num+1} - Worker #{i+1}",
+                        description=(
+                            f"Review and critique findings from the previous phase.\n\n"
+                            f"Your task: Identify strengths, weaknesses, gaps, and potential errors.\n"
+                            f"Original question: {molecule.description}"
+                        ),
+                        department=department,
+                        required_capabilities=['review', 'analysis'],
+                        depends_on=deps
+                    )
+                    molecule.add_step(step)
+                    round_step_ids.append(step.id)
+                critique_step_ids.extend(round_step_ids)
+
+        # Phase 3: Converge - synthesize all results
+        # Only depend on final round of critiques (or scatter if no critique)
+        if critique_step_ids:
+            final_round_start = (config.critique_rounds - 1) * config.scatter_count
+            converge_deps = critique_step_ids[final_round_start:]
+        else:
+            converge_deps = scatter_step_ids
+
+        converge_step = MoleculeStep.create(
+            name="Converge Results",
+            description=(
+                f"Synthesize all research findings and critiques into a unified answer.\n\n"
+                f"Strategy: {config.convergence_strategy.value}\n"
+                f"Original question: {molecule.description}"
+            ),
+            department=department,
+            required_capabilities=['synthesis', 'analysis'],
+            depends_on=converge_deps
+        )
+        molecule.add_step(converge_step)
+
+        # Store step references in metadata for tracking
+        molecule.metadata['swarm_scatter_steps'] = scatter_step_ids
+        molecule.metadata['swarm_critique_steps'] = critique_step_ids
+        molecule.metadata['swarm_converge_step'] = converge_step.id
 
     def start_step(self, molecule_id: str, step_id: str, assigned_to: str) -> MoleculeStep:
         """Start working on a step"""
