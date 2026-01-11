@@ -328,30 +328,116 @@ mol.metadata['swarm_critique_steps']  # List of critique step IDs
 mol.metadata['swarm_converge_step']   # Converge step ID
 ```
 
-**Composite Molecule** (P2 - Planned)
-Chain molecule types together with escalation.
+**Composite Molecule** (✅ Complete)
+Chain molecule types together with escalation support.
 
-```yaml
-molecule:
-  id: MOL-COMPOSITE-001
-  type: composite_molecule
+```python
+# Phase types for composite workflows
+class PhaseType(Enum):
+    STANDARD = "standard"   # Regular linear steps
+    SWARM = "swarm"         # Parallel research (scatter → critique → converge)
+    RALPH = "ralph"         # Persistent execution with retry-on-failure
 
-  phases:
-    - phase: 1
-      name: "swarm_research"
-      type: swarm_molecule
-      # Swarm explores the problem space
+# What to do when a phase fails
+class EscalationAction(Enum):
+    FAIL = "fail"                     # Mark composite as failed
+    RETRY = "retry"                   # Retry the same phase
+    ESCALATE_TO_PREVIOUS = "escalate_to_previous"  # Go back to previous phase
+    ESCALATE_TO_SWARM = "escalate_to_swarm"        # Start new swarm research
 
-    - phase: 2
-      name: "ralph_execution"
-      type: persistent_molecule
-      depends_on: "swarm_research"
-      config:
-        ralph_mode: true
-        on_failure:
-          after_retries: 10
-          action: "escalate_to_swarm"  # Go back to Phase 1
+# Configuration for a single phase
+@dataclass
+class CompositePhase:
+    name: str
+    phase_type: PhaseType
+    description: str = ""
+    config: Optional[Dict] = None     # Phase-specific config (SwarmConfig, etc.)
+    on_failure: EscalationAction = EscalationAction.FAIL
+    max_failures: int = 3
+    cost_cap: Optional[float] = None  # For Ralph phases
+
+# Configuration for composite workflow
+@dataclass
+class CompositeConfig:
+    phases: List[CompositePhase]
+    escalation_enabled: bool = True
+    max_escalations: int = 2
+    current_phase: int = 0
+    escalation_count: int = 0
 ```
+
+**Composite Pattern Flow:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  PHASE 1: SWARM (Research)                                      │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Scatter → Critique → Converge (child molecule)             │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                           │ success                              │
+│                           ▼                                      │
+│  PHASE 2: RALPH (Execute)                                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Persistent execution with retry (child molecule)           │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                           │ failure                              │
+│                           ▼                                      │
+│  ESCALATION: Back to Swarm (new research)                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ "Additional research needed after failure: {reason}"       │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Usage:**
+```python
+# Create composite: Swarm → Ralph with escalation
+phases = [
+    CompositePhase(
+        name='Research',
+        phase_type=PhaseType.SWARM,
+        config={'scatter_count': 3, 'critique_enabled': True},
+        on_failure=EscalationAction.RETRY
+    ),
+    CompositePhase(
+        name='Implementation',
+        phase_type=PhaseType.RALPH,
+        on_failure=EscalationAction.ESCALATE_TO_SWARM,
+        max_failures=3,
+        cost_cap=5.0
+    )
+]
+
+mol = engine.create_molecule(
+    name='Build Feature X',
+    description='Research and implement feature X',
+    created_by='coo',
+    workflow_type=WorkflowType.COMPOSITE,
+    composite_config=CompositeConfig(phases=phases)
+)
+
+# Starting creates first phase child (Swarm molecule)
+mol = engine.start_molecule(mol.id)
+# mol.child_molecule_ids[0] is the Swarm research molecule
+
+# On phase completion, advance to next
+engine.advance_composite_phase(mol.id)  # Creates Ralph execution molecule
+
+# On phase failure, handle escalation
+engine.handle_composite_phase_failure(mol.id, child_id, "Task failed")
+# Creates new Swarm molecule if escalation configured
+```
+
+**MoleculeEngine Methods:**
+- `_start_composite_phase()`: Create child molecule for current phase
+- `advance_composite_phase()`: Move to next phase on success
+- `handle_composite_phase_failure()`: Handle failures with escalation
+
+**Metadata Tracking:**
+- `composite_current_phase`: Current phase index
+- `composite_current_child`: Active child molecule ID
+- `composite_phase_history`: Phase execution history
+- `composite_failures`: Failure records
+- `composite_escalations`: Escalation records
 
 **Pattern:** "Swarm expands, Ralph executes." Use Swarm for exploration, Ralph for relentless execution.
 
