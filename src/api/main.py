@@ -315,7 +315,9 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                 # Check if COO is proposing delegation - store for later confirmation
                 _extract_delegation_proposal(coo_response, thread_id, delegation_context)
             else:
-                coo_response = "I apologize, I'm having trouble processing that right now. Could you try again?"
+                # Include the actual error for debugging
+                error_detail = response.error or "Unknown error"
+                coo_response = f"I apologize, I'm having trouble processing that right now. Error: {error_detail}"
 
     except Exception as e:
         coo_response = f"I encountered an issue: {str(e)}. Let me try to help anyway - what would you like to know?"
