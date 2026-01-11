@@ -47,6 +47,10 @@ class LLMRequest:
     temperature: float = 0.7
     model: str = "claude-opus-4-5-20251101"
 
+    # Image support - list of base64-encoded images with media types
+    images: List[Dict[str, str]] = field(default_factory=list)
+    # Each image dict should have: {"data": "base64...", "media_type": "image/png"}
+
     # For continuation
     conversation_id: Optional[str] = None
 
@@ -282,7 +286,25 @@ class ClaudeAPIBackend(LLMBackend):
             )
 
         try:
-            messages = [{"role": "user", "content": request.prompt}]
+            # Build message content - can include text and images
+            content = []
+
+            # Add images first if present
+            if request.images:
+                for img in request.images:
+                    content.append({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": img.get("media_type", "image/png"),
+                            "data": img.get("data", "")
+                        }
+                    })
+
+            # Add text prompt
+            content.append({"type": "text", "text": request.prompt})
+
+            messages = [{"role": "user", "content": content}]
 
             kwargs = {
                 "model": request.model,
@@ -295,13 +317,13 @@ class ClaudeAPIBackend(LLMBackend):
 
             response = client.messages.create(**kwargs)
 
-            content = ""
+            response_text = ""
             for block in response.content:
                 if hasattr(block, 'text'):
-                    content += block.text
+                    response_text += block.text
 
             return LLMResponse(
-                content=content,
+                content=response_text,
                 success=True,
                 metadata={
                     'model': response.model,

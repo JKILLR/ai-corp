@@ -1,14 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search } from 'lucide-react';
+import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search, X, Image as ImageIcon } from 'lucide-react';
 import { GlassCard, Button, StatusOrb } from '../components/ui';
-import { api } from '../api/client';
+import { api, ImageAttachment } from '../api/client';
 
 interface Message {
   id: string;
   role: 'user' | 'coo';
   content: string;
   timestamp: Date;
+  images?: ImageAttachment[];  // Attached images
   context?: {
     type: 'project' | 'agent' | 'gate' | 'system';
     reference: string;
@@ -67,8 +68,10 @@ export function COOChannel() {
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -119,24 +122,27 @@ export function COOChannel() {
   }, []);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() && attachedImages.length === 0) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: input.trim() || (attachedImages.length > 0 ? '[Image]' : ''),
       timestamp: new Date(),
+      images: attachedImages.length > 0 ? [...attachedImages] : undefined,
     };
 
     setMessages((prev) => [...prev, userMessage]);
     const messageText = input.trim();
+    const imagesToSend = [...attachedImages];
     setInput('');
+    setAttachedImages([]);  // Clear attached images after sending
     setIsTyping(true);
     setError(null);
 
     try {
-      // Call real API
-      const response = await api.sendCOOMessage(messageText, threadId);
+      // Call real API with images
+      const response = await api.sendCOOMessage(messageText, threadId, undefined, imagesToSend);
 
       // Save thread ID for conversation continuity
       if (response.thread_id) {
@@ -182,7 +188,55 @@ export function COOChannel() {
     setMessages([welcomeMessage]);
     setThreadId(undefined);
     localStorage.removeItem(THREAD_STORAGE_KEY);
+    setAttachedImages([]);
     setError(null);
+  };
+
+  // Handle image paste from clipboard
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          processImageFile(file);
+        }
+        break;
+      }
+    }
+  }, []);
+
+  // Process an image file into base64
+  const processImageFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1]; // Remove data:image/xxx;base64, prefix
+      const mediaType = file.type || 'image/png';
+      setAttachedImages((prev) => [...prev, { data: base64, media_type: mediaType }]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle file upload via button
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        processImageFile(file);
+      }
+    }
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
+  // Remove an attached image
+  const removeImage = (index: number) => {
+    setAttachedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -335,9 +389,41 @@ export function COOChannel() {
 
         {/* Input Area */}
         <div className="p-4 border-t border-[var(--glass-border)]">
+          {/* Image Preview Area */}
+          {attachedImages.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {attachedImages.map((img, idx) => (
+                <div key={idx} className="relative group">
+                  <img
+                    src={`data:${img.media_type};base64,${img.data}`}
+                    alt={`Attachment ${idx + 1}`}
+                    className="h-20 w-auto rounded-lg border border-[var(--glass-border)] object-cover"
+                  />
+                  <button
+                    onClick={() => removeImage(idx)}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-[var(--color-warn)] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <GlassCard padding="sm">
             <div className="flex items-end gap-3">
-              <button className="p-2 hover:bg-[var(--glass-bg)] rounded-lg transition-colors text-[var(--color-muted)] hover:text-[var(--color-plasma)]">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept="image/*"
+                multiple
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 hover:bg-[var(--glass-bg)] rounded-lg transition-colors text-[var(--color-muted)] hover:text-[var(--color-plasma)]"
+                title="Attach image"
+              >
                 <Paperclip className="w-5 h-5" />
               </button>
               <div className="flex-1">
@@ -346,7 +432,8 @@ export function COOChannel() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Message the COO... Ask questions, give directions, discuss strategy"
+                  onPaste={handlePaste}
+                  placeholder={attachedImages.length > 0 ? "Add a message with your image(s)..." : "Message the COO... Paste screenshots or type"}
                   rows={1}
                   className="w-full px-0 py-2 bg-transparent text-sm text-[var(--color-plasma)] placeholder:text-[var(--color-muted)] focus:outline-none resize-none"
                   style={{ minHeight: '24px', maxHeight: '150px' }}
@@ -356,15 +443,15 @@ export function COOChannel() {
                 variant="primary"
                 size="md"
                 onClick={handleSend}
-                disabled={!input.trim()}
+                disabled={!input.trim() && attachedImages.length === 0}
               >
                 <Send className="w-4 h-4" />
               </Button>
             </div>
           </GlassCard>
           <p className="text-xs text-[var(--color-muted)] mt-2 px-2 flex items-center gap-1">
-            <Sparkles className="w-3 h-3" />
-            COO understands context, delegates to department heads, and coordinates execution
+            <ImageIcon className="w-3 h-3" />
+            Paste screenshots directly or click the paperclip to attach images
           </p>
         </div>
       </div>
@@ -391,6 +478,26 @@ function MessageBubble({ message }: { message: Message }) {
         )}
       </div>
       <div className={`max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
+        {/* Display attached images */}
+        {message.images && message.images.length > 0 && (
+          <div className={`mb-2 flex flex-wrap gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
+            {message.images.map((img, idx) => (
+              <img
+                key={idx}
+                src={`data:${img.media_type};base64,${img.data}`}
+                alt={`Attachment ${idx + 1}`}
+                className="max-h-48 max-w-full rounded-lg border border-[var(--glass-border)] object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => {
+                  // Open image in new tab for full view
+                  const win = window.open();
+                  if (win) {
+                    win.document.write(`<img src="data:${img.media_type};base64,${img.data}" style="max-width:100%;height:auto;" />`);
+                  }
+                }}
+              />
+            ))}
+          </div>
+        )}
         <div className={`px-4 py-3 text-sm ${
           isUser
             ? 'bg-[var(--color-neural)] text-white rounded-2xl rounded-br-md'

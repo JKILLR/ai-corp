@@ -95,10 +95,17 @@ def get_forge() -> TheForge:
 # Request/Response Models
 # =============================================================================
 
+class ImageAttachment(BaseModel):
+    """An image attachment for COO messages."""
+    data: str  # Base64-encoded image data
+    media_type: str = "image/png"  # MIME type (image/png, image/jpeg, image/gif, image/webp)
+
+
 class COOMessageRequest(BaseModel):
     message: str
     thread_id: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
+    images: Optional[List[ImageAttachment]] = None  # Attached images/screenshots
 
 class COOMessageResponse(BaseModel):
     response: str
@@ -246,6 +253,7 @@ DELEGATION ANALYSIS:
 
 CEO'S MESSAGE:
 {request.message}
+{f'{chr(10)}[CEO has attached {len(request.images)} image(s)/screenshot(s) - review them carefully]' if request.images else ''}
 
 Respond naturally as the COO. Handle simple things directly. For bigger asks, propose a plan or ask clarifying questions conversationally."""
 
@@ -270,10 +278,20 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
 
         else:
             # Normal COO response
+            # Convert images to LLM format if present
+            llm_images = []
+            if request.images:
+                for img in request.images:
+                    llm_images.append({
+                        "data": img.data,
+                        "media_type": img.media_type
+                    })
+
             response = coo.llm.execute(LLMRequest(
                 prompt=prompt,
                 system_prompt=system_prompt,
-                working_directory=get_corp_path()
+                working_directory=get_corp_path(),
+                images=llm_images
             ))
 
             if response.success:

@@ -26,6 +26,11 @@ export interface ConversationThread {
   unread: boolean;
 }
 
+export interface ImageAttachment {
+  data: string;  // Base64-encoded image data
+  media_type: string;  // MIME type (image/png, image/jpeg, etc.)
+}
+
 export interface COOMessageResponse {
   response: string;
   thread_id: string;
@@ -123,7 +128,8 @@ class APIClient {
   async sendCOOMessage(
     message: string,
     threadId?: string,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
+    images?: ImageAttachment[]
   ): Promise<COOMessageResponse> {
     return this.request<COOMessageResponse>('/api/coo/message', {
       method: 'POST',
@@ -131,6 +137,7 @@ class APIClient {
         message,
         thread_id: threadId,
         context,
+        images: images && images.length > 0 ? images : undefined,
       }),
     });
   }
