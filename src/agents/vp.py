@@ -129,7 +129,16 @@ class VPAgent(BaseAgent):
 
         # Determine which director to assign to
         target_director = analysis.get('delegation_to')
-        if not target_director and self.identity.direct_reports:
+
+        # Validate that LLM's suggestion is actually one of our direct reports
+        if target_director and self.identity.direct_reports:
+            if target_director not in self.identity.direct_reports:
+                logger.warning(
+                    f"LLM suggested '{target_director}' but not in direct_reports "
+                    f"{self.identity.direct_reports}, using first direct report"
+                )
+                target_director = self.identity.direct_reports[0]
+        elif not target_director and self.identity.direct_reports:
             # Default to first direct report
             target_director = self.identity.direct_reports[0]
 
