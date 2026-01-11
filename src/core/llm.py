@@ -95,16 +95,16 @@ class LLMBackend(ABC):
         pass
 
 
-# Default tools by agent level (matching agent-swarm pattern)
-AGENT_LEVEL_TOOLS = {
-    1: ["Read", "Glob", "Grep", "Bash"],  # Executive (COO) - read-heavy, orchestration
-    2: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],  # VP - can modify
-    3: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],  # Director - full access
-    4: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch"],  # Worker - full + web
-}
-
 # All available Claude Code tools
 ALL_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
+
+# All agent levels get full tools - no restrictions
+AGENT_LEVEL_TOOLS = {
+    1: ALL_TOOLS,  # Executive (COO)
+    2: ALL_TOOLS,  # VP
+    3: ALL_TOOLS,  # Director
+    4: ALL_TOOLS,  # Worker
+}
 
 
 class ClaudeCodeBackend(LLMBackend):

@@ -75,14 +75,16 @@
 
 **Problem:** `ClaudeCodeBackend` was passing skill names (e.g., "frontend-design") to `--allowedTools` instead of actual tool names (e.g., "Read", "Write", "Edit").
 
-**Solution:** Added role-based tool defaults matching agent-swarm pattern:
+**Solution:** All agent levels get full tools:
 
 ```python
+ALL_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
+
 AGENT_LEVEL_TOOLS = {
-    1: ["Read", "Glob", "Grep", "Bash"],  # Executive (COO)
-    2: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],  # VP
-    3: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],  # Director
-    4: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch"],  # Worker
+    1: ALL_TOOLS,  # Executive (COO)
+    2: ALL_TOOLS,  # VP
+    3: ALL_TOOLS,  # Director
+    4: ALL_TOOLS,  # Worker
 }
 ```
 
