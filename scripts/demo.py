@@ -265,18 +265,28 @@ def main():
         # Step 6: VP processes work
         print_step(6, "VP processing delegated work")
 
-        vp_result = vp.run()
-        print_substep(f"VP processed: {vp_result.get('processed', 0)} items")
+        try:
+            vp_result = vp.run() or {}
+            processed = vp_result.get('processed', 0) if isinstance(vp_result, dict) else 0
+            print_substep(f"VP processed: {processed} items")
+        except Exception as e:
+            print_substep(f"VP run error: {e}")
 
         show_molecule_status(molecule_engine, molecule.id)
+        show_hooks(hook_manager)
 
         # Step 7: Director processes work
         print_step(7, "Director processing work")
 
-        dir_result = director.run()
-        print_substep(f"Director processed: {dir_result.get('processed', 0)} items")
+        try:
+            dir_result = director.run() or {}
+            processed = dir_result.get('processed', 0) if isinstance(dir_result, dict) else 0
+            print_substep(f"Director processed: {processed} items")
+        except Exception as e:
+            print_substep(f"Director run error: {e}")
 
         show_molecule_status(molecule_engine, molecule.id)
+        show_hooks(hook_manager)
 
         # Step 8: Worker executes (THIS IS WHERE CLAUDE RUNS)
         print_step(8, "Worker executing with Claude CLI")
@@ -291,21 +301,25 @@ def main():
             print("  " + "-" * 40)
 
             try:
-                worker_result = worker.run()
+                worker_result = worker.run() or {}
                 print()
                 print(f"✓ Worker execution complete")
-                print(f"  Processed: {worker_result.get('processed', 0)} items")
 
-                if worker_result.get('results'):
-                    for item_id, result in worker_result['results'].items():
-                        print(f"\n  Work Item: {item_id}")
-                        if isinstance(result, dict):
-                            if result.get('output'):
-                                print(f"  Output: {result['output'][:200]}...")
-                            if result.get('error'):
-                                print(f"  Error: {result['error']}")
-                        else:
-                            print(f"  Result: {str(result)[:200]}...")
+                if isinstance(worker_result, dict):
+                    print(f"  Processed: {worker_result.get('processed', 0)} items")
+
+                    if worker_result.get('results'):
+                        for item_id, result in worker_result['results'].items():
+                            print(f"\n  Work Item: {item_id}")
+                            if isinstance(result, dict):
+                                if result.get('output'):
+                                    print(f"  Output: {result['output'][:200]}...")
+                                if result.get('error'):
+                                    print(f"  Error: {result['error']}")
+                            else:
+                                print(f"  Result: {str(result)[:200]}...")
+                else:
+                    print(f"  Result: {worker_result}")
 
             except Exception as e:
                 print(f"✗ Worker execution failed: {e}")
