@@ -4,7 +4,7 @@
  * Handles all communication with the FastAPI backend.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8001';
 
 // Types
 export interface Message {
