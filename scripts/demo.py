@@ -205,10 +205,8 @@ def main():
         coo = COOAgent(corp_path)
         print_substep("COO Agent created")
 
-        # Create VP
+        # Create VP (factory uses department to configure)
         vp = create_vp_agent(
-            role_id="vp_engineering",
-            role_name="VP of Engineering",
             department="engineering",
             corp_path=corp_path
         )
@@ -219,18 +217,16 @@ def main():
             role_id="dir_backend",
             role_name="Director of Backend",
             department="engineering",
-            reports_to="vp_engineering",
             focus="backend development",
+            reports_to="vp_engineering",
             corp_path=corp_path
         )
         print_substep("Director Backend created")
 
-        # Create Worker
+        # Create Worker (uses worker_type instead of role_id)
         worker = create_worker_agent(
-            role_id="worker_backend_1",
-            role_name="Backend Developer",
+            worker_type="backend",
             department="engineering",
-            specialty="Python development",
             reports_to="dir_backend",
             corp_path=corp_path
         )
