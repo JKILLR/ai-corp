@@ -95,16 +95,8 @@ class LLMBackend(ABC):
         pass
 
 
-# All available Claude Code tools
+# All available Claude Code tools - all agents get full access
 ALL_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
-
-# All agent levels get full tools - no restrictions
-AGENT_LEVEL_TOOLS = {
-    1: ALL_TOOLS,  # Executive (COO)
-    2: ALL_TOOLS,  # VP
-    3: ALL_TOOLS,  # Director
-    4: ALL_TOOLS,  # Worker
-}
 
 
 class ClaudeCodeBackend(LLMBackend):
@@ -163,7 +155,7 @@ class ClaudeCodeBackend(LLMBackend):
         Execute an LLM request via Claude Code CLI.
 
         Args:
-            request: The LLM request to execute (skills should be in request.skills)
+            request: The LLM request to execute
 
         Returns:
             LLMResponse with result or error
@@ -188,12 +180,8 @@ class ClaudeCodeBackend(LLMBackend):
         if request.system_prompt:
             cmd.extend(['--system-prompt', request.system_prompt])
 
-        # Determine tools to enable
-        tools_to_use = request.tools  # Explicit tools take priority
-        if not tools_to_use:
-            # Fall back to level-based defaults
-            agent_level = request.context.get('agent_level', 4)  # Default to worker level
-            tools_to_use = AGENT_LEVEL_TOOLS.get(agent_level, ALL_TOOLS)
+        # Determine tools to enable (explicit tools or all by default)
+        tools_to_use = request.tools if request.tools else ALL_TOOLS
 
         # Add allowed tools (actual Claude Code tools: Read, Write, Edit, etc.)
         for tool in tools_to_use:

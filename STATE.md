@@ -75,23 +75,16 @@
 
 **Problem:** `ClaudeCodeBackend` was passing skill names (e.g., "frontend-design") to `--allowedTools` instead of actual tool names (e.g., "Read", "Write", "Edit").
 
-**Solution:** All agent levels get full tools:
+**Solution:** All agents now get full tools via `ALL_TOOLS`:
 
 ```python
 ALL_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
-
-AGENT_LEVEL_TOOLS = {
-    1: ALL_TOOLS,  # Executive (COO)
-    2: ALL_TOOLS,  # VP
-    3: ALL_TOOLS,  # Director
-    4: ALL_TOOLS,  # Worker
-}
 ```
 
 **Files Changed:**
-- `src/core/llm.py` - Added `AGENT_LEVEL_TOOLS`, fixed `--allowedTools` to use actual tool names
-- `src/agents/base.py` - Added `agent_level` to context for tool selection
-- `src/core/__init__.py` - Exported new constants
+- `src/core/llm.py` - Added `ALL_TOOLS`, fixed `--allowedTools` to use actual tool names
+- `src/agents/base.py` - Added `agent_level` to context
+- `src/core/__init__.py` - Exported `ALL_TOOLS`
 
 **Result:** All agents now have full Claude Code capabilities within their execution context.
 

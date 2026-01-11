@@ -1115,9 +1115,12 @@ Swappable LLM backends for flexible execution:
 
 ```python
 # Backend Types
-ClaudeCodeBackend   # Spawns actual Claude Code instances
+ClaudeCodeBackend   # Spawns actual Claude Code instances with full tool access
 ClaudeAPIBackend    # Uses Anthropic API directly
 MockBackend         # For testing without LLM calls
+
+# Tool Access - All agents get full Claude Code tools
+ALL_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
 
 # Factory Pattern
 LLMBackendFactory.get_best_available()  # Auto-selects best backend
