@@ -1,54 +1,159 @@
 #!/usr/bin/env python3
 """
-AI Corp Demo Script - Real Claude Execution Test
+AI Corp Demo Script - Full System Test with Monitoring
 
 Run this from a SEPARATE TERMINAL (not within Claude Code) to test
-the system with real Claude CLI execution.
+the complete system with real Claude CLI execution.
 
 Usage:
     python scripts/demo.py
 
 This will:
 1. Initialize a test corporation
-2. Submit a simple task as CEO
-3. Run the COO to process the task
-4. Show the molecule progress
+2. Submit a task as CEO
+3. Run full agent chain: COO → VP → Director → Worker
+4. Monitor flow and health throughout
+5. Show bead audit trail
 """
 
 import sys
 import os
 import tempfile
-import shutil
+import time
 from pathlib import Path
+from datetime import datetime
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.core.preset import init_from_preset
-from src.core.molecule import MoleculeEngine
+from src.core.molecule import MoleculeEngine, MoleculeStatus
+from src.core.hook import HookManager
+from src.core.bead import BeadLedger
+from src.core.monitor import SystemMonitor
 from src.agents.coo import COOAgent
+from src.agents.vp import create_vp_agent
+from src.agents.director import create_director_agent
+from src.agents.worker import create_worker_agent
 from src.core.llm import ClaudeCodeBackend
 
 
 def print_header(text: str):
     """Print a formatted header."""
     print()
-    print("=" * 60)
+    print("=" * 70)
     print(f"  {text}")
-    print("=" * 60)
+    print("=" * 70)
     print()
 
 
 def print_step(num: int, text: str):
     """Print a step indicator."""
     print(f"\n[Step {num}] {text}")
-    print("-" * 40)
+    print("-" * 50)
+
+
+def print_substep(text: str):
+    """Print a substep."""
+    print(f"  → {text}")
+
+
+def show_molecule_status(engine: MoleculeEngine, mol_id: str):
+    """Display molecule status."""
+    mol = engine.get_molecule(mol_id)
+    if not mol:
+        print("  Molecule not found")
+        return
+
+    progress = mol.get_progress()
+    print(f"\n  Molecule: {mol.name}")
+    print(f"  Status: {mol.status.value}")
+    print(f"  Progress: {progress['percent_complete']:.0f}%")
+    print()
+
+    status_icons = {
+        "pending": "○",
+        "in_progress": "◐",
+        "completed": "●",
+        "failed": "✗",
+        "blocked": "⊘"
+    }
+
+    for i, step in enumerate(mol.steps, 1):
+        icon = status_icons.get(step.status.value, "?")
+        gate = " [GATE]" if step.is_gate else ""
+        assigned = f" → {step.assigned_to}" if step.assigned_to else ""
+        print(f"  {icon} {i}. {step.name}{gate}{assigned}")
+        print(f"      Status: {step.status.value}")
+        if step.result:
+            result_preview = str(step.result)[:60] + "..." if len(str(step.result)) > 60 else str(step.result)
+            print(f"      Result: {result_preview}")
+
+
+def show_health_status(monitor: SystemMonitor):
+    """Display system health."""
+    print("\n  System Health:")
+    print("  " + "-" * 40)
+
+    metrics = monitor.collect_metrics()
+
+    # Agent health
+    if metrics.agents:
+        for agent_id, status in metrics.agents.items():
+            health_icons = {"healthy": "✓", "slow": "!", "unresponsive": "✗", "unknown": "?"}
+            icon = health_icons.get(status.health.value, "?")
+            work = status.current_work or "idle"
+            print(f"  [{icon}] {agent_id}: {work}")
+    else:
+        print("  No agents registered")
+
+    # Alerts
+    alerts = monitor.get_active_alerts()
+    if alerts:
+        print("\n  Active Alerts:")
+        for alert in alerts:
+            print(f"  [{alert.severity.value.upper()}] {alert.message}")
+
+
+def show_beads(ledger: BeadLedger, limit: int = 5):
+    """Show recent beads (audit trail)."""
+    print("\n  Recent Audit Trail (Beads):")
+    print("  " + "-" * 40)
+
+    beads = ledger.list_beads(limit=limit)
+    if not beads:
+        print("  No beads recorded yet")
+        return
+
+    for bead in beads[:limit]:
+        timestamp = bead.created_at[:19] if bead.created_at else "unknown"
+        print(f"  [{timestamp}] {bead.event_type}")
+        print(f"    Actor: {bead.actor_id}")
+        if bead.summary:
+            print(f"    Summary: {bead.summary[:50]}...")
+
+
+def show_hooks(hook_manager: HookManager):
+    """Show hook status."""
+    print("\n  Work Queues (Hooks):")
+    print("  " + "-" * 40)
+
+    hooks = hook_manager.list_hooks()
+    if not hooks:
+        print("  No hooks found")
+        return
+
+    for hook in hooks:
+        stats = hook.get_stats()
+        print(f"  {hook.name} ({hook.owner_id})")
+        print(f"    Queued: {stats['queued']} | In Progress: {stats['in_progress']} | Completed: {stats['completed']}")
 
 
 def main():
-    print_header("AI Corp Demo - Real Claude Execution Test")
+    print_header("AI Corp - Full System Demo")
+    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # Check Claude CLI availability
+    # Step 1: Check Claude CLI
     print_step(1, "Checking Claude CLI availability")
 
     import subprocess
@@ -60,116 +165,185 @@ def main():
             timeout=10
         )
         if result.returncode == 0:
-            print(f"✓ Claude CLI available: {result.stdout.strip()}")
+            print(f"✓ Claude CLI: {result.stdout.strip()}")
         else:
-            print(f"✗ Claude CLI returned error: {result.stderr}")
+            print(f"✗ Claude CLI error: {result.stderr}")
             return 1
     except FileNotFoundError:
-        print("✗ Claude CLI not found in PATH")
-        print("  Make sure Claude Code CLI is installed and accessible")
+        print("✗ Claude CLI not found - install Claude Code CLI first")
         return 1
     except subprocess.TimeoutExpired:
         print("✗ Claude CLI timed out")
         return 1
 
-    # Create temporary directory for test corp
+    # Step 2: Initialize corporation
     print_step(2, "Initializing test corporation")
 
-    test_dir = Path(tempfile.mkdtemp(prefix="aicorp_demo_"))
-    print(f"  Test directory: {test_dir}")
+    test_dir = Path(tempfile.mkdtemp(prefix="aicorp_full_demo_"))
+    print(f"  Directory: {test_dir}")
 
     try:
-        # Initialize corp
         corp_path = init_from_preset(
             preset_id="software-company",
             target_path=test_dir,
             name="Demo Corp"
         )
-        print(f"✓ Corporation initialized at: {corp_path}")
-
-        # Set environment for corp path
+        print(f"✓ Corporation initialized")
         os.environ['AI_CORP_PATH'] = str(corp_path)
 
-        # Create COO agent
-        print_step(3, "Creating COO Agent")
-        coo = COOAgent(corp_path)
-        print(f"✓ COO Agent created")
+        # Initialize core components
+        molecule_engine = MoleculeEngine(corp_path)
+        hook_manager = HookManager(corp_path)
+        bead_ledger = BeadLedger(corp_path, auto_commit=False)
+        monitor = SystemMonitor(corp_path)
 
-        # Submit a simple task
-        print_step(4, "Submitting test task as CEO")
-        task_title = "Create a simple hello world function"
-        task_description = "Write a Python function that returns 'Hello, World!'"
+        print_substep("Core components initialized")
+
+        # Step 3: Create agents
+        print_step(3, "Creating agent hierarchy")
+
+        coo = COOAgent(corp_path)
+        print_substep("COO Agent created")
+
+        # Create VP
+        vp = create_vp_agent(
+            role_id="vp_engineering",
+            role_name="VP of Engineering",
+            department="engineering",
+            corp_path=corp_path
+        )
+        print_substep("VP Engineering created")
+
+        # Create Director
+        director = create_director_agent(
+            role_id="dir_backend",
+            role_name="Director of Backend",
+            department="engineering",
+            reports_to="vp_engineering",
+            focus="backend development",
+            corp_path=corp_path
+        )
+        print_substep("Director Backend created")
+
+        # Create Worker
+        worker = create_worker_agent(
+            role_id="worker_backend_1",
+            role_name="Backend Developer",
+            department="engineering",
+            specialty="Python development",
+            reports_to="dir_backend",
+            corp_path=corp_path
+        )
+        print_substep("Backend Worker created")
+
+        # Step 4: Submit task
+        print_step(4, "Submitting task as CEO")
+
+        task_title = "Create a Python function that adds two numbers"
+        task_desc = "Write a simple Python function called 'add' that takes two numbers and returns their sum. Include a docstring."
 
         molecule = coo.receive_ceo_task(
             title=task_title,
-            description=task_description,
+            description=task_desc,
             priority="P2_MEDIUM"
         )
 
         print(f"✓ Task submitted")
         print(f"  Molecule ID: {molecule.id}")
-        print(f"  Title: {molecule.name}")
-        print(f"  Steps: {len(molecule.steps)}")
+        show_molecule_status(molecule_engine, molecule.id)
 
-        # Show molecule details
-        print_step(5, "Molecule Details")
-        for i, step in enumerate(molecule.steps, 1):
-            gate_marker = " [GATE]" if step.is_gate else ""
-            print(f"  {i}. {step.name}{gate_marker}")
-            print(f"     Status: {step.status.value}")
+        # Step 5: COO processes and delegates
+        print_step(5, "COO processing and delegating")
 
-        # Ask user if they want to start execution
-        print_step(6, "Ready for Execution")
-        print("The molecule is ready to be executed with real Claude.")
-        print()
-        print("To execute, you would run:")
-        print(f"  cd {test_dir}")
-        print("  ai-corp coo")
-        print()
-        print("Or start the molecule:")
-        print(f"  ai-corp ceo '{task_title}' --start")
+        # Start molecule
+        molecule = molecule_engine.start_molecule(molecule.id)
+        print_substep(f"Molecule started: {molecule.status.value}")
+
+        # COO delegates
+        delegations = coo.delegate_molecule(molecule)
+        print_substep(f"Delegated {len(delegations)} work items")
+
+        show_molecule_status(molecule_engine, molecule.id)
+        show_hooks(hook_manager)
+
+        # Step 6: VP processes work
+        print_step(6, "VP processing delegated work")
+
+        vp_result = vp.run()
+        print_substep(f"VP processed: {vp_result.get('processed', 0)} items")
+
+        show_molecule_status(molecule_engine, molecule.id)
+
+        # Step 7: Director processes work
+        print_step(7, "Director processing work")
+
+        dir_result = director.run()
+        print_substep(f"Director processed: {dir_result.get('processed', 0)} items")
+
+        show_molecule_status(molecule_engine, molecule.id)
+
+        # Step 8: Worker executes (THIS IS WHERE CLAUDE RUNS)
+        print_step(8, "Worker executing with Claude CLI")
+        print("  (This step will call real Claude CLI...)")
         print()
 
-        # Option to run COO
-        response = input("Run COO now? (y/n): ").strip().lower()
+        response = input("  Run worker with real Claude? (y/n): ").strip().lower()
+
         if response == 'y':
             print()
-            print("Starting COO execution...")
-            print("(Press Ctrl+C to stop)")
-            print()
+            print("  Executing...")
+            print("  " + "-" * 40)
 
             try:
-                # Start the molecule first
-                molecule = coo.molecule_engine.start_molecule(molecule.id)
-                print(f"✓ Molecule started")
-
-                # Delegate to VPs
-                delegations = coo.delegate_molecule(molecule)
-                print(f"✓ Delegated {len(delegations)} steps")
-
-                # Run COO cycle
-                coo.run()
-                print(f"✓ COO cycle completed")
-
-                # Show results
-                molecule = coo.molecule_engine.get_molecule(molecule.id)
+                worker_result = worker.run()
                 print()
-                print("Results:")
-                print("-" * 40)
-                for i, step in enumerate(molecule.steps, 1):
-                    status_icon = {"pending": "○", "in_progress": "◐", "completed": "●", "failed": "✗"}
-                    icon = status_icon.get(step.status.value, "?")
-                    print(f"  {icon} {step.name}: {step.status.value}")
+                print(f"✓ Worker execution complete")
+                print(f"  Processed: {worker_result.get('processed', 0)} items")
 
-            except KeyboardInterrupt:
-                print("\nExecution interrupted.")
+                if worker_result.get('results'):
+                    for item_id, result in worker_result['results'].items():
+                        print(f"\n  Work Item: {item_id}")
+                        if isinstance(result, dict):
+                            if result.get('output'):
+                                print(f"  Output: {result['output'][:200]}...")
+                            if result.get('error'):
+                                print(f"  Error: {result['error']}")
+                        else:
+                            print(f"  Result: {str(result)[:200]}...")
 
+            except Exception as e:
+                print(f"✗ Worker execution failed: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print("  Skipped worker execution")
+
+        # Step 9: Show final status
+        print_step(9, "Final System Status")
+
+        show_molecule_status(molecule_engine, molecule.id)
+        show_health_status(monitor)
+        show_beads(bead_ledger)
+        show_hooks(hook_manager)
+
+        # Summary
         print_header("Demo Complete")
-        print(f"Test corporation at: {test_dir}")
-        print("You can continue experimenting with this corp.")
+
+        final_mol = molecule_engine.get_molecule(molecule.id)
+        final_progress = final_mol.get_progress() if final_mol else {'percent_complete': 0}
+
+        print(f"  Corporation: {test_dir}")
+        print(f"  Molecule: {molecule.id}")
+        print(f"  Final Progress: {final_progress['percent_complete']:.0f}%")
         print()
-        print("Cleanup command:")
-        print(f"  rm -rf {test_dir}")
+        print("  Continue experimenting:")
+        print(f"    cd {test_dir}")
+        print("    ai-corp status")
+        print("    ai-corp molecules list")
+        print("    ai-corp coo  # Run another COO cycle")
+        print()
+        print("  Cleanup:")
+        print(f"    rm -rf {test_dir}")
 
         return 0
 
