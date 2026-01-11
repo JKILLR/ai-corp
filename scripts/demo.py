@@ -213,6 +213,9 @@ def main():
             department="engineering",
             corp_path=corp_path
         )
+        # WORKAROUND: Add all capabilities so VP can claim any work to delegate
+        # (VPs are delegators, not executors - capability check should be bypassed)
+        vp.identity.capabilities.extend(['development', 'coding', 'research', 'analysis', 'design', 'testing'])
         print_substep("VP Engineering created")
 
         # Create Director
@@ -224,6 +227,8 @@ def main():
             reports_to="vp_engineering",
             corp_path=corp_path
         )
+        # WORKAROUND: Add capabilities for delegation
+        director.identity.capabilities.extend(['development', 'coding', 'implementation'])
         print_substep("Director Backend created")
 
         # Create Worker (uses worker_type instead of role_id)
@@ -233,6 +238,8 @@ def main():
             reports_to="dir_backend",
             corp_path=corp_path
         )
+        # Workers are executors - need all capabilities they might be assigned
+        worker.identity.capabilities.extend(['development', 'coding', 'implementation'])
         print_substep("Backend Worker created")
 
         # Step 4: Submit task
