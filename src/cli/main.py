@@ -3,6 +3,8 @@
 AI Corp CLI - Main Entry Point
 
 Usage:
+    ai-corp serve                             Start the API server (port 8001)
+    ai-corp serve -p 8000                     Start on custom port
     ai-corp init [path] --preset=X --name=Y   Initialize AI Corp from a preset
     ai-corp presets [list|show]               List or show available presets
     ai-corp ceo <task>                        Submit a task as CEO
@@ -1044,6 +1046,22 @@ def cmd_dashboard(args):
     )
 
 
+def cmd_serve(args):
+    """Start the API server"""
+    import uvicorn
+
+    print(f"Starting AI Corp API server on port {args.port}...")
+    print(f"API docs: http://localhost:{args.port}/docs")
+    print()
+
+    uvicorn.run(
+        "src.api.main:app",
+        host=args.host,
+        port=args.port,
+        reload=args.reload
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='AI Corp - Autonomous AI Corporation',
@@ -1197,6 +1215,18 @@ def main():
     dashboard_parser.add_argument('--status-line', action='store_true',
                                    help='Output plain status line (for scripts/prompts)')
     dashboard_parser.set_defaults(func=cmd_dashboard)
+
+    # Serve command (API server)
+    serve_parser = subparsers.add_parser('serve', help='Start the API server')
+    serve_parser.add_argument('-p', '--port', type=int, default=8001,
+                              help='Port to run on (default: 8001)')
+    serve_parser.add_argument('--host', default='127.0.0.1',
+                              help='Host to bind to (default: 127.0.0.1)')
+    serve_parser.add_argument('--reload', action='store_true', default=True,
+                              help='Enable auto-reload (default: True)')
+    serve_parser.add_argument('--no-reload', dest='reload', action='store_false',
+                              help='Disable auto-reload')
+    serve_parser.set_defaults(func=cmd_serve)
 
     args = parser.parse_args()
 
