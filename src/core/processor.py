@@ -170,6 +170,8 @@ class StatusUpdateHandler(MessageHandler):
 
         status = message.attachments.get('status', 'unknown')
         blockers = message.attachments.get('blockers', [])
+        step_id = message.step_id
+        result = message.attachments.get('result', {})
 
         # Log the status update
         agent.bead.record(
@@ -179,11 +181,28 @@ class StatusUpdateHandler(MessageHandler):
             data={
                 'from': message.sender_id,
                 'molecule_id': message.molecule_id,
+                'step_id': step_id,
                 'status': status,
                 'summary': message.body
             },
             message=f"Status update from {message.sender_id}: {status}"
         )
+
+        # If completed and this is a molecule step, update the step status
+        if status == 'completed' and message.molecule_id and step_id:
+            try:
+                # Mark the step as completed in the molecule
+                agent.molecule_engine.complete_step(
+                    molecule_id=message.molecule_id,
+                    step_id=step_id,
+                    result=result
+                )
+            except Exception as e:
+                # Log but don't fail - step may already be completed
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Could not complete step {step_id}: {e}"
+                )
 
         # If completed and this is a molecule step, check for next steps
         if status == 'completed' and message.molecule_id:
