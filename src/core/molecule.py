@@ -919,6 +919,20 @@ class MoleculeEngine:
         molecule.metadata['swarm_critique_steps'] = critique_step_ids
         molecule.metadata['swarm_converge_step'] = converge_step.id
 
+    def _get_composite_molecule(self, molecule_id: str) -> Optional[tuple]:
+        """
+        Get and validate a composite molecule.
+
+        Returns (molecule, config) tuple if valid, None otherwise.
+        """
+        molecule = self.get_molecule(molecule_id)
+        if not molecule or molecule.workflow_type != WorkflowType.COMPOSITE:
+            return None
+        config = molecule.composite_config
+        if not config or not config.phases:
+            return None
+        return (molecule, config)
+
     def _start_composite_phase(self, molecule: Molecule) -> Optional[Molecule]:
         """
         Start the current phase of a composite molecule.
@@ -929,7 +943,7 @@ class MoleculeEngine:
         Returns the created child molecule, or None if no phases remain.
         """
         config = molecule.composite_config
-        if not config:
+        if not config or not config.phases:
             return None
 
         phase = config.get_current_phase()
@@ -984,6 +998,9 @@ class MoleculeEngine:
             'started_at': datetime.utcnow().isoformat()
         })
 
+        # Save parent molecule with updated metadata and child links
+        self._save_molecule(molecule)
+
         # Start the child molecule
         child_molecule = self.start_molecule(child_molecule.id)
 
@@ -998,13 +1015,10 @@ class MoleculeEngine:
 
         Returns the new child molecule, or None if composite is complete.
         """
-        molecule = self.get_molecule(molecule_id)
-        if not molecule or molecule.workflow_type != WorkflowType.COMPOSITE:
+        result = self._get_composite_molecule(molecule_id)
+        if not result:
             return None
-
-        config = molecule.composite_config
-        if not config:
-            return None
+        molecule, config = result
 
         # Advance to next phase
         next_phase = config.advance_phase()
@@ -1012,7 +1026,10 @@ class MoleculeEngine:
             # No more phases - composite is complete
             return None
 
-        # Save updated phase index
+        # Update metadata to track phase progression
+        molecule.metadata['composite_current_phase'] = config.current_phase
+
+        # Save updated phase index and metadata
         self._save_molecule(molecule)
 
         # Start the new phase
@@ -1033,15 +1050,14 @@ class MoleculeEngine:
         - ESCALATE_TO_PREVIOUS: Go back to previous phase
         - ESCALATE_TO_SWARM: Create new swarm research phase
 
+        If escalation_enabled is False, all non-FAIL actions are treated as FAIL.
+
         Returns the new child molecule if escalation occurred, None otherwise.
         """
-        molecule = self.get_molecule(molecule_id)
-        if not molecule or molecule.workflow_type != WorkflowType.COMPOSITE:
+        result = self._get_composite_molecule(molecule_id)
+        if not result:
             return None
-
-        config = molecule.composite_config
-        if not config:
-            return None
+        molecule, config = result
 
         phase = config.get_current_phase()
         if not phase:
@@ -1057,6 +1073,10 @@ class MoleculeEngine:
 
         # Determine action based on phase configuration
         action = phase.on_failure
+
+        # If escalation is disabled, treat all non-FAIL actions as FAIL
+        if not config.escalation_enabled and action != EscalationAction.FAIL:
+            action = EscalationAction.FAIL
 
         if action == EscalationAction.FAIL:
             # Mark composite as failed
@@ -1078,6 +1098,7 @@ class MoleculeEngine:
             if config.current_phase > 0 and config.escalation_count < config.max_escalations:
                 config.current_phase -= 1
                 config.escalation_count += 1
+                molecule.metadata['composite_current_phase'] = config.current_phase
                 self._save_molecule(molecule)
                 return self._start_composite_phase(molecule)
             # Can't go back further or exceeded escalations
