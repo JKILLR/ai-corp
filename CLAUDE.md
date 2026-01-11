@@ -22,18 +22,21 @@ Before making any changes, read these files:
 | 2 | `ROADMAP.md` | Approved plans, priorities, core principles |
 | 3 | `AI_CORP_ARCHITECTURE.md` | Technical architecture (keep this updated!) |
 | 4 | `WORKFLOW.md` | Development rules and documentation process |
+| 5 | `docs/COO_INTERFACE_DESIGN.md` | How CEO interacts with COO (primary UX) |
 
 ---
 
 ## Current Priority
 
-**System Verified ✅** - All P1 complete + Real Claude Testing successful. Ready for P2:
+**Backend Complete ✅** - All core systems implemented. Critical path is now **API Layer**:
 
-1. **Swarm Molecule Type** - Parallel research: scatter → cross-critique → converge
-2. **Composite Molecules** - Chain molecule types (Swarm → Ralph → escalate)
-3. **Orchestration Layer** - Automatic work flow (without manual agent.run() calls)
+1. **API Server** - FastAPI server connecting frontend to backend (CRITICAL)
+2. **COO Chat Endpoint** - `POST /api/coo/message` routing to COOAgent
+3. **Frontend-Backend Integration** - Replace mock data with real API calls
 
-See `ROADMAP.md` for full priority list and `STATE.md` for recent changes.
+The frontend chat UI exists but uses mock data. The backend (COOAgent, Memory, Hierarchy) exists but has no API. Building the API layer connects them.
+
+See `docs/COO_INTERFACE_DESIGN.md` for how the CEO-COO interaction should work.
 
 ---
 
