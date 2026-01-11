@@ -11,6 +11,38 @@ Foundation Corp uses AI Corp to build AI Corp. To prevent live code corruption, 
 /home/user/ai-corp-foundation/   <- Foundation Corp's workspace (foundation/* branches)
 ```
 
+## Running Foundation Corp
+
+### Option 1: Full Hierarchy Execution (Recommended)
+
+Run the full agent chain via CLI:
+
+```bash
+cd /home/user/ai-corp-foundation
+ai-corp ceo "Add timeout handling to gates" --discover --execute
+```
+
+This runs:
+1. **Discovery conversation** - COO asks clarifying questions
+2. **Contract + Molecule creation** - Structured success criteria
+3. **Delegation** - COO → VP → Director → Worker
+4. **Execution** - Workers execute with Claude CLI
+
+For complex tasks, run multiple cycles:
+```bash
+ai-corp ceo "Refactor memory system" --discover --execute --cycles 3
+```
+
+### Option 2: Single Agent Mode
+
+For simpler tasks, use Claude Code directly:
+
+```bash
+cd /home/user/ai-corp-foundation
+claude
+# Then give your task in the conversation
+```
+
 ## The Workflow
 
 ```
@@ -18,8 +50,8 @@ Foundation Corp uses AI Corp to build AI Corp. To prevent live code corruption, 
 │                     DOGFOODING WORKFLOW                         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  Step 1: Foundation Corp edits code                             │
-│          └─> /home/user/ai-corp-foundation/                     │
+│  Step 1: Foundation Corp executes task                          │
+│          └─> ai-corp ceo "task" --discover --execute            │
 │                                                                 │
 │  Step 2: Foundation commits and pushes                          │
 │          └─> git push origin foundation/feature-xyz             │
