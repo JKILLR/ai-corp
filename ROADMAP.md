@@ -1,6 +1,6 @@
 # AI Corp Roadmap
 
-> **Last Updated:** 2026-01-09 (P1 Refinements Complete)
+> **Last Updated:** 2026-01-11 (Real Claude Testing Complete)
 > **Purpose:** Single source of truth for approved plans and priorities
 > **Update Rule:** Add new items when approved, move to "Completed" when done
 
@@ -24,10 +24,10 @@
 
 ### P0 - Immediate (Now)
 
-**Ready for P2 Features** - All P1 system refinements complete. Options:
+**System Verified** - All P1 complete + Real Claude Testing **SUCCESSFUL**. Ready for P2:
 1. Swarm Molecule Type (parallel research pattern)
 2. Composite Molecules (chain molecule types)
-3. Real Claude Testing (E2E with ClaudeCodeBackend)
+3. Orchestration Layer (automatic work flow without manual agent.run() calls)
 
 ---
 
@@ -88,6 +88,7 @@
 
 | Feature | Completed | Notes |
 |---------|-----------|-------|
+| **Real Claude Testing** | **2026-01-11** | **Full agent chain: CEO → COO → VP → Director → Worker → Claude CLI** |
 | Core Infrastructure | 2026-01-05 | Molecules, hooks, beads, channels, gates, pools |
 | Agent Hierarchy | 2026-01-05 | COO, VP, Director, Worker agents |
 | LLM Integration | 2026-01-05 | Swappable backends (ClaudeCode, API, Mock) |
