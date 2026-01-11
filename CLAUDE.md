@@ -27,11 +27,11 @@ Before making any changes, read these files:
 
 ## Current Priority
 
-**All P1 Complete** - Ready for P2 features:
+**System Verified ✅** - All P1 complete + Real Claude Testing successful. Ready for P2:
 
 1. **Swarm Molecule Type** - Parallel research: scatter → cross-critique → converge
 2. **Composite Molecules** - Chain molecule types (Swarm → Ralph → escalate)
-3. **Real Claude Testing** - E2E with ClaudeCodeBackend (run from separate terminal)
+3. **Orchestration Layer** - Automatic work flow (without manual agent.run() calls)
 
 See `ROADMAP.md` for full priority list and `STATE.md` for recent changes.
 
@@ -103,6 +103,9 @@ python3 -c "import ast; ast.parse(open('file.py').read())"
 
 # Import test
 python3 -c "from src.core import MoleculeEngine; print('OK')"
+
+# Full agent chain demo (run from separate terminal, not inside Claude Code)
+python scripts/demo.py
 ```
 
 ---

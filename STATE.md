@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-11
-> **Current Phase:** P2 - Orchestration Layer
-> **Status:** Orchestration Layer implemented - corporation.run_cycle() now autonomous
-> **Next Action:** Real Claude Testing (from separate terminal) to verify full E2E
+> **Current Phase:** P2 - Orchestration Layer Complete
+> **Status:** ✅ Real Claude Testing SUCCESSFUL + Orchestration Layer implemented
+> **Next Action:** P2 Features (Swarm Molecules, Composite Molecules)
 
 ---
 
@@ -49,7 +49,8 @@
 | **Work Scheduler** | ✅ Complete | Capability matching, load balancing, dependency resolution |
 | **Executor Integration** | ✅ Complete | CorporationExecutor ↔ WorkScheduler ↔ SkillRegistry |
 | Tests | ✅ Complete | 770+ tests passing |
-| End-to-End Test | ⏳ Ready | CLI flow works with mock backend, ready for real testing |
+| End-to-End Test | ✅ Complete | Full agent chain tested with real Claude CLI |
+| **Real Claude Testing** | ✅ Complete | CEO → COO → VP → Director → Worker → Claude CLI |
 | **Entity Graph** | ✅ Complete | Unified entity management (Mem0/Graphiti-inspired) |
 | **File Storage** | ✅ Complete | Internal storage + Google Drive integration |
 | **The Forge** | ✅ Complete | Intention incubation system |
@@ -120,6 +121,51 @@ def run_cycle():
 - No more manual capability configuration
 - No more manual pool registration
 - Work flows automatically: COO → VP → Director → Worker
+
+### 2026-01-11: Real Claude Testing **SUCCESSFUL** ✅
+
+**Goal:** Test full agent chain with actual Claude Code CLI (from separate terminal)
+
+**Result:** Full chain executed successfully:
+```
+CEO task → COO → VP → Director → Worker → Claude CLI → ✅ Success!
+```
+
+**Demo Script:** `scripts/demo.py` - Component integration test
+
+**Issues Discovered & Fixed:**
+
+| Issue | Root Cause | Fix |
+|-------|-----------|-----|
+| VP not seeing work | Hook cache staleness | Force reload hooks from disk before agent runs |
+| VP delegating to wrong target | LLM suggesting invalid `delegation_to` | Validate against `direct_reports`, fallback to first |
+| Director not delegating | No workers in pool | Register workers with `add_worker_to_pool()` |
+| Workers not finding work | Looking in own hook | Workers claim from Director's hook (shared pool queue) |
+| Claude CLI error | Prompt as positional arg | Pass prompt via stdin instead |
+
+**Key Fixes Applied:**
+
+1. **VP Delegation Validation** (`src/agents/vp.py`):
+   - VP now validates LLM's `delegation_to` against configured `direct_reports`
+   - Falls back to first direct report if LLM suggests invalid target
+
+2. **Claude CLI stdin** (`src/core/llm.py`):
+   - Changed from positional argument to stdin for prompt passing
+   - More reliable for multiline prompts
+
+3. **Worker Pool Model** (architecture understanding):
+   - Directors create worker pools
+   - Workers must be registered in pool
+   - Director's hook serves as shared pool queue
+   - Workers claim from Director's hook, not individual hooks
+
+**Verified Working:**
+- ✅ COO receives CEO task, creates molecule, delegates to VP
+- ✅ VP analyzes with Claude, delegates to Director
+- ✅ Director processes work, delegates to Worker pool
+- ✅ Worker claims from pool queue, executes with real Claude CLI
+- ✅ Bead audit trail records full execution history
+- ✅ Molecule progress tracking works
 
 ### 2026-01-10: Real Claude Testing Attempted
 
@@ -832,7 +878,8 @@ CorporationExecutor
 | Issue | Severity | Notes |
 |-------|----------|-------|
 | No async support | Low | Could improve performance |
-| ClaudeCodeBackend untested with real Claude | Medium | Ready for testing with Max subscription |
+| Hook cache staleness | Low | Workaround: force reload before agent runs (see demo.py) |
+| No orchestration layer | Medium | Manual agent.run() calls needed; automatic flow is P2 |
 
 ---
 
