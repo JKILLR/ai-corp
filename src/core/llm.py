@@ -211,13 +211,17 @@ class ClaudeCodeBackend(LLMBackend):
         if request.context:
             env['AI_CORP_CONTEXT'] = json.dumps(request.context)
 
-        # Use shell with echo pipe - most reliable way to pass input to Claude CLI
-        # Escape the prompt for shell safety
-        import shlex
-        escaped_prompt = shlex.quote(request.prompt)
-        shell_cmd = f'echo {escaped_prompt} | {" ".join(shlex.quote(c) for c in cmd)}'
-
+        # Write prompt to temp file to avoid shell escaping issues with complex prompts
+        import tempfile
         try:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+                f.write(request.prompt)
+                temp_file = f.name
+
+            # Use cat to pipe the file contents to Claude CLI
+            import shlex
+            shell_cmd = f'cat {shlex.quote(temp_file)} | {" ".join(shlex.quote(c) for c in cmd)}'
+
             result = subprocess.run(
                 shell_cmd,
                 shell=True,
@@ -227,6 +231,9 @@ class ClaudeCodeBackend(LLMBackend):
                 env=env,
                 cwd=request.working_directory or Path.cwd()
             )
+
+            # Clean up temp file
+            os.unlink(temp_file)
 
             if result.returncode == 0:
                 return LLMResponse(
@@ -249,12 +256,24 @@ class ClaudeCodeBackend(LLMBackend):
                 )
 
         except subprocess.TimeoutExpired:
+            # Clean up temp file on timeout
+            if 'temp_file' in locals():
+                try:
+                    os.unlink(temp_file)
+                except OSError:
+                    pass
             return LLMResponse(
                 content="",
                 success=False,
                 error=f"Execution timed out after {self.timeout}s"
             )
         except Exception as e:
+            # Clean up temp file on error
+            if 'temp_file' in locals():
+                try:
+                    os.unlink(temp_file)
+                except OSError:
+                    pass
             return LLMResponse(
                 content="",
                 success=False,
