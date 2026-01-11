@@ -211,12 +211,13 @@ class ClaudeCodeBackend(LLMBackend):
         if request.context:
             env['AI_CORP_CONTEXT'] = json.dumps(request.context)
 
-        # Pass prompt via stdin for reliability with multiline/long prompts
-        # Claude CLI with --print reads from stdin when no positional prompt given
+        # Add prompt as positional argument at the end
+        # This is more reliable than stdin when called from subprocess
+        cmd.append(request.prompt)
+
         try:
             result = subprocess.run(
                 cmd,
-                input=request.prompt,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
