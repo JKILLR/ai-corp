@@ -1,0 +1,225 @@
+# COO Interface Design
+
+> **Purpose:** Document how the CEO interacts with AI Corp through the COO.
+> This is the primary user experience design for the system.
+
+---
+
+## Core Concept
+
+**The COO is the front-facing AI that the CEO interacts with on a regular basis.**
+
+The CEO (human) talks to the COO (Claude) through a chat interface. This is NOT a command-line tool - it's a natural conversation with an AI partner.
+
+---
+
+## The CEO-COO Relationship
+
+| Role | Who | Responsibility |
+|------|-----|----------------|
+| **CEO** | Human user | Vision, decisions, approvals |
+| **COO** | Claude (via chat) | Partner, advisor, orchestrator |
+
+The COO is like a business partner who:
+- **Brainstorms** - Discusses ideas freely, expands on concepts
+- **Advises** - Answers questions, provides context, makes recommendations
+- **Executes** - Takes ideas and puts the system into motion
+- **Reports** - Keeps CEO informed on what's happening in the system
+
+---
+
+## User Experience Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    CEO TALKS TO COO                              │
+│                                                                  │
+│  The CEO opens the chat interface (web frontend) and has a       │
+│  natural conversation. No CLI commands. No technical setup.      │
+│                                                                  │
+│  Examples:                                                       │
+│  - "Hey, I've been thinking about adding timeout handling"       │
+│  - "What's the status of the auth project?"                      │
+│  - "Let's brainstorm some ideas for the mobile app"              │
+│  - "That idea we discussed yesterday - let's build it"           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    COO RESPONDS                                  │
+│                                                                  │
+│  The COO can:                                                    │
+│  - Have freeform conversation (brainstorming, Q&A)               │
+│  - Query the system for status/information                       │
+│  - Capture ideas into The Forge for incubation                   │
+│  - Run discovery to create Success Contracts                     │
+│  - Delegate work to the agent hierarchy                          │
+│  - Monitor progress and report back                              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Conversation Types
+
+### 1. Brainstorming
+```
+CEO: "I've been thinking about how we handle errors in the system"
+COO: "What specifically concerns you? The user-facing errors or internal failures?"
+CEO: "Both actually. Users see cryptic messages and we don't learn from failures"
+COO: "Interesting. So two problems: better error UX and a feedback loop for learning.
+      Want me to capture these as separate ideas in The Forge, or explore them together first?"
+```
+
+### 2. Status Queries
+```
+CEO: "What's happening with the dashboard project?"
+COO: "Dashboard is 67% complete. Frontend components are done, backend API is in progress.
+      Two workers are active - one on the metrics endpoint, one on WebSocket setup.
+      There's a gate pending for the security review. Want me to show the details?"
+```
+
+### 3. Idea to Action
+```
+CEO: "Remember that timeout handling idea? Let's actually build it."
+COO: "Got it. Let me run through discovery with you to make sure I understand the scope.
+      What's the main problem we're solving - gates hanging forever waiting for approval?"
+CEO: "Yes, and it blocks the whole workflow"
+COO: "Understood. Success criteria would be: gates auto-fail or escalate after timeout.
+      Should I create a contract and get the team working on it?"
+CEO: "Do it"
+COO: "Done. Created contract CTR-047, delegated to VP Engineering.
+      I'll keep you posted on progress."
+```
+
+---
+
+## System Architecture
+
+```
+┌──────────────────┐
+│  Frontend Chat   │  ← CEO types here
+│  (React Web UI)  │
+└────────┬─────────┘
+         │ HTTP/WebSocket
+         ▼
+┌──────────────────┐
+│   API Server     │  ← Routes messages, streams responses
+│   (FastAPI)      │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│   COO Agent      │  ← Understands context, decides actions
+│   (Python)       │
+└────────┬─────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+┌───────┐ ┌─────────────┐
+│Memory │ │ Hierarchy   │
+│System │ │ VP→Dir→Wkr  │
+└───────┘ └─────────────┘
+```
+
+---
+
+## COO's Knowledge & Capabilities
+
+### What COO Needs to Know (Foundational)
+- Identity: "I am the COO, partner to the CEO"
+- The full AI Corp architecture and how systems connect
+- How to use The Forge (capture → triage → incubate → present)
+- How to run discovery and create Success Contracts
+- How molecules work (standard, swarm, ralph, composite)
+- How delegation flows (COO → VP → Director → Worker)
+- How to query system state (projects, agents, gates, hooks)
+
+### How COO Gets Context (Dynamic)
+- **OrganizationalMemory** - Past decisions, lessons learned, warnings
+- **Entity Graph** - Relationships, profiles (deep context for COO level)
+- **ContextSynthesizer** - Transforms raw context into recommendations
+- **Current State** - Active molecules, pending gates, agent status
+
+### COO's Capabilities
+| Capability | Description |
+|------------|-------------|
+| **Converse** | Natural dialogue, brainstorming, Q&A |
+| **Query** | Check status of projects, agents, gates |
+| **Capture** | Add ideas to The Forge for incubation |
+| **Discover** | Run discovery conversation, extract requirements |
+| **Contract** | Create Success Contracts with measurable criteria |
+| **Delegate** | Send work to VP → Director → Worker hierarchy |
+| **Monitor** | Track progress, report status, alert on issues |
+
+---
+
+## What's Built vs What's Missing
+
+### Built
+- [x] Frontend chat UI (COOChannel.tsx, CommandChannel.tsx)
+- [x] COOAgent Python class with conversation methods
+- [x] Memory system (OrganizationalMemory, ContextEnvironment)
+- [x] Context Synthesizer
+- [x] The Forge (intention incubation)
+- [x] Success Contracts
+- [x] Molecule engine (standard, swarm, ralph, composite)
+- [x] Agent hierarchy (VP, Director, Worker)
+- [x] Hooks, Gates, Channels, Beads
+
+### Missing
+- [ ] **API Server** - FastAPI server to connect frontend to backend
+- [ ] **COO Chat Endpoint** - `POST /api/coo/message` → COOAgent
+- [ ] **Streaming Responses** - WebSocket for COO typing/responses
+- [ ] **Dashboard Data API** - Endpoints for projects, agents, gates
+- [ ] **Real-time Updates** - WebSocket events for system changes
+- [ ] **COO Context Loading** - Dynamic prompt from memory system
+
+---
+
+## API Endpoints Needed
+
+### COO Chat
+```
+POST /api/coo/message
+  Body: { message: string, thread_id?: string }
+  Response: { response: string, thread_id: string, actions_taken?: [] }
+
+GET /api/coo/threads
+  Response: { threads: [...] }
+
+WS /api/coo/stream
+  Events: coo.typing, coo.message.chunk, coo.message.complete
+```
+
+### System Status
+```
+GET /api/dashboard
+GET /api/projects
+GET /api/agents
+GET /api/gates
+GET /api/forge/intentions
+```
+
+---
+
+## Priority
+
+Building the API layer is the critical path to making this work:
+
+1. **FastAPI server** with COO message endpoint
+2. **COO message handler** that routes to COOAgent with proper context
+3. **Streaming support** for long responses
+4. **Dashboard endpoints** for system visibility
+5. **WebSocket** for real-time updates
+
+---
+
+## Related Documents
+
+- `FRONTEND_DESIGN_SPEC.md` - Complete frontend specification
+- `AI_CORP_ARCHITECTURE.md` - Technical architecture
+- `src/agents/coo.py` - COO agent implementation
+- `src/core/memory.py` - Memory/context system
