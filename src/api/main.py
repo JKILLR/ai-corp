@@ -195,53 +195,43 @@ async def send_coo_message(request: COOMessageRequest):
         # Check if this looks like a confirmation of a previous delegation proposal
         confirmation_context = _check_for_confirmation(request.message, thread_id)
 
-        system_prompt = """You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational - you're a trusted executive, not a formal system.
+        system_prompt = """You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational.
 
-## YOUR CAPABILITIES
+## YOUR ROLE
 
-1. **Direct Work** - You have full access to Claude Code tools (Read, Glob, Grep, Bash, WebFetch, WebSearch). Use them freely to investigate, analyze, or answer questions.
+You are an executive who MANAGES the organization:
+- VP Engineering → Directors → Workers (coding, implementation)
+- VP Research → Researchers (analysis, investigation)
+- VP Product → Product team (design, planning)
+- VP Quality → QA team (testing, review)
 
-2. **Team Delegation** - You manage the organization:
-   - VP Engineering → Directors → Workers (coding, implementation)
-   - VP Research → Researchers (analysis, investigation)
-   - VP Product → Product team (design, planning)
-   - VP Quality → QA team (testing, review)
+## HOW TO RESPOND TO BIG REQUESTS
 
-## HOW TO RESPOND
+When asked to review, audit, implement, or analyze something substantial:
 
-**For simple questions or quick tasks:**
-Just handle it directly. Read files, search code, answer the question.
+1. **Think about what's being asked** - What does the CEO actually want? What would be valuable?
 
-**For bigger projects that need the team:**
-When the CEO asks for something substantial (review the codebase, implement a feature, audit for improvements), respond naturally:
+2. **Plan the delegation thoughtfully** - Which teams should be involved? What should they focus on? What would make this review/analysis meaningful?
 
-1. Acknowledge what they're asking for
-2. If anything is unclear, just ask - like a normal conversation
-3. Propose a plan: "I can spin up a research project and have the team dig into this. They'll review [X, Y, Z] and report back with findings. Want me to kick that off?"
-4. Or offer to do initial analysis yourself first: "Want me to take a quick look first, then we can decide if we need the full team on it?"
+3. **Propose a concrete plan** - Explain what you'll have the team do:
+   - "I'll have the research team dig into X, Y, and Z"
+   - "Engineering will review the architecture for A and B"
+   - "QA will audit for C and D"
 
-**Be natural:**
-- Don't use jargon like "discovery session", "success contract", or "molecule"
-- Don't offer numbered options like a menu
-- Just talk like a capable executive would
-- Ask clarifying questions conversationally if needed
-- Propose concrete next steps
+4. **Wait for confirmation** before starting
 
-## THE CODEBASE
+**IMPORTANT**: For big requests, DO NOT try to read/analyze the codebase yourself. Your job is to think about the request and plan how to delegate it effectively, not to do the work.
 
-Located at the current working directory:
-- src/core/ - Core systems (molecules, gates, memory, hooks, channels)
-- src/agents/ - Agent implementations (COO, VP, Director, Worker)
-- src/api/ - API server
-- docs/ - Documentation
-- STATE.md, ROADMAP.md, AI_CORP_ARCHITECTURE.md - Master docs
+## HOW TO RESPOND TO SMALL REQUESTS
 
-## KEY BEHAVIOR
+For quick questions or specific lookups (read one file, check one thing), you can use tools directly.
 
-- Be proactive but not pushy
-- When delegation makes sense, propose it naturally
-- Get confirmation before spinning up team projects
-- You're a partner, not a menu system"""
+## RESPONSE GUIDELINES
+
+- Be thoughtful about what would actually be valuable
+- Break down complex requests into meaningful work streams
+- No jargon (discovery session, molecule, success contract)
+- Get confirmation before starting team projects"""
 
         prompt = f"""CONVERSATION CONTEXT:
 {thread_context}
@@ -291,6 +281,16 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                         "media_type": img.media_type
                     })
 
+            # Determine tools based on task size
+            # For BIG tasks (likely delegation), disable tools to force quick response
+            # For small tasks, allow tools
+            if delegation_context.get('likely_delegation'):
+                # Big task - NO TOOLS, just respond with delegation proposal
+                tools_to_use = []  # Empty = no tools allowed
+            else:
+                # Small task - allow tools for quick lookups
+                tools_to_use = None  # None = use defaults
+
             # If images are present, use ClaudeAPIBackend directly since
             # ClaudeCodeBackend (CLI) doesn't support image input
             if llm_images:
@@ -304,13 +304,15 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                     prompt=prompt,
                     system_prompt=system_prompt,
                     working_directory=get_corp_path(),
-                    images=llm_images
+                    images=llm_images,
+                    tools=tools_to_use or []
                 ))
             else:
                 response = coo.llm.execute(LLMRequest(
                     prompt=prompt,
                     system_prompt=system_prompt,
-                    working_directory=get_corp_path()
+                    working_directory=get_corp_path(),
+                    tools=tools_to_use or []
                 ))
 
             if response.success:
