@@ -1120,6 +1120,151 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 
+@app.websocket("/api/ws/coo/execute")
+async def coo_execute_streaming(websocket: WebSocket):
+    """
+    WebSocket endpoint for streaming COO execution.
+
+    Connects frontend to real-time Claude execution output.
+    Shows tool usage, thinking, and results as they happen.
+
+    Protocol:
+    - Client sends: {"type": "execute", "prompt": "...", "thread_id": "..."}
+    - Server streams: {"type": "thinking|content|tool_use|tool_result|done|error", ...}
+    """
+    await websocket.accept()
+
+    try:
+        while True:
+            # Wait for execution request
+            data = await websocket.receive_json()
+
+            if data.get('type') != 'execute':
+                await websocket.send_json({
+                    "type": "error",
+                    "content": "Expected 'execute' message type"
+                })
+                continue
+
+            prompt = data.get('prompt', '')
+            thread_id = data.get('thread_id')
+
+            if not prompt:
+                await websocket.send_json({
+                    "type": "error",
+                    "content": "No prompt provided"
+                })
+                continue
+
+            # Get COO and set up execution
+            coo = get_coo()
+
+            # Build context similar to the message endpoint
+            if thread_id:
+                thread_context = coo.get_thread_context(thread_id, max_messages=10)
+            else:
+                thread_context = ""
+
+            system_prompt = """You are the COO of AI Corp with full terminal and system access.
+
+## YOUR CAPABILITIES
+
+You have FULL ACCESS to:
+- **Read/Write/Edit files** - Read any file, write new files, edit existing code
+- **Bash commands** - Run any terminal command, scripts, installations
+- **Glob/Grep** - Search files and code
+- **WebFetch/WebSearch** - Access the internet
+
+## CURRENT TASK
+
+Execute the user's request using your tools. Show your work - read files, run commands, make changes as needed.
+
+Be thorough but efficient. Report what you find and what you've done."""
+
+            full_prompt = f"""CONVERSATION CONTEXT:
+{thread_context}
+
+CURRENT REQUEST:
+{prompt}
+
+Execute this task using your available tools. Read files, run commands, make changes as needed."""
+
+            # Create LLM request
+            from src.core.llm import LLMRequest, ClaudeCodeBackend
+
+            backend = ClaudeCodeBackend()
+            request = LLMRequest(
+                prompt=full_prompt,
+                system_prompt=system_prompt,
+                working_directory=get_corp_path(),
+                tools=["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
+            )
+
+            # Stream execution events
+            await websocket.send_json({
+                "type": "start",
+                "content": "Starting execution..."
+            })
+
+            # Run in executor to not block event loop
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+
+            executor = ThreadPoolExecutor(max_workers=1)
+            loop = asyncio.get_event_loop()
+
+            def stream_events():
+                """Generator wrapper that collects events"""
+                events = []
+                for event in backend.execute_streaming(request):
+                    events.append(event)
+                return events
+
+            # Get all events (streaming happens in thread)
+            events = await loop.run_in_executor(executor, stream_events)
+
+            # Send events to websocket
+            for event in events:
+                event_dict = {
+                    "type": event.event_type,
+                    "content": event.content,
+                }
+                if event.tool_name:
+                    event_dict["tool_name"] = event.tool_name
+                if event.tool_input:
+                    event_dict["tool_input"] = event.tool_input
+                if event.tool_result:
+                    event_dict["tool_result"] = event.tool_result
+
+                await websocket.send_json(event_dict)
+
+            # Add COO response to thread if thread_id provided
+            if thread_id:
+                # Collect final content
+                final_content = "".join(
+                    e.content for e in events
+                    if e.event_type == 'content' and e.content
+                )
+                if final_content:
+                    coo.add_message_to_thread(
+                        thread_id=thread_id,
+                        role='assistant',
+                        content=final_content,
+                        message_type='message'
+                    )
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "content": str(e)
+            })
+        except:
+            pass
+
+
 # =============================================================================
 # Main
 # =============================================================================

@@ -67,6 +67,17 @@ class LLMResponse:
     tokens_used: int = 0
 
 
+@dataclass
+class StreamEvent:
+    """A streaming event from Claude execution"""
+    event_type: str  # 'thinking', 'content', 'tool_use', 'tool_result', 'error', 'done'
+    data: Dict[str, Any] = field(default_factory=dict)
+    content: str = ""
+    tool_name: Optional[str] = None
+    tool_input: Optional[Dict[str, Any]] = None
+    tool_result: Optional[str] = None
+
+
 class LLMBackend(ABC):
     """
     Abstract base class for LLM backends.
@@ -245,6 +256,193 @@ class ClaudeCodeBackend(LLMBackend):
                 success=False,
                 error=str(e)
             )
+
+    def execute_streaming(self, request: LLMRequest):
+        """
+        Execute an LLM request via Claude Code CLI with streaming output.
+
+        Yields StreamEvent objects as Claude executes, showing:
+        - Thinking/reasoning
+        - Content generation
+        - Tool usage (Read, Write, Bash, etc.)
+        - Tool results
+
+        Args:
+            request: The LLM request to execute
+
+        Yields:
+            StreamEvent objects with execution progress
+        """
+        if not self.is_available():
+            yield StreamEvent(
+                event_type='error',
+                content="Claude Code CLI not found"
+            )
+            return
+
+        # Build command with streaming JSON output
+        cmd = [self._claude_path]
+        cmd.append('--print')
+        cmd.extend(['--output-format', 'stream-json'])
+        cmd.extend(['--model', request.model])
+
+        if request.system_prompt:
+            cmd.extend(['--system-prompt', request.system_prompt])
+
+        # Add tools
+        tools_to_use = request.tools if request.tools else ALL_TOOLS
+        for tool in tools_to_use:
+            cmd.extend(['--allowedTools', tool])
+
+        if request.working_directory:
+            cmd.extend(['--add-dir', str(request.working_directory)])
+
+        env = os.environ.copy()
+        if request.context:
+            env['AI_CORP_CONTEXT'] = json.dumps(request.context)
+
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+                cwd=request.working_directory or Path.cwd(),
+                bufsize=1  # Line buffered
+            )
+
+            # Send prompt via stdin
+            if process.stdin:
+                process.stdin.write(request.prompt)
+                process.stdin.close()
+
+            # Read streaming JSON output line by line
+            if process.stdout:
+                for line in process.stdout:
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    try:
+                        event_data = json.loads(line)
+                        event = self._parse_stream_event(event_data)
+                        if event:
+                            yield event
+                    except json.JSONDecodeError:
+                        # Non-JSON line, treat as content
+                        yield StreamEvent(
+                            event_type='content',
+                            content=line
+                        )
+
+            # Wait for process to complete
+            process.wait()
+
+            # Check for errors
+            if process.returncode != 0 and process.stderr:
+                stderr = process.stderr.read()
+                if stderr:
+                    yield StreamEvent(
+                        event_type='error',
+                        content=stderr
+                    )
+
+            yield StreamEvent(event_type='done')
+
+        except Exception as e:
+            yield StreamEvent(
+                event_type='error',
+                content=str(e)
+            )
+
+    def _parse_stream_event(self, data: Dict[str, Any]) -> Optional[StreamEvent]:
+        """Parse a JSON stream event from Claude CLI"""
+        event_type = data.get('type', '')
+
+        # Handle different event types from Claude CLI stream-json
+        if event_type == 'assistant':
+            # Assistant message content
+            message = data.get('message', {})
+            content_blocks = message.get('content', [])
+            for block in content_blocks:
+                block_type = block.get('type', '')
+                if block_type == 'text':
+                    return StreamEvent(
+                        event_type='content',
+                        content=block.get('text', ''),
+                        data=data
+                    )
+                elif block_type == 'thinking':
+                    return StreamEvent(
+                        event_type='thinking',
+                        content=block.get('thinking', ''),
+                        data=data
+                    )
+                elif block_type == 'tool_use':
+                    return StreamEvent(
+                        event_type='tool_use',
+                        tool_name=block.get('name', ''),
+                        tool_input=block.get('input', {}),
+                        data=data
+                    )
+
+        elif event_type == 'content_block_start':
+            block = data.get('content_block', {})
+            block_type = block.get('type', '')
+            if block_type == 'tool_use':
+                return StreamEvent(
+                    event_type='tool_use',
+                    tool_name=block.get('name', ''),
+                    data=data
+                )
+            elif block_type == 'thinking':
+                return StreamEvent(
+                    event_type='thinking',
+                    content='',
+                    data=data
+                )
+
+        elif event_type == 'content_block_delta':
+            delta = data.get('delta', {})
+            delta_type = delta.get('type', '')
+            if delta_type == 'text_delta':
+                return StreamEvent(
+                    event_type='content',
+                    content=delta.get('text', ''),
+                    data=data
+                )
+            elif delta_type == 'thinking_delta':
+                return StreamEvent(
+                    event_type='thinking',
+                    content=delta.get('thinking', ''),
+                    data=data
+                )
+            elif delta_type == 'input_json_delta':
+                return StreamEvent(
+                    event_type='tool_input',
+                    content=delta.get('partial_json', ''),
+                    data=data
+                )
+
+        elif event_type == 'result':
+            # Tool result
+            result = data.get('result', '')
+            return StreamEvent(
+                event_type='tool_result',
+                tool_result=result if isinstance(result, str) else json.dumps(result),
+                data=data
+            )
+
+        elif event_type == 'error':
+            return StreamEvent(
+                event_type='error',
+                content=data.get('error', {}).get('message', str(data)),
+                data=data
+            )
+
+        return None
 
 
 class ClaudeAPIBackend(LLMBackend):
