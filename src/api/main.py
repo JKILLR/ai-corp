@@ -25,7 +25,7 @@ from src.core.hook import HookManager
 from src.core.gate import GateKeeper
 from src.core.bead import BeadLedger
 from src.core.monitor import SystemMonitor
-from src.core.forge import Forge
+from src.core.forge import TheForge
 from src.core.contract import ContractManager
 
 # Initialize FastAPI app
@@ -85,9 +85,9 @@ def get_bead_ledger() -> BeadLedger:
         _systems['beads'] = BeadLedger(get_corp_path())
     return _systems['beads']
 
-def get_forge() -> Forge:
+def get_forge() -> TheForge:
     if 'forge' not in _systems:
-        _systems['forge'] = Forge(get_corp_path())
+        _systems['forge'] = TheForge(get_corp_path())
     return _systems['forge']
 
 
