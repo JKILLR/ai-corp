@@ -269,11 +269,21 @@ def main():
         print_step(6, "VP processing delegated work")
 
         try:
+            # IMPORTANT: Force reload VP's hook from disk to see COO's delegated work
+            # Clear cache entry first, then reload from disk
+            hook_id = vp.hook.id
+            if hook_id in vp.hook_manager._hooks:
+                del vp.hook_manager._hooks[hook_id]
+            vp.hook = vp.hook_manager.get_hook_for_owner('role', vp.identity.role_id)
+            print_substep(f"VP hook reloaded: {vp.hook.get_stats() if vp.hook else 'None'}")
+
             vp_result = vp.run() or {}
             processed = vp_result.get('processed', 0) if isinstance(vp_result, dict) else 0
             print_substep(f"VP processed: {processed} items")
         except Exception as e:
             print_substep(f"VP run error: {e}")
+            import traceback
+            traceback.print_exc()
 
         show_molecule_status(molecule_engine, molecule.id)
         show_hooks(hook_manager)
@@ -282,11 +292,20 @@ def main():
         print_step(7, "Director processing work")
 
         try:
+            # Force reload director's hook too
+            hook_id = director.hook.id
+            if hook_id in director.hook_manager._hooks:
+                del director.hook_manager._hooks[hook_id]
+            director.hook = director.hook_manager.get_hook_for_owner('role', director.identity.role_id)
+            print_substep(f"Director hook reloaded: {director.hook.get_stats() if director.hook else 'None'}")
+
             dir_result = director.run() or {}
             processed = dir_result.get('processed', 0) if isinstance(dir_result, dict) else 0
             print_substep(f"Director processed: {processed} items")
         except Exception as e:
             print_substep(f"Director run error: {e}")
+            import traceback
+            traceback.print_exc()
 
         show_molecule_status(molecule_engine, molecule.id)
         show_hooks(hook_manager)
@@ -304,6 +323,13 @@ def main():
             print("  " + "-" * 40)
 
             try:
+                # Force reload worker's hook too
+                hook_id = worker.hook.id
+                if hook_id in worker.hook_manager._hooks:
+                    del worker.hook_manager._hooks[hook_id]
+                worker.hook = worker.hook_manager.get_hook_for_owner('role', worker.identity.role_id)
+                print_substep(f"Worker hook reloaded: {worker.hook.get_stats() if worker.hook else 'None'}")
+
                 worker_result = worker.run() or {}
                 print()
                 print(f"✓ Worker execution complete")
