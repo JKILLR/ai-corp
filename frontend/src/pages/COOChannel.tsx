@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search } from 'lucide-react';
+import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search, AlertCircle } from 'lucide-react';
 import { GlassCard, Button, StatusOrb } from '../components/ui';
+import { api, type Message as APIMessage, type ConversationThread as APIThread } from '../api/client';
 
 interface Message {
   id: string;
@@ -22,52 +23,13 @@ interface ConversationThread {
   unread: boolean;
 }
 
-// Mock conversation history
-const conversationHistory: Message[] = [
-  {
-    id: '1',
-    role: 'coo',
-    content: "Good morning. Starting daily brief:\n\n**Active Projects:** 5 total\n• Website Redesign: 67% (on track)\n• API Integration: 89% (nearly complete)\n• Data Pipeline: 45% (BLOCKED)\n• Mobile App: 23% (active)\n• Security Audit: 10% (waiting)\n\n**Attention Required:**\n1. Data Pipeline blocked - research-001 needs data access\n2. 2 gate approvals pending in queue\n\nHow would you like to proceed today?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-  },
-  {
-    id: '2',
-    role: 'user',
-    content: "What's blocking the Data Pipeline exactly? And what are the gate approvals for?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1.9),
-  },
-  {
-    id: '3',
-    role: 'coo',
-    content: "**Data Pipeline Block:**\nResearch-001 requested access to the production user analytics database for the pipeline refactor. Security team flagged PII concerns. They're asking for either:\n- Option A: Sanitized dataset (adds 2 days)\n- Option B: Anonymized aggregates only (immediate, but limited analysis)\n\n**Pending Gates:**\n1. **Deploy to Production** - Website Redesign ready for prod deployment, all tests passing. Requested by dev-003.\n2. **Security Review** - New API endpoints need security audit before going live. Flagged by qa-001.\n\nBoth have been waiting ~30 minutes. The deploy gate is higher priority given we're close to the redesign deadline.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1.8),
-    context: { type: 'project', reference: 'Data Pipeline Refactor' },
-  },
-  {
-    id: '4',
-    role: 'user',
-    content: "Go with Option A for the data pipeline - I'd rather have complete data even if it takes longer. And approve the website deploy, but hold on the security review until I look at it.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1.5),
-  },
-  {
-    id: '5',
-    role: 'coo',
-    content: "Understood. Executing:\n\n✓ Instructed security team to prepare sanitized dataset for Data Pipeline\n✓ Approved Website Redesign production deployment\n✓ Security Review gate held - I'll remind you to review it later\n\nResearch-001 is now unblocked and will resume work once the sanitized data is ready (~2 days). Dev-003 has begun the production deployment process.\n\nIs there anything specific you'd like me to prioritize for the Mobile App MVP? It's currently the lowest completion but has the most agents assigned (4).",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1.4),
-  },
-  {
-    id: '6',
-    role: 'user',
-    content: "The mobile app is fine for now, let it run. I want to talk about expanding the team. We're going to need more agents for Q2. What's our current capacity and what would you recommend?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 45),
-  },
-  {
-    id: '7',
-    role: 'coo',
-    content: "Current agent capacity analysis:\n\n**Active Agents:** 12 total\n• Engineering: 4 (dev-001 to dev-003, qa-001)\n• Design: 2 (design-001, design-002)\n• Research: 2 (research-001, research-002)\n• Department Heads: 3 (myself, Head of Eng, Head of Design, Head of Research)\n\n**Current Load:**\n• Average utilization: 72%\n• Peak utilization: 95% (dev-001)\n• Idle capacity: ~28%\n\n**Q2 Recommendations:**\nBased on the project pipeline you've outlined:\n\n1. **+2 Senior Developers** - Mobile App and upcoming API v2 will need more backend capacity\n2. **+1 QA Engineer** - qa-001 is stretched thin across 3 projects\n3. **+1 Security Specialist** - Dedicated security rather than borrowed from QA\n\nThis would bring us to 16 agents with better coverage. Estimated onboarding time: 1-2 days per agent.\n\nWant me to draft role specifications for these positions?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 40),
-  },
-];
+// Initial welcome message shown when starting a new conversation
+const welcomeMessage: Message = {
+  id: 'welcome',
+  role: 'coo',
+  content: "Good morning. I'm your Chief Operating Officer. I'm here to help you manage and coordinate AI Corp.\n\n**I can help you with:**\n• Status updates on projects and agents\n• Brainstorming and refining ideas\n• Creating new projects through discovery\n• Approving or reviewing gates\n• Strategic planning and prioritization\n\nWhat would you like to discuss?",
+  timestamp: new Date(),
+};
 
 // Past conversation threads
 const pastThreads: ConversationThread[] = [
@@ -95,10 +57,13 @@ const pastThreads: ConversationThread[] = [
 ];
 
 export function COOChannel() {
-  const [messages, setMessages] = useState<Message[]>(conversationHistory);
+  const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showThreads, setShowThreads] = useState(false);
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -110,7 +75,14 @@ export function COOChannel() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
+  // Check API health on mount
+  useEffect(() => {
+    api.healthCheck()
+      .then(() => setIsConnected(true))
+      .catch(() => setIsConnected(false));
+  }, []);
+
+  const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMessage: Message = {
@@ -121,20 +93,44 @@ export function COOChannel() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const messageText = input.trim();
     setInput('');
     setIsTyping(true);
+    setError(null);
 
-    // Simulate COO thinking and responding
-    setTimeout(() => {
+    try {
+      // Call real API
+      const response = await api.sendCOOMessage(messageText, threadId);
+
+      // Save thread ID for conversation continuity
+      if (response.thread_id) {
+        setThreadId(response.thread_id);
+      }
+
       const cooResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: 'coo',
-        content: generateCOOResponse(input.trim()),
-        timestamp: new Date(),
+        content: response.response,
+        timestamp: new Date(response.timestamp),
       };
       setMessages((prev) => [...prev, cooResponse]);
+      setIsConnected(true);
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      setError(err instanceof Error ? err.message : 'Failed to communicate with COO');
+      setIsConnected(false);
+
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'coo',
+        content: `I'm having trouble connecting to the system. Please check that the API server is running.\n\nError: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500 + Math.random() * 1500);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -211,9 +207,9 @@ export function COOChannel() {
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-[var(--color-plasma)]">COO Channel</h2>
-                <p className="text-xs text-[var(--color-ok)] flex items-center gap-1">
-                  <StatusOrb status="ok" size="sm" />
-                  Online • Strategic oversight active
+                <p className={`text-xs flex items-center gap-1 ${isConnected ? 'text-[var(--color-ok)]' : 'text-[var(--color-error)]'}`}>
+                  <StatusOrb status={isConnected ? 'ok' : 'error'} size="sm" />
+                  {isConnected ? 'Online • Strategic oversight active' : 'Offline • API server not connected'}
                 </p>
               </div>
             </div>
@@ -395,28 +391,4 @@ function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function generateCOOResponse(input: string): string {
-  const lower = input.toLowerCase();
-
-  if (lower.includes('yes') || lower.includes('draft') || lower.includes('specification')) {
-    return "I'll prepare the role specifications now.\n\n**Draft: Q2 Hiring Plan**\n\n**1. Senior Developer (x2)**\n- Focus: Backend/API development\n- Requirements: 3+ years experience, Node.js/Python proficiency\n- Assignment: Mobile App MVP, API v2\n\n**2. QA Engineer**\n- Focus: Automated testing, CI/CD integration\n- Requirements: Test automation experience, security testing knowledge\n- Assignment: Cross-project quality assurance\n\n**3. Security Specialist**\n- Focus: Security audits, vulnerability assessment\n- Requirements: Security certifications, penetration testing experience\n- Assignment: Dedicated security reviews, compliance\n\nShall I proceed with creating these agent profiles? Once approved, I can begin the onboarding process immediately.";
-  }
-
-  if (lower.includes('status') || lower.includes('update') || lower.includes('report')) {
-    return "Here's the latest status:\n\n**Project Updates:**\n• Website Redesign: 71% (+4%) - Deploy in progress\n• API Integration: 92% (+3%) - Final testing\n• Data Pipeline: 45% (unchanged) - Awaiting sanitized data\n• Mobile App: 25% (+2%) - Navigation complete\n• Security Audit: 10% - Awaiting your review\n\n**Agent Status:**\n• 11/12 agents active\n• research-001 on standby (waiting for data)\n• Average load: 68%\n\n**Pending Actions:**\n• Security Review gate needs your attention\n\nAnything specific you'd like me to dig into?";
-  }
-
-  if (lower.includes('problem') || lower.includes('issue') || lower.includes('concern')) {
-    return "I've noted your concern. Let me investigate and provide a detailed analysis.\n\nTo give you the most useful response, could you clarify:\n\n1. Is this related to a specific project or agent?\n2. What's the urgency level - blocking work or preventative?\n3. Any particular constraints I should be aware of?\n\nI'll coordinate with the relevant department heads and report back with findings and recommended actions.";
-  }
-
-  if (lower.includes('priorit') || lower.includes('focus') || lower.includes('important')) {
-    return "Based on current commitments, deadlines, and resource utilization, here's my recommended priority ordering:\n\n**Immediate (Today):**\n1. Complete Website Redesign deploy\n2. Review and resolve Security gate\n\n**This Week:**\n3. Finish API Integration\n4. Continue Mobile App development\n\n**Next Week:**\n5. Resume Data Pipeline once data ready\n6. Begin Security Audit proper\n\nWould you like me to reallocate any agents to shift these priorities? I can pull resources from lower-priority work if needed.";
-  }
-
-  if (lower.includes('meeting') || lower.includes('schedule') || lower.includes('sync')) {
-    return "I can facilitate coordination across the organization. Options:\n\n**1. Department Sync**\nI'll gather status from all department heads and compile a unified report.\n\n**2. Project Deep-Dive**\nPick a project and I'll pull together all relevant agents for a focused discussion.\n\n**3. Strategic Planning**\nI'll prepare analysis and options for strategic decisions you're considering.\n\nWhich would be most valuable right now? Or if you have something else in mind, just let me know and I'll make it happen.";
-  }
-
-  return "Understood. I've processed your input and am considering the implications across our current workstreams.\n\nBased on what you've shared:\n- I'll coordinate with relevant department heads\n- Monitor for any cascading effects\n- Report back with any concerns or required decisions\n\nIs there a specific aspect you'd like me to focus on, or any constraints I should keep in mind?";
-}
+// Note: COO responses now come from the real API at /api/coo/message

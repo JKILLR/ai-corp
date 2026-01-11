@@ -13,11 +13,13 @@ import {
   GitBranch,
   Cpu,
   Maximize2,
+  AlertCircle,
 } from 'lucide-react';
 import { GlassCard, Button } from '../components/ui';
 import { StatusOrb } from '../components/ui/StatusOrb';
 import { Badge } from '../components/ui/Badge';
 import type { Status } from '../components/ui/StatusOrb';
+import { api, type DashboardData, type Project } from '../api/client';
 
 // Map status to glow class
 const statusGlowClass: Record<Status, string> = {
@@ -189,6 +191,30 @@ const toolIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Message: MessageSquare,
 };
 
+// Default/mock stats for when API is unavailable
+const defaultStats = {
+  agentsActive: 12,
+  taskProcessing: 4,
+  taskQueued: 7,
+  gatesPending: 2,
+};
+
+// Default workflows when API is unavailable
+const defaultWorkflows = [
+  { name: 'Website Redesign', status: 'ok' as Status, progress: 67, agents: 3, eta: '2.3h', stages: 5, currentStage: 2 },
+  { name: 'API Integration', status: 'ok' as Status, progress: 89, agents: 1, eta: '0.5h', stages: 5, currentStage: 4 },
+  { name: 'Data Pipeline Refactor', status: 'warning' as Status, progress: 45, agents: 2, blocked: 'Needs approval', stages: 5, currentStage: 2 },
+];
+
+// Default activity when API is unavailable
+const defaultActivity = [
+  { status: 'ok' as Status, message: 'design-agent completed component review', time: '2:34 PM' },
+  { status: 'processing' as Status, message: 'research-agent spawned for market analysis', time: '2:31 PM' },
+  { status: 'warning' as Status, message: 'qa-agent flagged security concern', time: '2:28 PM' },
+  { status: 'ok' as Status, message: 'dev-002 pushed to staging', time: '2:15 PM' },
+  { status: 'processing' as Status, message: 'COO delegated 3 tasks to engineering', time: '2:10 PM' },
+];
+
 export function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -196,6 +222,13 @@ export function Dashboard() {
   const shouldOpenNetwork = searchParams.get('network') === 'open';
   const [isNetworkExpanded, setIsNetworkExpanded] = useState(shouldOpenNetwork);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+
+  // API state
+  const [isConnected, setIsConnected] = useState(true);
+  const [stats, setStats] = useState(defaultStats);
+  const [workflows, setWorkflows] = useState(defaultWorkflows);
+  const [activity, setActivity] = useState(defaultActivity);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Clear URL parameter if it was used (only on initial mount)
   useEffect(() => {
@@ -206,16 +239,79 @@ export function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Intentionally only run on mount
 
+  // Fetch dashboard data from API
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const data = await api.getDashboard();
+        setIsConnected(true);
+
+        // Update stats from API
+        setStats({
+          agentsActive: data.metrics.agents_active,
+          taskProcessing: data.metrics.projects_active,
+          taskQueued: data.metrics.queue_depth,
+          gatesPending: data.metrics.gates_pending,
+        });
+
+        // Convert projects to workflow format
+        if (data.projects && data.projects.length > 0) {
+          const apiWorkflows = data.projects.map((p: Project) => ({
+            name: p.name,
+            status: (p.status === 'blocked' ? 'warning' : p.status === 'active' ? 'ok' : 'idle') as Status,
+            progress: p.progress,
+            agents: p.workers_active || 1,
+            eta: p.status === 'active' ? '~' : undefined,
+            blocked: p.status === 'blocked' ? 'Needs approval' : undefined,
+            stages: p.steps_total || 5,
+            currentStage: p.steps_completed || 0,
+          }));
+          setWorkflows(apiWorkflows);
+        }
+
+        // Convert activity
+        if (data.activity && data.activity.length > 0) {
+          const apiActivity = data.activity.map((a) => ({
+            status: 'ok' as Status,
+            message: `${a.agent_id}: ${a.message}`,
+            time: new Date(a.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+          }));
+          setActivity(apiActivity);
+        }
+      } catch (err) {
+        console.log('Dashboard API unavailable, using mock data');
+        setIsConnected(false);
+        // Keep using default mock data
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboard();
+
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchDashboard, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="flex gap-6 h-full">
       {/* Main Content */}
       <div className="flex-1 space-y-6 overflow-y-auto">
+        {/* Connection status banner */}
+        {!isConnected && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-[var(--color-warn)] bg-opacity-10 border border-[var(--color-warn)] rounded-lg text-sm text-[var(--color-warn)]">
+            <AlertCircle className="w-4 h-4" />
+            <span>API server not connected. Showing demo data.</span>
+          </div>
+        )}
+
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="ACTIVE" sublabel="agents" value="12" status="ok" />
-          <StatCard label="PROCESSING" sublabel="tasks" value="4" status="ok" />
-          <StatCard label="QUEUED" sublabel="tasks" value="7" status="ok" />
-          <StatCard label="ATTENTION" sublabel="gates" value="2" status="warning" />
+          <StatCard label="ACTIVE" sublabel="agents" value={String(stats.agentsActive)} status="ok" />
+          <StatCard label="PROCESSING" sublabel="tasks" value={String(stats.taskProcessing)} status="ok" />
+          <StatCard label="QUEUED" sublabel="tasks" value={String(stats.taskQueued)} status="ok" />
+          <StatCard label="ATTENTION" sublabel="gates" value={String(stats.gatesPending)} status={stats.gatesPending > 0 ? "warning" : "ok"} />
         </div>
 
         {/* Active Workflows */}
@@ -228,36 +324,25 @@ export function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <WorkflowCard
-              name="Website Redesign"
-              status="ok"
-              progress={67}
-              agents={3}
-              eta="2.3h"
-              stage="Design > Dev"
-              stages={5}
-              currentStage={2}
-            />
-            <WorkflowCard
-              name="API Integration"
-              status="ok"
-              progress={89}
-              agents={1}
-              eta="0.5h"
-              stage="Testing"
-              stages={5}
-              currentStage={4}
-            />
-            <WorkflowCard
-              name="Data Pipeline Refactor"
-              status="warning"
-              progress={45}
-              agents={2}
-              blocked="Needs approval"
-              stage="Awaiting Gate"
-              stages={5}
-              currentStage={2}
-            />
+            {workflows.map((workflow, index) => (
+              <WorkflowCard
+                key={workflow.name + index}
+                name={workflow.name}
+                status={workflow.status}
+                progress={workflow.progress}
+                agents={workflow.agents}
+                eta={workflow.eta}
+                blocked={workflow.blocked}
+                stage={workflow.blocked ? 'Awaiting Gate' : `Stage ${workflow.currentStage + 1}/${workflow.stages}`}
+                stages={workflow.stages}
+                currentStage={workflow.currentStage}
+              />
+            ))}
+            {workflows.length === 0 && (
+              <div className="col-span-2 text-center py-8 text-[var(--color-muted)]">
+                No active workflows
+              </div>
+            )}
           </div>
         </div>
 
@@ -321,31 +406,19 @@ export function Dashboard() {
           </div>
 
           <div className="space-y-4">
-            <ActivityItem
-              status="ok"
-              message="design-agent completed component review"
-              time="2:34 PM"
-            />
-            <ActivityItem
-              status="processing"
-              message="research-agent spawned for market analysis"
-              time="2:31 PM"
-            />
-            <ActivityItem
-              status="warning"
-              message="qa-agent flagged security concern"
-              time="2:28 PM"
-            />
-            <ActivityItem
-              status="ok"
-              message="dev-002 pushed to staging"
-              time="2:15 PM"
-            />
-            <ActivityItem
-              status="processing"
-              message="COO delegated 3 tasks to engineering"
-              time="2:10 PM"
-            />
+            {activity.map((item, index) => (
+              <ActivityItem
+                key={index}
+                status={item.status}
+                message={item.message}
+                time={item.time}
+              />
+            ))}
+            {activity.length === 0 && (
+              <div className="text-center py-4 text-sm text-[var(--color-muted)]">
+                No recent activity
+              </div>
+            )}
           </div>
         </GlassCard>
       </div>
