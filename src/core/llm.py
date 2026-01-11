@@ -462,6 +462,15 @@ class AgentLLMInterface:
     def __init__(self, backend: Optional[LLMBackend] = None):
         self.backend = backend or LLMBackendFactory.get_best_available()
 
+    def execute(self, request: LLMRequest) -> LLMResponse:
+        """
+        Execute a raw LLM request.
+
+        Delegates to the underlying backend. Use this for custom prompts
+        that don't fit the structured methods (think, analyze, etc.).
+        """
+        return self.backend.execute(request)
+
     def think(
         self,
         role: str,

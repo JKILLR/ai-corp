@@ -69,6 +69,32 @@
 
 ## Recent Changes
 
+### 2026-01-11: CLI Full Hierarchy Execution
+
+**Issue:** The `ai-corp ceo` command only delegated to VPs but didn't run the full hierarchy (VP → Director → Worker).
+
+**Solution:** Added `--execute` flag to run `CorporationExecutor` after delegation.
+
+**Usage:**
+```bash
+# Full workflow: discovery conversation + autonomous execution
+ai-corp ceo "Build a user dashboard" --discover --execute
+
+# Multiple cycles for complex tasks
+ai-corp ceo "Refactor auth module" --discover --execute --cycles 3
+```
+
+**Files Changed:**
+- `src/cli/main.py` - Added `--execute` flag, imported `CorporationExecutor`
+
+**How It Works:**
+1. CEO submits task via CLI
+2. COO runs discovery conversation (if --discover)
+3. COO creates Success Contract and Molecule
+4. COO delegates to VPs
+5. CorporationExecutor runs VPs → Directors → Workers
+6. Workers execute tasks using Claude CLI
+
 ### 2026-01-11: Agent Tool Access Fixed
 
 **Critical Bug Fix:** Agents weren't receiving proper tool permissions.

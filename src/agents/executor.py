@@ -605,6 +605,41 @@ class CorporationExecutor:
 
         return results
 
+    def run_cycle_skip_coo(self) -> Dict[str, ExecutionResult]:
+        """
+        Run one cycle of the corporation, skipping the COO tier.
+
+        Use this when delegation has already happened (e.g., from CLI with --execute).
+        The COO tier is skipped to avoid running a duplicate COO instance.
+
+        Execution order:
+        1. VPs (process delegations from external COO)
+        2. Directors (process delegations, assign to workers)
+        3. Workers (execute tasks)
+        """
+        results = {}
+
+        # Start with hook refresh to pick up work from external COO
+        logger.info("Refreshing hooks to pick up delegated work...")
+        self._refresh_all_agent_hooks()
+
+        logger.info("=== Running VPs ===")
+        results['vps'] = self.vp_executor.run_once()
+
+        logger.info("Refreshing hooks before Director tier...")
+        self._refresh_all_agent_hooks()
+
+        logger.info("=== Running Directors ===")
+        results['directors'] = self.director_executor.run_once()
+
+        logger.info("Refreshing hooks before Worker tier...")
+        self._refresh_all_agent_hooks()
+
+        logger.info("=== Running Workers ===")
+        results['workers'] = self.worker_executor.run_once()
+
+        return results
+
     def _refresh_all_agent_hooks(self) -> None:
         """
         FIX #1: Refresh all hooks from disk and update agent references.

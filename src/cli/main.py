@@ -7,6 +7,7 @@ Usage:
     ai-corp presets [list|show]               List or show available presets
     ai-corp ceo <task>                        Submit a task as CEO
     ai-corp ceo <task> --discover             Submit task with discovery conversation
+    ai-corp ceo <task> --discover --execute   Full flow: conversation → hierarchy execution
     ai-corp coo                               Start the COO orchestrator
     ai-corp status                            View system status
     ai-corp status --health                   View health monitoring with alerts
@@ -21,6 +22,19 @@ Usage:
     ai-corp contracts [list|show|create|check|link|activate]  Manage success contracts
     ai-corp knowledge [list|show|add|search|stats|remove]     Manage knowledge base
 
+CEO Command Flow:
+    The --execute flag runs the full agent hierarchy after task delegation:
+
+    1. CEO submits task via CLI
+    2. COO runs discovery conversation (if --discover)
+    3. COO creates Success Contract and Molecule
+    4. COO delegates to VPs
+    5. With --execute: CorporationExecutor runs VPs → Directors → Workers
+    6. Workers execute tasks using Claude CLI
+
+    Example:
+        ai-corp ceo "Build a user dashboard" --discover --execute
+
 Examples:
     # Initialize a new AI Corp with default software-company preset
     ai-corp init ~/projects/my-startup
@@ -28,15 +42,16 @@ Examples:
     # Initialize with a specific preset and name
     ai-corp init --preset=software-company --name="Acme Dev Studio" ~/projects/acme
 
-    # List available presets
-    ai-corp presets list
+    # Full workflow: discovery conversation + autonomous execution
+    ai-corp ceo "Add dark mode toggle" --discover --execute
 
-    # Show details of a preset
-    ai-corp presets show software-company
+    # Run multiple execution cycles (for complex tasks)
+    ai-corp ceo "Refactor auth module" --discover --execute --cycles 3
 """
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 # Add src to path for imports
@@ -44,6 +59,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.agents.coo import COOAgent
 from src.agents.runtime import AgentRuntime
+from src.agents.executor import CorporationExecutor
 from src.core.molecule import MoleculeEngine
 from src.core.hook import HookManager
 from src.core.gate import GateKeeper
@@ -77,6 +93,53 @@ def get_corp_path() -> Path:
     return cwd / 'corp'
 
 
+def _run_corporation_executor(corp_path: Path, cycles: int = 1, skip_coo: bool = False) -> None:
+    """
+    Run the CorporationExecutor to process work through all agent tiers.
+
+    This is the key function that connects CEO task submission to full
+    autonomous execution through COO → VP → Director → Worker hierarchy.
+
+    Args:
+        corp_path: Path to the corporation
+        cycles: Number of execution cycles
+        skip_coo: If True, skip COO tier (used when delegation already happened)
+    """
+    print()
+    print("=" * 60)
+    print("RUNNING CORPORATION EXECUTOR")
+    print("Processing work through: VP → Director → Worker")
+    print("=" * 60)
+    print()
+
+    executor = CorporationExecutor(corp_path)
+    executor.initialize()
+
+    print(f"Initialized: {len(executor.vps)} VPs, {len(executor.directors)} Directors, {len(executor.workers)} Workers")
+    print()
+
+    for cycle in range(1, cycles + 1):
+        print(f"--- Cycle {cycle}/{cycles} ---")
+
+        if skip_coo:
+            # Skip COO since delegation already happened
+            results = executor.run_cycle_skip_coo()
+        else:
+            results = executor.run_cycle()
+
+        # Show summary for each tier
+        for tier, result in results.items():
+            if result.total_agents > 0:
+                print(f"  {tier}: {result.completed}/{result.total_agents} agents completed")
+
+        if cycle < cycles:
+            print("  Waiting before next cycle...")
+            time.sleep(5)
+
+    print()
+    print("Corporation execution complete!")
+
+
 def cmd_ceo(args):
     """Submit a task as CEO"""
     corp_path = get_corp_path()
@@ -87,8 +150,8 @@ def cmd_ceo(args):
     print(f"Description: {args.description or args.title}")
     print()
 
+    # Create molecule (with or without discovery)
     if args.discover:
-        # Run discovery conversation to create Success Contract first
         print("=" * 60)
         print("DISCOVERY MODE: Creating Success Contract")
         print("=" * 60)
@@ -98,21 +161,13 @@ def cmd_ceo(args):
             title=args.title,
             description=args.description or args.title,
             priority=args.priority,
-            interactive=True  # Always interactive from CLI
+            interactive=True
         )
 
         print(f"\nContract created: {contract.id}")
         print(f"Molecule created: {molecule.id}")
         print(f"Steps: {len(molecule.steps)}")
-
-        if args.start:
-            print("\nStarting molecule and delegating work...")
-            molecule = coo.molecule_engine.start_molecule(molecule.id)
-            delegations = coo.delegate_molecule(molecule)
-            print(f"Delegated {len(delegations)} steps")
-
     else:
-        # Legacy behavior - direct molecule creation without discovery
         molecule = coo.receive_ceo_task(
             title=args.title,
             description=args.description or args.title,
@@ -122,11 +177,17 @@ def cmd_ceo(args):
         print(f"Created molecule: {molecule.id}")
         print(f"Steps: {len(molecule.steps)}")
 
-        if args.start:
-            print("\nStarting molecule and delegating work...")
-            molecule = coo.molecule_engine.start_molecule(molecule.id)
-            delegations = coo.delegate_molecule(molecule)
-            print(f"Delegated {len(delegations)} steps")
+    # Start and delegate if requested
+    if args.start or args.execute:
+        print("\nStarting molecule and delegating work...")
+        molecule = coo.molecule_engine.start_molecule(molecule.id)
+        delegations = coo.delegate_molecule(molecule)
+        print(f"Delegated {len(delegations)} steps")
+
+        # Run full hierarchy if --execute
+        if args.execute:
+            # skip_coo=True because we already delegated above
+            _run_corporation_executor(corp_path, args.cycles, skip_coo=True)
 
     print("\nDone!")
 
@@ -1041,9 +1102,13 @@ def main():
     ceo_parser.add_argument('-p', '--priority', default='P2_MEDIUM',
                            choices=['P0_CRITICAL', 'P1_HIGH', 'P2_MEDIUM', 'P3_LOW'])
     ceo_parser.add_argument('-s', '--start', action='store_true',
-                           help='Start the molecule immediately')
+                           help='Start the molecule immediately (delegates to VPs only)')
     ceo_parser.add_argument('--discover', action='store_true',
                            help='Run discovery conversation to create Success Contract first')
+    ceo_parser.add_argument('-x', '--execute', action='store_true',
+                           help='Execute work through full hierarchy (VP → Director → Worker)')
+    ceo_parser.add_argument('-c', '--cycles', type=int, default=1,
+                           help='Number of execution cycles (default: 1)')
     ceo_parser.set_defaults(func=cmd_ceo)
 
     # COO command
