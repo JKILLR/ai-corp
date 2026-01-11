@@ -4,6 +4,17 @@
 
 Foundation Corp is a special AI Corp instance with privileged access to modify the platform itself. It uses AI Corp's own systems (molecules, gates, beads) to manage platform development.
 
+> **Important:** See [DOGFOODING.md](./DOGFOODING.md) for the safe code editing workflow.
+
+## Workspace
+
+Foundation Corp works in an **isolated git worktree** to prevent live code corruption:
+
+```
+/home/user/ai-corp/              <- Human CEO workspace (main)
+/home/user/ai-corp-foundation/   <- Foundation Corp workspace (foundation/*)
+```
+
 ## Current Phase: 2 (Assisted)
 
 - Human CEO approves all changes before release
