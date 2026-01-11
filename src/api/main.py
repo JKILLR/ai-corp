@@ -161,8 +161,7 @@ async def send_coo_message(request: COOMessageRequest):
     )
 
     # Generate COO response
-    # For now, use the LLM interface to generate a response
-    # In future, this could be more sophisticated with context loading
+    # Use the LLM interface with full tool access
     try:
         from src.core.llm import LLMRequest
 
@@ -173,27 +172,45 @@ async def send_coo_message(request: COOMessageRequest):
         monitor = get_monitor()
         metrics = monitor.collect_metrics()
 
-        prompt = f"""You are the COO of AI Corp, partner to the CEO.
+        system_prompt = """You are the COO of AI Corp, a strategic partner to the CEO.
 
-CONVERSATION CONTEXT:
+You have FULL ACCESS to Claude Code tools including:
+- Read: Read files from the codebase
+- Glob: Search for files by pattern
+- Grep: Search code for patterns
+- Bash: Execute commands
+- WebFetch/WebSearch: Access web resources
+
+When the CEO asks you to review code, analyze the codebase, or investigate something,
+USE YOUR TOOLS to actually read the files and provide real analysis.
+
+The AI Corp codebase is at the current working directory. Key paths:
+- src/core/ - Core systems (molecules, gates, memory, etc.)
+- src/agents/ - Agent implementations (COO, VP, Director, Worker)
+- src/api/ - API server (this)
+- docs/ - Documentation
+- STATE.md, ROADMAP.md, AI_CORP_ARCHITECTURE.md - Master docs
+
+Be proactive. If asked about code or improvements, actually read the files."""
+
+        prompt = f"""CONVERSATION CONTEXT:
 {thread_context}
 
 CURRENT SYSTEM STATE:
 - Active agents: {len(metrics.agents) if metrics.agents else 0}
 - System health: Operational
+- Corp path: {get_corp_path()}
 
 CEO'S MESSAGE:
 {request.message}
 
-Respond naturally as the COO. You can:
-- Answer questions about the system
-- Discuss ideas and brainstorm
-- Suggest actions to take
-- Report on status and progress
+Respond as the COO. If the CEO asks about code or improvements, use your tools to investigate."""
 
-Keep responses conversational but informative."""
-
-        response = coo.llm.execute(LLMRequest(prompt=prompt))
+        response = coo.llm.execute(LLMRequest(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            working_directory=get_corp_path()
+        ))
 
         if response.success:
             coo_response = response.content
