@@ -3,7 +3,7 @@ name = "ai-corp"
 version = "0.1.0"
 description = "AI Corp - Autonomous AI Corporation with Claude Code Agents"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
     {name = "JKILLR"}
