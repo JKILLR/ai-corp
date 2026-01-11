@@ -155,6 +155,10 @@ async def send_coo_message(request: COOMessageRequest):
     """
     coo = get_coo()
 
+    # Debug: Log incoming images
+    import logging
+    logging.info(f"COO message received. Images count: {len(request.images) if request.images else 0}")
+
     # Get or create thread
     thread_id = request.thread_id
     if not thread_id:
