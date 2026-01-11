@@ -211,19 +211,19 @@ class ClaudeCodeBackend(LLMBackend):
         if request.context:
             env['AI_CORP_CONTEXT'] = json.dumps(request.context)
 
-        # Add prompt as positional argument at the end
-        # This is more reliable than stdin when called from subprocess
-        cmd.append(request.prompt)
-
+        # Use Popen with explicit stdin pipe for reliable prompt passing
         try:
-            result = subprocess.run(
+            process = subprocess.Popen(
                 cmd,
-                capture_output=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=self.timeout,
                 env=env,
                 cwd=request.working_directory or Path.cwd()
             )
+            stdout, stderr = process.communicate(input=request.prompt, timeout=self.timeout)
+            result = subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
 
             if result.returncode == 0:
                 return LLMResponse(
