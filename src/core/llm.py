@@ -211,19 +211,22 @@ class ClaudeCodeBackend(LLMBackend):
         if request.context:
             env['AI_CORP_CONTEXT'] = json.dumps(request.context)
 
-        # Use Popen with explicit stdin pipe for reliable prompt passing
+        # Use shell with echo pipe - most reliable way to pass input to Claude CLI
+        # Escape the prompt for shell safety
+        import shlex
+        escaped_prompt = shlex.quote(request.prompt)
+        shell_cmd = f'echo {escaped_prompt} | {" ".join(shlex.quote(c) for c in cmd)}'
+
         try:
-            process = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            result = subprocess.run(
+                shell_cmd,
+                shell=True,
+                capture_output=True,
                 text=True,
+                timeout=self.timeout,
                 env=env,
                 cwd=request.working_directory or Path.cwd()
             )
-            stdout, stderr = process.communicate(input=request.prompt, timeout=self.timeout)
-            result = subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
 
             if result.returncode == 0:
                 return LLMResponse(
