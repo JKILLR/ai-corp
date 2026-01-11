@@ -45,6 +45,11 @@ ENV/
 # These are generated per-project and should NOT be in the template
 corp/
 .aicorp/
+beads/
+gates/
+hooks/
+channels/
+molecules/
 
 # Keep templates tracked (whitelist patterns)
 !templates/
