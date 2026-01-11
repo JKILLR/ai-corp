@@ -69,6 +69,54 @@
 
 ## Recent Changes
 
+### 2026-01-11: COO Image/Screenshot Support + Chat Session Persistence
+
+**Goal:** Enable COO to process images/screenshots like Claude Code does.
+
+**Image Support Implementation:**
+
+1. **LLM Request (`src/core/llm.py`):**
+   ```python
+   @dataclass
+   class LLMRequest:
+       # ... existing fields ...
+       images: List[Dict[str, str]] = field(default_factory=list)
+       # Each image: {"data": "base64...", "media_type": "image/png"}
+   ```
+
+2. **ClaudeAPIBackend Updated:**
+   - Sends images as content blocks to Claude API
+   - Supports image/png, image/jpeg, image/gif, image/webp
+
+3. **API Endpoint (`src/api/main.py`):**
+   - `ImageAttachment` model with `data` (base64) and `media_type`
+   - COO message endpoint accepts `images` parameter
+   - Uses `ClaudeAPIBackend` when images present (CLI doesn't support images)
+
+4. **Frontend (`frontend/src/pages/COOChannel.tsx`):**
+   - Paste screenshots from clipboard (Ctrl+V)
+   - Upload images via file picker
+   - Preview attached images before sending
+   - Display images in message history
+   - Click images to view full size
+
+**Chat Session Persistence:**
+
+- Thread ID stored in localStorage
+- Session restored on component mount
+- "New Thread" button clears session
+
+**Bug Fixes:**
+- Fixed confirmation detection being too aggressive (now requires ≤5 words for simple confirmations)
+- Fixed stale delegation cleanup (removes entries >1 hour old)
+- Fixed message indexing when extracting delegation title
+
+**Files Changed:**
+- `src/core/llm.py` - Added `images` field to `LLMRequest`, updated `ClaudeAPIBackend`
+- `src/api/main.py` - Added `ImageAttachment`, COO endpoint handles images
+- `frontend/src/api/client.ts` - Added `ImageAttachment`, updated `sendCOOMessage`
+- `frontend/src/pages/COOChannel.tsx` - Full image paste/upload/display support
+
 ### 2026-01-11: CLI Full Hierarchy Execution
 
 **Issue:** The `ai-corp ceo` command only delegated to VPs but didn't run the full hierarchy (VP → Director → Worker).

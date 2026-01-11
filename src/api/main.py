@@ -27,6 +27,7 @@ from src.core.bead import BeadLedger
 from src.core.monitor import SystemMonitor
 from src.core.forge import TheForge
 from src.core.contract import ContractManager
+from src.core.llm import LLMRequest, LLMBackendFactory
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -177,7 +178,6 @@ async def send_coo_message(request: COOMessageRequest):
 
     # Generate COO response with full tool access and delegation awareness
     try:
-        from src.core.llm import LLMRequest
 
         # Build context from thread and system state
         thread_context = coo.get_thread_context(thread_id, max_messages=10)
@@ -287,12 +287,27 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                         "media_type": img.media_type
                     })
 
-            response = coo.llm.execute(LLMRequest(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                working_directory=get_corp_path(),
-                images=llm_images
-            ))
+            # If images are present, use ClaudeAPIBackend directly since
+            # ClaudeCodeBackend (CLI) doesn't support image input
+            if llm_images:
+                api_backend = LLMBackendFactory.create('claude_api')
+                if not api_backend.is_available():
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Image processing requires ANTHROPIC_API_KEY to be set"
+                    )
+                response = api_backend.execute(LLMRequest(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    working_directory=get_corp_path(),
+                    images=llm_images
+                ))
+            else:
+                response = coo.llm.execute(LLMRequest(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    working_directory=get_corp_path()
+                ))
 
             if response.success:
                 coo_response = response.content

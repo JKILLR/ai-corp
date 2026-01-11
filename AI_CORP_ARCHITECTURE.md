@@ -1116,15 +1116,24 @@ Swappable LLM backends for flexible execution:
 ```python
 # Backend Types
 ClaudeCodeBackend   # Spawns actual Claude Code instances with full tool access
-ClaudeAPIBackend    # Uses Anthropic API directly
+ClaudeAPIBackend    # Uses Anthropic API directly (supports images)
 MockBackend         # For testing without LLM calls
 
 # Tool Access - All agents get full Claude Code tools
 ALL_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
 
+# LLM Request with Image Support
+@dataclass
+class LLMRequest:
+    prompt: str
+    system_prompt: Optional[str] = None
+    images: List[Dict[str, str]] = []  # {"data": "base64...", "media_type": "image/png"}
+    # ... other fields
+
 # Factory Pattern
 LLMBackendFactory.get_best_available()  # Auto-selects best backend
 LLMBackendFactory.create('claude_code')  # Explicit selection
+LLMBackendFactory.create('claude_api')   # Required for image processing
 
 # Agent Interface
 AgentLLMInterface.think(role, task, context) -> AgentThought
@@ -1132,6 +1141,11 @@ AgentLLMInterface.execute_task(role, system_prompt, task) -> LLMResponse
 AgentLLMInterface.analyze_work_item(role, work_item) -> Dict
 AgentLLMInterface.summarize_results(role, task, output) -> Dict
 ```
+
+**Image Support Notes:**
+- `ClaudeAPIBackend` supports images (requires `ANTHROPIC_API_KEY`)
+- `ClaudeCodeBackend` (CLI) does not support image input
+- API endpoints auto-select API backend when images are attached
 
 ### Message Processor (`src/core/processor.py`)
 
@@ -1782,6 +1796,78 @@ All inter-corp communication goes through Apex (no peer-to-peer):
 | Corp autonomy | 95%+ | % of decisions not requiring Apex approval |
 | Revenue tracking | Real-time | Dashboard accuracy |
 | Cross-corp isolation | 100% | No data leakage between corps |
+
+---
+
+## API Layer (`src/api/main.py`)
+
+FastAPI server connecting frontend to backend systems.
+
+### Endpoints
+
+```python
+# COO Chat (primary interface)
+POST /api/coo/message     # Send message, get COO response (supports images)
+GET  /api/coo/threads     # List conversation threads
+GET  /api/coo/threads/{id}  # Get specific thread with messages
+
+# Delegation (team work)
+POST /api/coo/delegate             # Create project and delegate to team
+GET  /api/coo/delegation-status/{id}  # Check delegation progress
+POST /api/coo/run-cycle            # Trigger corporation execution cycle
+
+# Dashboard
+GET  /api/dashboard       # Full dashboard data (metrics, projects, gates, activity)
+GET  /api/dashboard/metrics  # KPI metrics only
+
+# Projects (Molecules)
+GET  /api/projects        # List all projects
+GET  /api/projects/{id}   # Get project details
+
+# Gates
+GET  /api/gates           # List all gates
+GET  /api/gates/pending   # Gates awaiting approval
+POST /api/gates/{id}/approve  # Approve gate submission
+POST /api/gates/{id}/reject   # Reject gate submission
+
+# Discovery (guided project creation)
+POST /api/discovery/start            # Start discovery session
+POST /api/discovery/{id}/message     # Continue discovery conversation
+POST /api/discovery/{id}/finalize    # Create project from discovery
+
+# System
+GET  /api/health          # Health check
+WS   /api/ws              # WebSocket for real-time updates
+```
+
+### Image Support
+
+```python
+class ImageAttachment(BaseModel):
+    data: str  # Base64-encoded image data
+    media_type: str = "image/png"  # MIME type
+
+# COO message with images
+POST /api/coo/message
+{
+    "message": "What do you think of this design?",
+    "thread_id": "optional-id",
+    "images": [
+        {"data": "base64...", "media_type": "image/png"}
+    ]
+}
+```
+
+**Notes:**
+- Images require `ANTHROPIC_API_KEY` (uses ClaudeAPIBackend)
+- Frontend supports paste, drag-drop, and file upload
+- Images displayed in chat history
+
+### Chat Session Persistence
+
+- Thread ID stored in frontend localStorage
+- Session restored on page navigation
+- "New Thread" button starts fresh conversation
 
 ---
 
