@@ -1,9 +1,9 @@
 # AI Corp Project State
 
-> **Last Updated:** 2026-01-10
-> **Current Phase:** System Refinement
-> **Status:** All P1 complete, Real Claude Testing attempted (needs separate terminal)
-> **Next Action:** Real Claude Testing (from separate terminal) or P2 features
+> **Last Updated:** 2026-01-11
+> **Current Phase:** P2 - Orchestration Layer
+> **Status:** Orchestration Layer implemented - corporation.run_cycle() now autonomous
+> **Next Action:** Real Claude Testing (from separate terminal) to verify full E2E
 
 ---
 
@@ -60,10 +60,66 @@
 | **Foundation Corp** | ✅ Bootstrapped | Structure, hierarchy, gates, templates ready |
 | **Depth-Based Context** | ✅ Complete | Agent-level depth defaults for Entity Graph |
 | **Async Gate Approvals** | ✅ Complete | Async evaluation, auto-approval policies |
+| **Orchestration Layer** | ✅ Complete | P2: Autonomous execution with hook refresh |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-11: Orchestration Layer Complete (P2)
+
+**Goal:** Make `CorporationExecutor.run_cycle()` work autonomously without demo.py workarounds.
+
+**5 Fixes Implemented:**
+
+1. **Hook Cache Refresh** (`src/core/hook.py`)
+   - Added `refresh_hook()`, `refresh_hook_for_owner()`, `refresh_all_hooks()` methods
+   - Ensures agents see work delegated by previous tier
+
+2. **VP/Director Capabilities** (`src/agents/executor.py`)
+   - VPs and Directors now have broad capabilities for delegation
+   - Workers have execution capabilities
+
+3. **direct_reports Configuration**
+   - VP direct_reports set to actual Directors that exist
+   - Director direct_reports set to their Workers
+   - Enables LLM suggestion validation
+
+4. **Worker Pool Registration**
+   - Workers automatically registered in their Director's pool
+   - `_configure_director_pools()` method added
+
+5. **Workers Use Director's Hook**
+   - Workers configured to claim from Director's hook (shared pool queue)
+   - `_configure_worker_hooks()` method added
+
+**CorporationExecutor Changes:**
+
+```python
+# New helper methods
+_configure_director_pools()  # Fix #4
+_configure_worker_hooks()    # Fix #5
+_configure_director_reports() # Fix #3
+_refresh_all_agent_hooks()   # Fix #1
+
+# run_cycle() now refreshes hooks between tiers
+def run_cycle():
+    results['coo'] = executive_executor.run_once()
+    _refresh_all_agent_hooks()  # <-- NEW
+    results['vps'] = vp_executor.run_once()
+    _refresh_all_agent_hooks()  # <-- NEW
+    # ... etc
+```
+
+**Tests Added:**
+- `tests/agents/test_orchestration.py` - 15+ tests for orchestration fixes
+
+**What This Enables:**
+- `CorporationExecutor.run_cycle()` now does what demo.py did manually
+- No more manual hook cache clearing
+- No more manual capability configuration
+- No more manual pool registration
+- Work flows automatically: COO → VP → Director → Worker
 
 ### 2026-01-10: Real Claude Testing Attempted
 
