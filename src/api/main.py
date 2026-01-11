@@ -27,6 +27,7 @@ from src.core.bead import BeadLedger
 from src.core.monitor import SystemMonitor
 from src.core.forge import TheForge
 from src.core.contract import ContractManager
+from src.core.llm import LLMRequest, LLMBackendFactory
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -95,10 +96,17 @@ def get_forge() -> TheForge:
 # Request/Response Models
 # =============================================================================
 
+class ImageAttachment(BaseModel):
+    """An image attachment for COO messages."""
+    data: str  # Base64-encoded image data
+    media_type: str = "image/png"  # MIME type (image/png, image/jpeg, image/gif, image/webp)
+
+
 class COOMessageRequest(BaseModel):
     message: str
     thread_id: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
+    images: Optional[List[ImageAttachment]] = None  # Attached images/screenshots
 
 class COOMessageResponse(BaseModel):
     response: str
@@ -170,7 +178,6 @@ async def send_coo_message(request: COOMessageRequest):
 
     # Generate COO response with full tool access and delegation awareness
     try:
-        from src.core.llm import LLMRequest
 
         # Build context from thread and system state
         thread_context = coo.get_thread_context(thread_id, max_messages=10)
@@ -246,6 +253,7 @@ DELEGATION ANALYSIS:
 
 CEO'S MESSAGE:
 {request.message}
+{f'{chr(10)}[CEO has attached {len(request.images)} image(s)/screenshot(s) - review them carefully]' if request.images else ''}
 
 Respond naturally as the COO. Handle simple things directly. For bigger asks, propose a plan or ask clarifying questions conversationally."""
 
@@ -270,11 +278,36 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
 
         else:
             # Normal COO response
-            response = coo.llm.execute(LLMRequest(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                working_directory=get_corp_path()
-            ))
+            # Convert images to LLM format if present
+            llm_images = []
+            if request.images:
+                for img in request.images:
+                    llm_images.append({
+                        "data": img.data,
+                        "media_type": img.media_type
+                    })
+
+            # If images are present, use ClaudeAPIBackend directly since
+            # ClaudeCodeBackend (CLI) doesn't support image input
+            if llm_images:
+                api_backend = LLMBackendFactory.create('claude_api')
+                if not api_backend.is_available():
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Image processing requires ANTHROPIC_API_KEY to be set"
+                    )
+                response = api_backend.execute(LLMRequest(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    working_directory=get_corp_path(),
+                    images=llm_images
+                ))
+            else:
+                response = coo.llm.execute(LLMRequest(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    working_directory=get_corp_path()
+                ))
 
             if response.success:
                 coo_response = response.content
