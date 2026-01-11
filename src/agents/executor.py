@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 # Capability constants for delegation chain (FIX: avoid duplication)
 DELEGATION_CAPABILITIES = frozenset([
     'development', 'coding', 'implementation', 'research',
-    'analysis', 'design', 'testing', 'review'
+    'analysis', 'design', 'testing', 'review', 'qa'
 ])
 # Workers need ALL capabilities to execute any type of delegated work
 EXECUTION_CAPABILITIES = frozenset([
