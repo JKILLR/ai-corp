@@ -18,55 +18,9 @@ interface Gate {
   priority: 'high' | 'medium' | 'low';
 }
 
-const pendingGates: Gate[] = [
-  {
-    id: '1',
-    type: 'deploy',
-    title: 'Deploy to Production',
-    description: 'Website Redesign ready for production deployment. All tests passing.',
-    project: 'Website Redesign',
-    agent: 'dev-003',
-    requestedAt: '10 min ago',
-    status: 'warning',
-    priority: 'high',
-  },
-  {
-    id: '2',
-    type: 'security',
-    title: 'Security Review Required',
-    description: 'New API endpoints require security audit before going live.',
-    project: 'API Integration',
-    agent: 'qa-001',
-    requestedAt: '45 min ago',
-    status: 'warning',
-    priority: 'high',
-  },
-];
-
-const recentGates: Gate[] = [
-  {
-    id: '3',
-    type: 'budget',
-    title: 'Budget Threshold Exceeded',
-    description: 'Requested additional compute resources for data processing.',
-    project: 'Data Pipeline Refactor',
-    agent: 'dev-001',
-    requestedAt: '2 hours ago',
-    status: 'ok',
-    priority: 'medium',
-  },
-  {
-    id: '4',
-    type: 'delete',
-    title: 'Delete Legacy Resources',
-    description: 'Clean up deprecated API endpoints and database tables.',
-    project: 'API Integration',
-    agent: 'dev-002',
-    requestedAt: '1 day ago',
-    status: 'ok',
-    priority: 'low',
-  },
-];
+// Empty - no mock data. Will come from API
+const pendingGates: Gate[] = [];
+const recentGates: Gate[] = [];
 
 const gateIcons: Record<GateType, React.ComponentType<{ className?: string }>> = {
   deploy: Rocket,
@@ -139,23 +93,36 @@ export function Gates() {
         </div>
       )}
 
+      {/* Empty State */}
+      {pendingGates.length === 0 && recentGates.length === 0 && (
+        <GlassCard padding="lg" className="text-center py-12">
+          <Shield className="w-12 h-12 mx-auto mb-4 text-[var(--color-muted)]" />
+          <p className="text-[var(--color-muted)] mb-2">No gate activity</p>
+          <p className="text-sm text-[var(--color-muted)]">
+            Gates will appear here when agents request approvals for deployments, budget changes, or other sensitive operations.
+          </p>
+        </GlassCard>
+      )}
+
       {/* Recent Activity */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium text-[var(--color-plasma)] flex items-center gap-2">
-          <Clock className="w-5 h-5 text-[var(--color-muted)]" />
-          Recently Resolved
-        </h3>
-        <div className="space-y-3">
-          {recentGates.map((gate, index) => (
-            <GateCard
-              key={gate.id}
-              gate={gate}
-              index={index}
-              onViewDetails={() => setSelectedGate(gate)}
-            />
-          ))}
+      {recentGates.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-[var(--color-plasma)] flex items-center gap-2">
+            <Clock className="w-5 h-5 text-[var(--color-muted)]" />
+            Recently Resolved
+          </h3>
+          <div className="space-y-3">
+            {recentGates.map((gate, index) => (
+              <GateCard
+                key={gate.id}
+                gate={gate}
+                index={index}
+                onViewDetails={() => setSelectedGate(gate)}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Info Card */}
       <GlassCard padding="lg">

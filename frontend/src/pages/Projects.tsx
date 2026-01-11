@@ -25,107 +25,8 @@ interface Project {
   milestones: { name: string; completed: boolean }[];
 }
 
-const projects: Project[] = [
-  {
-    id: '1',
-    name: 'Website Redesign',
-    description: 'Complete overhaul of the marketing website with new brand guidelines',
-    status: 'ok',
-    progress: 67,
-    agents: 3,
-    tasks: { completed: 12, total: 18 },
-    lastActivity: '5 min ago',
-    assignedAgents: [
-      { id: 'dev-001', name: 'dev-001', role: 'Senior Developer', status: 'processing', currentTask: 'Implementing hero section' },
-      { id: 'design-001', name: 'design-001', role: 'UI Designer', status: 'ok', currentTask: 'Creating component library' },
-      { id: 'qa-001', name: 'qa-001', role: 'QA Engineer', status: 'ok', currentTask: 'Running visual regression tests' },
-    ],
-    milestones: [
-      { name: 'Design System', completed: true },
-      { name: 'Homepage', completed: true },
-      { name: 'Product Pages', completed: false },
-      { name: 'Launch', completed: false },
-    ],
-  },
-  {
-    id: '2',
-    name: 'API Integration',
-    description: 'Connect third-party services and build unified API layer',
-    status: 'ok',
-    progress: 89,
-    agents: 1,
-    tasks: { completed: 8, total: 9 },
-    lastActivity: '12 min ago',
-    assignedAgents: [
-      { id: 'dev-002', name: 'dev-002', role: 'Developer', status: 'ok', currentTask: 'Finalizing OAuth flow' },
-    ],
-    milestones: [
-      { name: 'Auth Layer', completed: true },
-      { name: 'Data Sync', completed: true },
-      { name: 'Testing', completed: false },
-    ],
-  },
-  {
-    id: '3',
-    name: 'Data Pipeline Refactor',
-    description: 'Modernize data processing infrastructure for better scalability',
-    status: 'warning',
-    progress: 45,
-    agents: 2,
-    tasks: { completed: 5, total: 11 },
-    lastActivity: '1 hour ago',
-    assignedAgents: [
-      { id: 'research-001', name: 'research-001', role: 'Data Analyst', status: 'warning', currentTask: 'Blocked: Waiting for data access' },
-      { id: 'research-002', name: 'research-002', role: 'ML Engineer', status: 'processing', currentTask: 'Optimizing batch processing' },
-    ],
-    milestones: [
-      { name: 'Schema Design', completed: true },
-      { name: 'Migration Scripts', completed: false },
-      { name: 'Performance Testing', completed: false },
-    ],
-  },
-  {
-    id: '4',
-    name: 'Mobile App MVP',
-    description: 'Build first version of mobile application for iOS and Android',
-    status: 'processing',
-    progress: 23,
-    agents: 4,
-    tasks: { completed: 7, total: 30 },
-    lastActivity: '2 min ago',
-    assignedAgents: [
-      { id: 'dev-003', name: 'dev-003', role: 'Developer', status: 'processing', currentTask: 'Building navigation stack' },
-      { id: 'design-002', name: 'design-002', role: 'UX Designer', status: 'ok', currentTask: 'User flow diagrams' },
-      { id: 'dev-004', name: 'dev-004', role: 'Mobile Developer', status: 'processing', currentTask: 'iOS native components' },
-      { id: 'dev-005', name: 'dev-005', role: 'Mobile Developer', status: 'processing', currentTask: 'Android native components' },
-    ],
-    milestones: [
-      { name: 'Wireframes', completed: true },
-      { name: 'Core Features', completed: false },
-      { name: 'Beta Release', completed: false },
-      { name: 'App Store', completed: false },
-    ],
-  },
-  {
-    id: '5',
-    name: 'Security Audit',
-    description: 'Comprehensive security review and vulnerability assessment',
-    status: 'waiting',
-    progress: 10,
-    agents: 1,
-    tasks: { completed: 2, total: 20 },
-    lastActivity: '3 hours ago',
-    assignedAgents: [
-      { id: 'sec-001', name: 'sec-001', role: 'Security Engineer', status: 'waiting', currentTask: 'Waiting for scope approval' },
-    ],
-    milestones: [
-      { name: 'Scope Definition', completed: true },
-      { name: 'Vulnerability Scan', completed: false },
-      { name: 'Penetration Testing', completed: false },
-      { name: 'Final Report', completed: false },
-    ],
-  },
-];
+// Empty - no mock data. Projects will come from API
+const projects: Project[] = [];
 
 export function Projects() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -160,16 +61,25 @@ export function Projects() {
       </div>
 
       {/* Project Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {projects.map((project, index) => (
-          <ProjectCard
-            key={project.id}
-            project={project}
-            index={index}
-            onClick={() => setSelectedProject(project)}
-          />
-        ))}
-      </div>
+      {projects.length === 0 ? (
+        <GlassCard padding="lg" className="text-center py-12">
+          <p className="text-[var(--color-muted)] mb-4">No projects yet</p>
+          <p className="text-sm text-[var(--color-muted)]">
+            Create a new project or start a discovery session with the COO to get started.
+          </p>
+        </GlassCard>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {projects.map((project, index) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              index={index}
+              onClick={() => setSelectedProject(project)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Project Detail Modal */}
       <AnimatePresence>

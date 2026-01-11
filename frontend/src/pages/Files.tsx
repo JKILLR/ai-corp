@@ -16,90 +16,9 @@ import {
 } from 'lucide-react';
 import { GlassCard, FileBrowser, type FileItem, type FolderItem } from '../components/ui';
 
-// Mock data for development
-const mockInternalFiles: FileItem[] = [
-  {
-    id: 'file-001',
-    name: 'project-requirements.pdf',
-    location: 'internal',
-    category: 'document',
-    size_bytes: 245000,
-    mime_type: 'application/pdf',
-    created_at: '2025-01-06T10:00:00Z',
-    modified_at: '2025-01-06T10:00:00Z',
-    description: 'Initial project requirements document',
-    tags: ['requirements', 'planning'],
-  },
-  {
-    id: 'file-002',
-    name: 'architecture-diagram.png',
-    location: 'internal',
-    category: 'image',
-    size_bytes: 580000,
-    mime_type: 'image/png',
-    created_at: '2025-01-05T15:30:00Z',
-    modified_at: '2025-01-05T15:30:00Z',
-    description: 'System architecture overview',
-    tags: ['architecture', 'diagram'],
-  },
-  {
-    id: 'file-003',
-    name: 'analysis-report.md',
-    location: 'internal',
-    category: 'artifact',
-    size_bytes: 12500,
-    mime_type: 'text/markdown',
-    created_at: '2025-01-06T08:00:00Z',
-    modified_at: '2025-01-06T08:00:00Z',
-    description: 'Agent-generated analysis report',
-    tags: ['report', 'analysis'],
-  },
-  {
-    id: 'file-004',
-    name: 'data-export.csv',
-    location: 'internal',
-    category: 'data',
-    size_bytes: 45000,
-    mime_type: 'text/csv',
-    created_at: '2025-01-04T12:00:00Z',
-    modified_at: '2025-01-04T12:00:00Z',
-    description: 'Exported metrics data',
-    tags: ['export', 'data'],
-  },
-];
-
-const mockDriveFiles: FileItem[] = [
-  {
-    id: 'ext-001',
-    name: 'Company Guidelines.docx',
-    location: 'google_drive',
-    category: 'document',
-    size_bytes: 125000,
-    mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    created_at: '2025-01-01T00:00:00Z',
-    modified_at: '2025-01-03T09:00:00Z',
-    external_path: '/Shared/Company',
-    is_cached: true,
-  },
-  {
-    id: 'ext-002',
-    name: 'Q4 Report.xlsx',
-    location: 'google_drive',
-    category: 'data',
-    size_bytes: 350000,
-    mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    created_at: '2024-12-15T00:00:00Z',
-    modified_at: '2024-12-31T16:00:00Z',
-    external_path: '/Reports/2024',
-    is_cached: false,
-  },
-];
-
-const mockDriveFolders: FolderItem[] = [
-  { id: 'folder-001', name: 'Shared', path: '/Shared', is_shared: true },
-  { id: 'folder-002', name: 'Reports', path: '/Reports', is_shared: false },
-  { id: 'folder-003', name: 'Projects', path: '/Projects', is_shared: false },
-];
+// Empty arrays - no mock data
+const emptyFiles: FileItem[] = [];
+const emptyFolders: FolderItem[] = [];
 
 interface StorageStats {
   internal: {
@@ -118,25 +37,20 @@ interface StorageStats {
   };
 }
 
-const mockStats: StorageStats = {
+const emptyStats: StorageStats = {
   internal: {
-    total_files: 4,
-    total_size_bytes: 882500,
-    by_category: {
-      document: { count: 1, size: 245000 },
-      image: { count: 1, size: 580000 },
-      artifact: { count: 1, size: 12500 },
-      data: { count: 1, size: 45000 },
-    },
+    total_files: 0,
+    total_size_bytes: 0,
+    by_category: {},
   },
   drive: {
-    is_configured: true,
-    indexed_files: 2,
-    indexed_folders: 3,
-    cached_files: 1,
+    is_configured: false,
+    indexed_files: 0,
+    indexed_folders: 0,
+    cached_files: 0,
   },
   exports: {
-    total_exports: 5,
+    total_exports: 0,
   },
 };
 
@@ -155,11 +69,11 @@ export const Files = () => {
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
-  // In production, these would come from API
-  const internalFiles = mockInternalFiles;
-  const driveFiles = mockDriveFiles;
-  const driveFolders = mockDriveFolders;
-  const stats = mockStats;
+  // TODO: Fetch from API when available
+  const internalFiles = emptyFiles;
+  const driveFiles = emptyFiles;
+  const driveFolders = emptyFolders;
+  const stats = emptyStats;
 
   const handleFilePreview = (file: FileItem) => {
     setPreviewFile(file);
