@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search, X, Image as ImageIcon } from 'lucide-react';
+import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search, X, Image as ImageIcon, Terminal as TerminalIcon } from 'lucide-react';
 import { GlassCard, Button, StatusOrb } from '../components/ui';
 import { api } from '../api/client';
 import type { ImageAttachment } from '../api/client';
+import Terminal from '../components/Terminal';
 
 interface Message {
   id: string;
@@ -70,6 +71,7 @@ export function COOChannel() {
   const [isConnected, setIsConnected] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -319,6 +321,15 @@ export function COOChannel() {
               <Clock className="w-4 h-4 mr-2" />
               View History
             </Button>
+            <Button
+              variant={isTerminalOpen ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+              title="Open live terminal for COO execution"
+            >
+              <TerminalIcon className="w-4 h-4 mr-2" />
+              Terminal
+            </Button>
             <Button variant="secondary" size="sm" onClick={handleNewThread}>
               <Plus className="w-4 h-4 mr-2" />
               New Thread
@@ -456,6 +467,13 @@ export function COOChannel() {
           </p>
         </div>
       </div>
+
+      {/* Live Terminal for COO execution */}
+      <Terminal
+        isOpen={isTerminalOpen}
+        onClose={() => setIsTerminalOpen(false)}
+        threadId={threadId}
+      />
     </div>
   );
 }
