@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-11
-> **Current Phase:** P2 - Orchestration Layer Complete
-> **Status:** ✅ Real Claude Testing SUCCESSFUL + Orchestration Layer implemented
-> **Next Action:** P2 Features (Swarm Molecules, Composite Molecules)
+> **Current Phase:** P2 - Swarm Molecule Type Complete
+> **Status:** ✅ Real Claude Testing SUCCESSFUL + Orchestration Layer + Swarm Molecules
+> **Next Action:** P2 Features (Composite Molecules)
 
 ---
 
@@ -62,10 +62,68 @@
 | **Depth-Based Context** | ✅ Complete | Agent-level depth defaults for Entity Graph |
 | **Async Gate Approvals** | ✅ Complete | Async evaluation, auto-approval policies |
 | **Orchestration Layer** | ✅ Complete | P2: Autonomous execution with hook refresh |
+| **Swarm Molecule Type** | ✅ Complete | P2: Parallel research with scatter→critique→converge |
 
 ---
 
 ## Recent Changes
+
+### 2026-01-11: Swarm Molecule Type Complete (P2)
+
+**Goal:** Add swarm workflow pattern for parallel research with cross-critique.
+
+**Pattern:** Scatter → Critique → Converge
+1. **Scatter**: N workers research the same question independently (parallel)
+2. **Critique**: Workers cross-review each other's findings (optional, multi-round)
+3. **Converge**: Synthesize results into unified answer
+
+**New Types (`src/core/molecule.py`):**
+
+```python
+class WorkflowType(Enum):
+    SWARM = "swarm"  # New type added
+
+class ConvergenceStrategy(Enum):
+    VOTE = "vote"           # Majority vote
+    SYNTHESIZE = "synthesize"  # LLM synthesis (default)
+    BEST = "best"           # Pick highest-scored
+    MERGE = "merge"         # Combine non-conflicting
+
+@dataclass
+class SwarmConfig:
+    scatter_count: int = 3        # Parallel workers
+    critique_enabled: bool = True # Enable cross-critique
+    critique_rounds: int = 1      # Critique iterations
+    convergence_strategy: ConvergenceStrategy = ConvergenceStrategy.SYNTHESIZE
+    min_agreement: float = 0.6    # For VOTE strategy
+    timeout_seconds: int = 300
+```
+
+**MoleculeEngine Enhancement:**
+
+```python
+def start_molecule():
+    # Expands swarm molecules into scatter/critique/converge steps
+    if molecule.workflow_type == WorkflowType.SWARM:
+        self._expand_swarm_steps(molecule)
+```
+
+**Step Dependencies:**
+- Scatter steps: No dependencies (parallel execution)
+- Critique steps: Depend on scatter (round 1) or previous critique round
+- Converge step: Depends only on final critique round (not all critique steps)
+
+**Code Review Fixes Applied:**
+- Validation: scatter_count must be >= 2
+- Extracted department lookup (avoid 4x repetition)
+- Fixed converge dependencies (was depending on ALL critique steps)
+- Improved critique descriptions with original question context
+- Removed dead code (other_scatter_ids computed but unused)
+
+**Exports Updated:**
+- `SwarmConfig`, `ConvergenceStrategy` exported from `src/core`
+
+**Tests:** Comprehensive swarm tests verify step creation, dependencies, and validation.
 
 ### 2026-01-11: Orchestration Layer Complete (P2)
 
@@ -909,12 +967,13 @@ CorporationExecutor
 ### P2 Future
 1. ~~Evolution Daemon~~ ✅ Complete (background learning cycles)
 2. ~~Context Synthesizer~~ ✅ Complete (part of Phase 2)
-3. Swarm Molecule Type (parallel research pattern)
-4. Composite Molecules (chain molecule types)
-5. Local model training (Phase 3 of Learning System)
-6. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
-7. Apex Corp Registry
-8. Web UI
+3. ~~Orchestration Layer~~ ✅ Complete (autonomous CorporationExecutor)
+4. ~~Swarm Molecule Type~~ ✅ Complete (scatter→critique→converge)
+5. Composite Molecules (chain molecule types)
+6. Local model training (Phase 3 of Learning System)
+7. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
+8. Apex Corp Registry
+9. Web UI
 
 ---
 
