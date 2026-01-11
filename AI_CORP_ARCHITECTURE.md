@@ -252,35 +252,80 @@ molecule:
 **Standard Molecule** (Current)
 Sequential or parallel steps with optional gates. Single execution attempt per step.
 
-**Swarm Molecule** (P2 - Planned)
+**Swarm Molecule** (✅ Complete)
 Parallel research pattern: multiple workers attack a problem simultaneously, cross-critique, and converge.
 
-```yaml
-molecule:
-  id: MOL-SWARM-RESEARCH
-  name: "Architecture Research"
-  type: swarm_molecule
+```python
+# WorkflowType enum
+class WorkflowType(Enum):
+    PROJECT = "project"      # Default linear
+    CONTINUOUS = "continuous" # Loops indefinitely
+    HYBRID = "hybrid"        # Project with continuation
+    SWARM = "swarm"          # Scatter→Critique→Converge
 
-  swarm_config:
-    parallel_workers: 5
-    rounds: 4
-    convergence_target: 1  # End with single report
+# Convergence strategies
+class ConvergenceStrategy(Enum):
+    VOTE = "vote"            # Majority vote
+    SYNTHESIZE = "synthesize" # LLM synthesis (default)
+    BEST = "best"            # Pick highest-scored
+    MERGE = "merge"          # Combine non-conflicting
 
-  worker_shards:
-    - id: worker_academic
-      focus: "arXiv, papers"
-    - id: worker_code
-      focus: "GitHub, implementations"
-    - id: worker_social
-      focus: "discussions, experiences"
-    - id: worker_contrarian
-      focus: "criticisms, limitations"
+# Configuration
+@dataclass
+class SwarmConfig:
+    scatter_count: int = 3           # Parallel workers (must be >= 2)
+    critique_enabled: bool = True    # Enable cross-critique
+    critique_rounds: int = 1         # Number of critique iterations
+    convergence_strategy: ConvergenceStrategy = ConvergenceStrategy.SYNTHESIZE
+    min_agreement: float = 0.6       # For VOTE strategy
+    timeout_seconds: int = 300
+```
 
-  round_rules:
-    round_1: {type: "parallel_gather"}
-    round_2: {type: "cross_critique"}  # Each reads all others
-    round_3: {type: "directed_merge"}   # Director forces convergence
-    round_4: {type: "final_synthesis"}
+**Swarm Pattern Flow:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  PHASE 1: SCATTER (Parallel)                                    │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                      │
+│  │ Worker 1 │  │ Worker 2 │  │ Worker 3 │  ← No dependencies   │
+│  │ Research │  │ Research │  │ Research │    (run in parallel) │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                      │
+├───────┴──────────────┴──────────────┴───────────────────────────┤
+│  PHASE 2: CRITIQUE (Optional, Multi-round)                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                      │
+│  │ Critique │  │ Critique │  │ Critique │  ← Depends on scatter│
+│  │ Worker 1 │  │ Worker 2 │  │ Worker 3 │    or prev round     │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                      │
+├───────┴──────────────┴──────────────┴───────────────────────────┤
+│  PHASE 3: CONVERGE                                              │
+│                  ┌───────────────┐                              │
+│                  │   Synthesize  │  ← Depends on final round   │
+│                  │   Results     │    only (not all critiques) │
+│                  └───────────────┘                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Usage:**
+```python
+# Create swarm molecule
+config = SwarmConfig(scatter_count=3, critique_enabled=True, critique_rounds=2)
+mol = engine.create_molecule(
+    name="Architecture Research",
+    description="What's the best approach for X?",
+    created_by="vp_research",
+    workflow_type=WorkflowType.SWARM,
+    swarm_config=config
+)
+
+# start_molecule() expands into scatter/critique/converge steps
+mol = engine.start_molecule(mol.id)
+# mol.steps now contains 3 scatter + 6 critique (2 rounds) + 1 converge = 10 steps
+```
+
+**Step Metadata:**
+```python
+mol.metadata['swarm_scatter_steps']   # List of scatter step IDs
+mol.metadata['swarm_critique_steps']  # List of critique step IDs
+mol.metadata['swarm_converge_step']   # Converge step ID
 ```
 
 **Composite Molecule** (P2 - Planned)
@@ -1073,6 +1118,47 @@ corp = CorporationExecutor(corp_path)
 corp.initialize(departments=['engineering', 'product'])
 corp.run_cycle()              # COO -> VPs -> Directors -> Workers
 corp.run_continuous()         # Continuous corporation operation
+```
+
+#### Orchestration Layer (✅ Complete)
+
+The orchestration layer enables autonomous `run_cycle()` execution without manual workarounds.
+
+**Key Components:**
+
+1. **Hook Cache Refresh** (`src/core/hook.py`)
+   ```python
+   hook_manager.refresh_hook(hook_id)          # Refresh single hook
+   hook_manager.refresh_hook_for_owner(owner)  # Refresh agent's hook
+   hook_manager.refresh_all_hooks()            # Refresh all hooks
+   ```
+
+2. **Automatic Refresh Between Tiers**
+   ```python
+   def run_cycle():
+       results['coo'] = executive_executor.run_once()
+       _refresh_all_agent_hooks()   # VPs see COO's delegated work
+       results['vps'] = vp_executor.run_once()
+       _refresh_all_agent_hooks()   # Directors see VP's delegated work
+       results['directors'] = director_executor.run_once()
+       _refresh_all_agent_hooks()   # Workers see Director's delegated work
+       results['workers'] = worker_executor.run_once()
+   ```
+
+3. **Capability Configuration**
+   - VPs/Directors: `['development', 'coding', 'research', 'analysis', 'design', 'testing', 'review']`
+   - Workers: `['development', 'coding', 'implementation', 'execution']`
+
+4. **Director-Worker Chain**
+   - Directors have `direct_reports` pointing to their Workers
+   - Workers registered in Director's pool
+   - Workers claim from Director's hook (shared pool queue)
+
+**Flow:**
+```
+COO creates work → VP hook updated → _refresh_all_agent_hooks() →
+VP sees work → VP delegates → Director hook updated → _refresh_all_agent_hooks() →
+Director sees work → Director delegates → Workers claim from Director's hook
 ```
 
 ---
