@@ -218,18 +218,22 @@ def main():
         vp.identity.capabilities.extend(['development', 'coding', 'research', 'analysis', 'design', 'testing'])
         print_substep("VP Engineering created")
 
-        # Create Director
+        # Create Director - use role_id that VP is likely to delegate to
+        # VP's LLM analysis often picks "director_engineering" for engineering tasks
         director = create_director_agent(
-            role_id="dir_backend",
-            role_name="Director of Backend",
+            role_id="director_engineering",
+            role_name="Director of Engineering",
             department="engineering",
-            focus="backend development",
+            focus="engineering implementation",
             reports_to="vp_engineering",
             corp_path=corp_path
         )
         # WORKAROUND: Add capabilities for delegation
         director.identity.capabilities.extend(['development', 'coding', 'implementation'])
-        print_substep("Director Backend created")
+        print_substep("Director Engineering created")
+
+        # Also configure VP to use our director
+        vp.identity.direct_reports = ['director_engineering']
 
         # Create Worker (uses worker_type instead of role_id)
         worker = create_worker_agent(
