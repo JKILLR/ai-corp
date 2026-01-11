@@ -69,6 +69,25 @@
 
 ## Recent Changes
 
+### 2026-01-11: Agent Tool Access Fixed
+
+**Critical Bug Fix:** Agents weren't receiving proper tool permissions.
+
+**Problem:** `ClaudeCodeBackend` was passing skill names (e.g., "frontend-design") to `--allowedTools` instead of actual tool names (e.g., "Read", "Write", "Edit").
+
+**Solution:** All agents now get full tools via `ALL_TOOLS`:
+
+```python
+ALL_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
+```
+
+**Files Changed:**
+- `src/core/llm.py` - Added `ALL_TOOLS`, fixed `--allowedTools` to use actual tool names
+- `src/agents/base.py` - Added `agent_level` to context
+- `src/core/__init__.py` - Exported `ALL_TOOLS`
+
+**Result:** All agents now have full Claude Code capabilities within their execution context.
+
 ### 2026-01-11: Composite Molecules Complete (P2)
 
 **Goal:** Enable chaining different workflow types together with escalation support.
@@ -996,7 +1015,7 @@ CorporationExecutor
 | No async support | Low | Could improve performance |
 | ~~Hook cache staleness~~ | ~~Low~~ | ✅ Fixed: `refresh_hook()` methods added in orchestration layer |
 | ~~No orchestration layer~~ | ~~Medium~~ | ✅ Fixed: P2 complete - `run_cycle()` works autonomously |
-| **Single-shot agent execution** | **High** | Agents run via `claude --print` (single-shot) - no multi-turn iteration |
+| ~~Single-shot agent execution~~ | ~~High~~ | ✅ Fixed: Agents now have full tool access (Read, Write, Edit, Bash, etc.) via level-based defaults |
 
 ---
 

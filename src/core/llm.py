@@ -95,22 +95,24 @@ class LLMBackend(ABC):
         pass
 
 
+# All available Claude Code tools - all agents get full access
+ALL_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
+
+
 class ClaudeCodeBackend(LLMBackend):
     """
     Execute LLM requests via Claude Code CLI.
 
     This is the primary backend for agent execution as it provides
-    full Claude Code capabilities including tools and skills.
+    full Claude Code capabilities including tools.
 
-    Skill Flow:
-        The primary way to pass skills is via LLMRequest.skills:
-        1. BaseAgent.get_available_skills() collects skills from identity + registry
-        2. BaseAgent.execute_with_llm() passes skills to LLMRequest
-        3. ClaudeCodeBackend uses request.skills when building the CLI command
+    Tool Configuration:
+        Tools are configured via request.tools (actual tool names like Read, Write, Edit).
+        If no tools specified, defaults based on agent_level in request.context.
 
-    Note:
-        The skill_registry parameter exists for direct backend usage but is
-        not used when going through BaseAgent (which handles skill collection).
+    Skills vs Tools:
+        - tools: Claude Code capabilities (Read, Write, Edit, Bash, etc.)
+        - skills: Domain knowledge from SKILL.md files (passed via system prompt)
     """
 
     def __init__(self, timeout: int = 300):
@@ -153,7 +155,7 @@ class ClaudeCodeBackend(LLMBackend):
         Execute an LLM request via Claude Code CLI.
 
         Args:
-            request: The LLM request to execute (skills should be in request.skills)
+            request: The LLM request to execute
 
         Returns:
             LLMResponse with result or error
@@ -178,9 +180,12 @@ class ClaudeCodeBackend(LLMBackend):
         if request.system_prompt:
             cmd.extend(['--system-prompt', request.system_prompt])
 
-        # Add skills/allowed tools (from request.skills populated by agent)
-        for skill in request.skills:
-            cmd.extend(['--allowedTools', skill])
+        # Determine tools to enable (explicit tools or all by default)
+        tools_to_use = request.tools if request.tools else ALL_TOOLS
+
+        # Add allowed tools (actual Claude Code tools: Read, Write, Edit, etc.)
+        for tool in tools_to_use:
+            cmd.extend(['--allowedTools', tool])
 
         # Add working directory access
         if request.working_directory:

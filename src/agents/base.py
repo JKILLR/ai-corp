@@ -397,6 +397,7 @@ Always maintain professional communication and follow the organizational hierarc
             skills=self.get_available_skills(),  # Use combined skills
             context={
                 'agent_id': self.identity.id,
+                'agent_level': self.identity.level,  # For tool selection
                 'molecule_id': self.current_molecule.id if self.current_molecule else None,
                 'step_id': self.current_step.id if self.current_step else None
             }

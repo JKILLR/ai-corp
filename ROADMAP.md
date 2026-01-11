@@ -24,9 +24,12 @@
 
 ### P0 - Immediate (Now)
 
-**P2 Progress:** Orchestration Layer + Swarm + Composite Molecules **ALL COMPLETE**. Next:
-1. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
-2. Or move to P3 features (Apex Corp Registry, Web UI)
+**P2 Progress:** Orchestration Layer + Swarm + Composite Molecules + Agent Tool Access **ALL COMPLETE**.
+
+**Next priority:**
+1. **Foundation Corp Dogfooding** - Use the system to do real work and validate end-to-end
+2. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
+3. Or move to P3 features (Apex Corp Registry, Web UI)
 
 ---
 
@@ -88,6 +91,7 @@
 
 | Feature | Completed | Notes |
 |---------|-----------|-------|
+| **Agent Tool Access** | **2026-01-11** | **All agents get full Claude Code tools (Read, Write, Edit, Bash, etc.)** |
 | **Composite Molecules** | **2026-01-11** | **Swarm→Ralph→escalate with CompositeConfig and phase transitions** |
 | **Swarm Molecule Type** | **2026-01-11** | **Scatter→Critique→Converge pattern with SwarmConfig** |
 | **Orchestration Layer** | **2026-01-11** | **Autonomous CorporationExecutor with hook refresh between tiers** |
