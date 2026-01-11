@@ -804,7 +804,7 @@ async def get_dashboard():
     metrics = monitor.collect_metrics()
 
     # Get active projects
-    active_molecules = molecules.list_molecules(status='active')
+    active_molecules = molecules.list_active_molecules()
     projects = []
     for mol in active_molecules[:10]:  # Limit to 10
         progress = mol.get_progress()
@@ -865,7 +865,7 @@ async def get_metrics():
     gates = get_gate_keeper()
 
     metrics = monitor.collect_metrics()
-    active_molecules = molecules.list_molecules(status='active')
+    active_molecules = molecules.list_active_molecules()
     pending_gates = gates.get_pending_submissions()
 
     return DashboardMetrics(
@@ -886,10 +886,9 @@ async def list_projects(status: Optional[str] = None):
     """List all projects/molecules."""
     molecules = get_molecule_engine()
 
-    if status:
-        mol_list = molecules.list_molecules(status=status)
-    else:
-        mol_list = molecules.list_molecules()
+    # Currently only supports listing active molecules
+    # TODO: Add support for completed/all molecules
+    mol_list = molecules.list_active_molecules()
 
     projects = []
     for mol in mol_list:

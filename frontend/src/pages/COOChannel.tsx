@@ -56,6 +56,8 @@ const pastThreads: ConversationThread[] = [
   },
 ];
 
+const THREAD_STORAGE_KEY = 'ai-corp-coo-thread-id';
+
 export function COOChannel() {
   const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
   const [input, setInput] = useState('');
@@ -64,6 +66,7 @@ export function COOChannel() {
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -75,11 +78,44 @@ export function COOChannel() {
     scrollToBottom();
   }, [messages]);
 
-  // Check API health on mount
+  // Check API health and restore session on mount
   useEffect(() => {
-    api.healthCheck()
-      .then(() => setIsConnected(true))
-      .catch(() => setIsConnected(false));
+    const initializeSession = async () => {
+      try {
+        await api.healthCheck();
+        setIsConnected(true);
+
+        // Try to restore previous thread
+        const savedThreadId = localStorage.getItem(THREAD_STORAGE_KEY);
+        if (savedThreadId) {
+          setIsLoadingHistory(true);
+          try {
+            const thread = await api.getCOOThread(savedThreadId);
+            if (thread && thread.messages && thread.messages.length > 0) {
+              // Restore messages from thread
+              const restoredMessages: Message[] = thread.messages.map((msg: any, idx: number) => ({
+                id: msg.id || `restored-${idx}`,
+                role: msg.role === 'user' ? 'user' : 'coo',
+                content: msg.content,
+                timestamp: new Date(msg.timestamp),
+              }));
+              setMessages([welcomeMessage, ...restoredMessages]);
+              setThreadId(savedThreadId);
+            }
+          } catch (err) {
+            // Thread not found or error - start fresh
+            console.log('Could not restore thread, starting fresh');
+            localStorage.removeItem(THREAD_STORAGE_KEY);
+          } finally {
+            setIsLoadingHistory(false);
+          }
+        }
+      } catch {
+        setIsConnected(false);
+      }
+    };
+
+    initializeSession();
   }, []);
 
   const handleSend = async () => {
@@ -105,6 +141,7 @@ export function COOChannel() {
       // Save thread ID for conversation continuity
       if (response.thread_id) {
         setThreadId(response.thread_id);
+        localStorage.setItem(THREAD_STORAGE_KEY, response.thread_id);
       }
 
       const cooResponse: Message = {
@@ -138,6 +175,14 @@ export function COOChannel() {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleNewThread = () => {
+    // Clear current session and start fresh
+    setMessages([welcomeMessage]);
+    setThreadId(undefined);
+    localStorage.removeItem(THREAD_STORAGE_KEY);
+    setError(null);
   };
 
   return (
@@ -219,7 +264,7 @@ export function COOChannel() {
               <Clock className="w-4 h-4 mr-2" />
               View History
             </Button>
-            <Button variant="secondary" size="sm">
+            <Button variant="secondary" size="sm" onClick={handleNewThread}>
               <Plus className="w-4 h-4 mr-2" />
               New Thread
             </Button>
@@ -231,13 +276,28 @@ export function COOChannel() {
           {/* Date separator */}
           <div className="flex items-center gap-4">
             <div className="flex-1 h-px bg-[var(--glass-border)]" />
-            <span className="text-xs text-[var(--color-muted)]">Today</span>
+            <span className="text-xs text-[var(--color-muted)]">
+              {isLoadingHistory ? 'Restoring conversation...' : 'Today'}
+            </span>
             <div className="flex-1 h-px bg-[var(--glass-border)]" />
           </div>
 
-          {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))}
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center gap-2 text-[var(--color-muted)]">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  className="w-5 h-5 border-2 border-[var(--color-neural)] border-t-transparent rounded-full"
+                />
+                <span className="text-sm">Loading conversation history...</span>
+              </div>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))
+          )}
 
           {isTyping && (
             <motion.div
