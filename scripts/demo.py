@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.core.preset import init_from_preset
 from src.core.molecule import MoleculeEngine
 from src.agents.coo import COOAgent
-from src.core.llm import ClaudeCodeBackend, get_backend
+from src.core.llm import ClaudeCodeBackend
 
 
 def print_header(text: str):
