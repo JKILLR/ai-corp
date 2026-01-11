@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search, AlertCircle } from 'lucide-react';
+import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search } from 'lucide-react';
 import { GlassCard, Button, StatusOrb } from '../components/ui';
-import { api, type Message as APIMessage, type ConversationThread as APIThread } from '../api/client';
+import { api } from '../api/client';
 
 interface Message {
   id: string;
@@ -207,8 +207,8 @@ export function COOChannel() {
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-[var(--color-plasma)]">COO Channel</h2>
-                <p className={`text-xs flex items-center gap-1 ${isConnected ? 'text-[var(--color-ok)]' : 'text-[var(--color-error)]'}`}>
-                  <StatusOrb status={isConnected ? 'ok' : 'error'} size="sm" />
+                <p className={`text-xs flex items-center gap-1 ${isConnected ? 'text-[var(--color-ok)]' : 'text-[var(--color-warn)]'}`}>
+                  <StatusOrb status={isConnected ? 'ok' : 'warning'} size="sm" />
                   {isConnected ? 'Online • Strategic oversight active' : 'Offline • API server not connected'}
                 </p>
               </div>

@@ -19,7 +19,7 @@ import { GlassCard, Button } from '../components/ui';
 import { StatusOrb } from '../components/ui/StatusOrb';
 import { Badge } from '../components/ui/Badge';
 import type { Status } from '../components/ui/StatusOrb';
-import { api, type DashboardData, type Project } from '../api/client';
+import { api, type Project } from '../api/client';
 
 // Map status to glow class
 const statusGlowClass: Record<Status, string> = {
@@ -299,10 +299,18 @@ export function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 space-y-6 overflow-y-auto">
         {/* Connection status banner */}
-        {!isConnected && (
+        {!isConnected && !isLoading && (
           <div className="flex items-center gap-2 px-4 py-2 bg-[var(--color-warn)] bg-opacity-10 border border-[var(--color-warn)] rounded-lg text-sm text-[var(--color-warn)]">
             <AlertCircle className="w-4 h-4" />
             <span>API server not connected. Showing demo data.</span>
+          </div>
+        )}
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-8">
+            <StatusOrb status="processing" size="lg" />
+            <span className="ml-3 text-[var(--color-muted)]">Loading dashboard...</span>
           </div>
         )}
 
@@ -456,6 +464,10 @@ function AgentNetworkModal({ onClose, selectedAgent, onSelectAgent }: AgentNetwo
     );
   };
 
+  // Calculate totals from departments data
+  const totalAgents = departments.reduce((sum, dept) => sum + dept.agentCount, 0);
+  const activeAgents = departments.reduce((sum, dept) => sum + dept.activeCount, 0);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -482,7 +494,7 @@ function AgentNetworkModal({ onClose, selectedAgent, onSelectAgent }: AgentNetwo
                   Agent Network
                 </h2>
                 <p className="text-sm text-[var(--color-muted)]">
-                  12 agents active across 3 departments
+                  {activeAgents} of {totalAgents} agents active across {departments.length} departments
                 </p>
               </div>
             </div>
