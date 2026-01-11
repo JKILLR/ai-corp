@@ -700,6 +700,13 @@ class MoleculeEngine:
         if not config:
             return
 
+        # Validate configuration
+        if config.scatter_count < 2:
+            raise ValueError(f"Swarm requires scatter_count >= 2, got {config.scatter_count}")
+
+        # Extract department once (avoid repetition)
+        department = molecule.raci.responsible[0] if molecule.raci.responsible else None
+
         scatter_step_ids = []
         critique_step_ids = []
 
@@ -708,7 +715,7 @@ class MoleculeEngine:
             step = MoleculeStep.create(
                 name=f"Scatter Research #{i+1}",
                 description=f"Research the following question independently:\n\n{molecule.description}",
-                department=molecule.raci.responsible[0] if molecule.raci.responsible else None,
+                department=department,
                 required_capabilities=['research', 'analysis'],
                 depends_on=[]  # No dependencies - all run in parallel
             )
@@ -718,31 +725,49 @@ class MoleculeEngine:
         # Phase 2: Critique (if enabled)
         if config.critique_enabled:
             for round_num in range(config.critique_rounds):
+                round_step_ids = []
                 for i in range(config.scatter_count):
-                    # Each worker critiques all OTHER workers' results
-                    other_scatter_ids = [sid for j, sid in enumerate(scatter_step_ids) if j != i]
+                    # First round depends on scatter, subsequent rounds on previous critique round
+                    if round_num == 0:
+                        deps = scatter_step_ids
+                    else:
+                        # Depend on previous round's critique steps
+                        prev_round_start = (round_num - 1) * config.scatter_count
+                        deps = critique_step_ids[prev_round_start:prev_round_start + config.scatter_count]
 
                     step = MoleculeStep.create(
                         name=f"Critique Round {round_num+1} - Worker #{i+1}",
-                        description=f"Review and critique the research findings from other workers. "
-                                    f"Identify strengths, weaknesses, gaps, and potential errors.",
-                        department=molecule.raci.responsible[0] if molecule.raci.responsible else None,
+                        description=(
+                            f"Review and critique findings from the previous phase.\n\n"
+                            f"Your task: Identify strengths, weaknesses, gaps, and potential errors.\n"
+                            f"Original question: {molecule.description}"
+                        ),
+                        department=department,
                         required_capabilities=['review', 'analysis'],
-                        depends_on=scatter_step_ids if round_num == 0 else critique_step_ids[-config.scatter_count:]
+                        depends_on=deps
                     )
                     molecule.add_step(step)
-                    critique_step_ids.append(step.id)
+                    round_step_ids.append(step.id)
+                critique_step_ids.extend(round_step_ids)
 
         # Phase 3: Converge - synthesize all results
-        depends_on = critique_step_ids if critique_step_ids else scatter_step_ids
+        # Only depend on final round of critiques (or scatter if no critique)
+        if critique_step_ids:
+            final_round_start = (config.critique_rounds - 1) * config.scatter_count
+            converge_deps = critique_step_ids[final_round_start:]
+        else:
+            converge_deps = scatter_step_ids
+
         converge_step = MoleculeStep.create(
             name="Converge Results",
-            description=f"Synthesize all research findings and critiques into a unified answer.\n\n"
-                        f"Strategy: {config.convergence_strategy.value}\n"
-                        f"Original question: {molecule.description}",
-            department=molecule.raci.responsible[0] if molecule.raci.responsible else None,
+            description=(
+                f"Synthesize all research findings and critiques into a unified answer.\n\n"
+                f"Strategy: {config.convergence_strategy.value}\n"
+                f"Original question: {molecule.description}"
+            ),
+            department=department,
             required_capabilities=['synthesis', 'analysis'],
-            depends_on=depends_on
+            depends_on=converge_deps
         )
         molecule.add_step(converge_step)
 
