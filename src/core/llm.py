@@ -130,7 +130,14 @@ class ClaudeCodeBackend(LLMBackend):
         - skills: Domain knowledge from SKILL.md files (passed via system prompt)
     """
 
-    def __init__(self, timeout: int = 300):
+    def __init__(self, timeout: int = 900):
+        """
+        Initialize Claude Code backend.
+
+        Args:
+            timeout: Execution timeout in seconds (default 900s / 15 minutes)
+                     for complex orchestration tasks
+        """
         self.timeout = timeout
         self._claude_path = self._find_claude()
 
