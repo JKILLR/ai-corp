@@ -186,17 +186,17 @@ class ClaudeCodeBackend(LLMBackend):
         if request.working_directory:
             cmd.extend(['--add-dir', str(request.working_directory)])
 
-        # Add the prompt as positional argument (must be last)
-        cmd.append(request.prompt)
-
         # Set up environment
         env = os.environ.copy()
         if request.context:
             env['AI_CORP_CONTEXT'] = json.dumps(request.context)
 
+        # Pass prompt via stdin for reliability with multiline/long prompts
+        # Claude CLI with --print reads from stdin when no positional prompt given
         try:
             result = subprocess.run(
                 cmd,
+                input=request.prompt,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
