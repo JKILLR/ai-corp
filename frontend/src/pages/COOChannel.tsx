@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search, X, Image as ImageIcon } from 'lucide-react';
 import { GlassCard, Button, StatusOrb } from '../components/ui';
-import { api, ImageAttachment } from '../api/client';
+import { api } from '../api/client';
+import type { ImageAttachment } from '../api/client';
 
 interface Message {
   id: string;
