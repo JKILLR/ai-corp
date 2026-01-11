@@ -76,7 +76,8 @@ from .graph import (
 from .llm import (
     LLMBackend, LLMRequest, LLMResponse, LLMBackendFactory,
     ClaudeCodeBackend, ClaudeAPIBackend, MockBackend,
-    AgentLLMInterface, AgentThought, get_llm_interface
+    AgentLLMInterface, AgentThought, get_llm_interface,
+    AGENT_LEVEL_TOOLS, ALL_TOOLS
 )
 from .processor import (
     MessageProcessor, MessageHandler, ProcessingResult, MessageAction

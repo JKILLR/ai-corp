@@ -95,22 +95,32 @@ class LLMBackend(ABC):
         pass
 
 
+# Default tools by agent level (matching agent-swarm pattern)
+AGENT_LEVEL_TOOLS = {
+    1: ["Read", "Glob", "Grep", "Bash"],  # Executive (COO) - read-heavy, orchestration
+    2: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],  # VP - can modify
+    3: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],  # Director - full access
+    4: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch"],  # Worker - full + web
+}
+
+# All available Claude Code tools
+ALL_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
+
+
 class ClaudeCodeBackend(LLMBackend):
     """
     Execute LLM requests via Claude Code CLI.
 
     This is the primary backend for agent execution as it provides
-    full Claude Code capabilities including tools and skills.
+    full Claude Code capabilities including tools.
 
-    Skill Flow:
-        The primary way to pass skills is via LLMRequest.skills:
-        1. BaseAgent.get_available_skills() collects skills from identity + registry
-        2. BaseAgent.execute_with_llm() passes skills to LLMRequest
-        3. ClaudeCodeBackend uses request.skills when building the CLI command
+    Tool Configuration:
+        Tools are configured via request.tools (actual tool names like Read, Write, Edit).
+        If no tools specified, defaults based on agent_level in request.context.
 
-    Note:
-        The skill_registry parameter exists for direct backend usage but is
-        not used when going through BaseAgent (which handles skill collection).
+    Skills vs Tools:
+        - tools: Claude Code capabilities (Read, Write, Edit, Bash, etc.)
+        - skills: Domain knowledge from SKILL.md files (passed via system prompt)
     """
 
     def __init__(self, timeout: int = 300):
@@ -178,9 +188,16 @@ class ClaudeCodeBackend(LLMBackend):
         if request.system_prompt:
             cmd.extend(['--system-prompt', request.system_prompt])
 
-        # Add skills/allowed tools (from request.skills populated by agent)
-        for skill in request.skills:
-            cmd.extend(['--allowedTools', skill])
+        # Determine tools to enable
+        tools_to_use = request.tools  # Explicit tools take priority
+        if not tools_to_use:
+            # Fall back to level-based defaults
+            agent_level = request.context.get('agent_level', 4)  # Default to worker level
+            tools_to_use = AGENT_LEVEL_TOOLS.get(agent_level, ALL_TOOLS)
+
+        # Add allowed tools (actual Claude Code tools: Read, Write, Edit, etc.)
+        for tool in tools_to_use:
+            cmd.extend(['--allowedTools', tool])
 
         # Add working directory access
         if request.working_directory:
