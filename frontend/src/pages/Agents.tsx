@@ -17,6 +17,8 @@ interface Agent {
   children?: Agent[];
 }
 
+// Org chart structure - will be populated from API
+// For now, showing the base hierarchy without mock agent data
 const orgChart: Agent = {
   id: 'ceo',
   name: 'YOU',
@@ -30,55 +32,50 @@ const orgChart: Agent = {
       id: 'coo',
       name: 'COO',
       role: 'Chief Operating Officer',
-      status: 'processing',
-      load: 85,
-      tasksToday: 47,
-      currentTask: 'Coordinating Website Redesign sprint',
-      uptime: '12h 34m',
+      status: 'idle',
+      load: 0,
+      tasksToday: 0,
+      uptime: '-',
       children: [
         {
-          id: 'head-eng',
-          name: 'Head of Engineering',
-          role: 'Engineering Lead',
-          status: 'ok',
-          load: 72,
-          tasksToday: 23,
-          currentTask: 'Reviewing API Integration PR',
-          uptime: '8h 12m',
-          children: [
-            { id: 'dev-001', name: 'dev-001', role: 'Senior Developer', status: 'processing', load: 89, tasksToday: 12, currentTask: 'Implementing auth flow', uptime: '4h 23m' },
-            { id: 'dev-002', name: 'dev-002', role: 'Developer', status: 'ok', load: 65, tasksToday: 8, currentTask: 'Writing unit tests', uptime: '6h 45m' },
-            { id: 'dev-003', name: 'dev-003', role: 'Developer', status: 'waiting', load: 20, tasksToday: 5, currentTask: 'Waiting for design assets', uptime: '3h 10m' },
-            { id: 'qa-001', name: 'qa-001', role: 'QA Engineer', status: 'ok', load: 55, tasksToday: 15, currentTask: 'Running integration tests', uptime: '5h 30m' },
-          ],
+          id: 'vp-engineering',
+          name: 'VP Engineering',
+          role: 'Engineering',
+          status: 'idle',
+          load: 0,
+          tasksToday: 0,
+          uptime: '-',
+          children: [],
         },
         {
-          id: 'head-design',
-          name: 'Head of Design',
-          role: 'Design Lead',
-          status: 'ok',
-          load: 60,
-          tasksToday: 18,
-          currentTask: 'Finalizing component library',
-          uptime: '7h 55m',
-          children: [
-            { id: 'design-001', name: 'design-001', role: 'UI Designer', status: 'ok', load: 70, tasksToday: 9, currentTask: 'Creating dashboard mockups', uptime: '4h 12m' },
-            { id: 'design-002', name: 'design-002', role: 'UX Designer', status: 'idle', load: 10, tasksToday: 3, uptime: '2h 30m' },
-          ],
+          id: 'vp-research',
+          name: 'VP Research',
+          role: 'Research',
+          status: 'idle',
+          load: 0,
+          tasksToday: 0,
+          uptime: '-',
+          children: [],
         },
         {
-          id: 'head-research',
-          name: 'Head of Research',
-          role: 'Research Lead',
-          status: 'warning',
-          load: 45,
-          tasksToday: 8,
-          currentTask: 'Blocked: Needs data access approval',
-          uptime: '6h 20m',
-          children: [
-            { id: 'research-001', name: 'research-001', role: 'Data Analyst', status: 'warning', load: 30, tasksToday: 4, currentTask: 'Blocked: Waiting for approval', uptime: '3h 45m' },
-            { id: 'research-002', name: 'research-002', role: 'ML Engineer', status: 'processing', load: 95, tasksToday: 11, currentTask: 'Training recommendation model', uptime: '8h 00m' },
-          ],
+          id: 'vp-product',
+          name: 'VP Product',
+          role: 'Product',
+          status: 'idle',
+          load: 0,
+          tasksToday: 0,
+          uptime: '-',
+          children: [],
+        },
+        {
+          id: 'vp-quality',
+          name: 'VP Quality',
+          role: 'Quality',
+          status: 'idle',
+          load: 0,
+          tasksToday: 0,
+          uptime: '-',
+          children: [],
         },
       ],
     },
@@ -88,7 +85,7 @@ const orgChart: Agent = {
 export function Agents() {
   const navigate = useNavigate();
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['ceo', 'coo', 'head-eng', 'head-design', 'head-research']));
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['ceo', 'coo']));
 
   const toggleNode = (id: string) => {
     setExpandedNodes((prev) => {

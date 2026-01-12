@@ -61,8 +61,46 @@ interface Department {
   agents: Agent[];
 }
 
-// Empty - no mock data. Will come from API
-const departments: Department[] = [];
+// Department/VP structure - matches org hierarchy
+// Will be populated with real agent data from API
+const departments: Department[] = [
+  {
+    id: 'engineering',
+    name: 'Engineering',
+    head: 'VP Engineering',
+    status: 'idle',
+    agentCount: 0,
+    activeCount: 0,
+    agents: [],
+  },
+  {
+    id: 'research',
+    name: 'Research',
+    head: 'VP Research',
+    status: 'idle',
+    agentCount: 0,
+    activeCount: 0,
+    agents: [],
+  },
+  {
+    id: 'product',
+    name: 'Product',
+    head: 'VP Product',
+    status: 'idle',
+    agentCount: 0,
+    activeCount: 0,
+    agents: [],
+  },
+  {
+    id: 'quality',
+    name: 'Quality',
+    head: 'VP Quality',
+    status: 'idle',
+    agentCount: 0,
+    activeCount: 0,
+    agents: [],
+  },
+];
 
 // Tool icon mapping
 const toolIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -75,29 +113,19 @@ const toolIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Message: MessageSquare,
 };
 
-// Default/mock stats for when API is unavailable
+// Default stats when API is unavailable (show zeros, not fake data)
 const defaultStats = {
-  agentsActive: 12,
-  taskProcessing: 4,
-  taskQueued: 7,
-  gatesPending: 2,
+  agentsActive: 0,
+  taskProcessing: 0,
+  taskQueued: 0,
+  gatesPending: 0,
 };
 
-// Default workflows when API is unavailable
-const defaultWorkflows = [
-  { name: 'Website Redesign', status: 'ok' as Status, progress: 67, agents: 3, eta: '2.3h', stages: 5, currentStage: 2 },
-  { name: 'API Integration', status: 'ok' as Status, progress: 89, agents: 1, eta: '0.5h', stages: 5, currentStage: 4 },
-  { name: 'Data Pipeline Refactor', status: 'warning' as Status, progress: 45, agents: 2, blocked: 'Needs approval', stages: 5, currentStage: 2 },
-];
+// Empty workflows when API is unavailable
+const defaultWorkflows: Array<{ name: string; status: Status; progress: number; agents: number; eta?: string; blocked?: string; stages: number; currentStage: number }> = [];
 
-// Default activity when API is unavailable
-const defaultActivity = [
-  { status: 'ok' as Status, message: 'design-agent completed component review', time: '2:34 PM' },
-  { status: 'processing' as Status, message: 'research-agent spawned for market analysis', time: '2:31 PM' },
-  { status: 'warning' as Status, message: 'qa-agent flagged security concern', time: '2:28 PM' },
-  { status: 'ok' as Status, message: 'dev-002 pushed to staging', time: '2:15 PM' },
-  { status: 'processing' as Status, message: 'COO delegated 3 tasks to engineering', time: '2:10 PM' },
-];
+// Empty activity when API is unavailable
+const defaultActivity: Array<{ status: Status; message: string; time: string }> = [];
 
 export function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -266,7 +294,7 @@ export function Dashboard() {
             <FlowingConnection height={32} />
 
             {/* COO Node */}
-            <AgentNode label="COO" sublabel="47 tasks today" status="processing" isMulti />
+            <AgentNode label="COO" sublabel="Orchestrating" status="processing" isMulti />
 
             {/* Branch connections to departments */}
             <PreviewBranchConnector count={departments.length} />
@@ -412,7 +440,7 @@ function AgentNetworkModal({ onClose, selectedAgent, onSelectAgent }: AgentNetwo
                   <StatusOrb status="processing" size="sm" />
                 </div>
                 <p className="font-semibold text-[var(--color-plasma)]">COO</p>
-                <p className="text-xs text-[var(--color-muted)]">47 tasks coordinated today</p>
+                <p className="text-xs text-[var(--color-muted)]">Task Orchestration</p>
               </div>
 
               {/* Vertical line down from COO */}
@@ -580,14 +608,8 @@ interface AgentDetailPanelProps {
 }
 
 function AgentDetailPanel({ agent, onClose }: AgentDetailPanelProps) {
-  // Mock inner dialogue/activity
-  const activityLog = [
-    { time: '2:34:12', type: 'thought', content: 'Analyzing component structure for optimization opportunities...' },
-    { time: '2:34:08', type: 'tool', tool: 'FileRead', content: 'Reading src/components/Dashboard.tsx' },
-    { time: '2:33:55', type: 'thought', content: 'Need to check existing implementation before making changes.' },
-    { time: '2:33:41', type: 'tool', tool: 'Search', content: 'Searching for "StatusOrb" usage patterns' },
-    { time: '2:33:30', type: 'thought', content: 'Starting task: Implementing user dashboard components' },
-  ];
+  // Activity log - will come from API
+  const activityLog: Array<{ time: string; type: string; tool?: string; content: string }> = [];
 
   return (
     <motion.div
