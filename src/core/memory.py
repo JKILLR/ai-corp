@@ -1126,6 +1126,7 @@ class OrganizationalMemory:
                 'context': context,
                 'updated_at': datetime.utcnow().isoformat()
             })
+            preference = preferences[existing_idx]  # Return the updated one
         else:
             preferences.append(preference)
 

@@ -16,6 +16,8 @@ from pathlib import Path
 from datetime import datetime
 import asyncio
 import json
+import logging
+import re
 import uuid
 
 # AI Corp imports
@@ -417,6 +419,9 @@ def _get_suggested_departments(project_type: str) -> List[str]:
     return department_map.get(project_type, ['engineering'])
 
 
+logger = logging.getLogger(__name__)
+
+
 def _extract_ceo_preferences(message: str, thread_id: str) -> List[Dict[str, Any]]:
     """
     Detect and store CEO preferences from their messages.
@@ -430,19 +435,16 @@ def _extract_ceo_preferences(message: str, thread_id: str) -> List[Dict[str, Any
 
     Returns list of extracted preferences.
     """
-    import re
-    import uuid
-
     message_lower = message.lower()
 
     # Patterns that indicate a preference or rule
+    # Each pattern captures the rule content in group 1
     preference_patterns = [
-        # Negative rules
-        (r"(?:don'?t|do not|never|avoid)\s+(.+?)(?:\.|$)", "high"),
-        (r"(?:please\s+)?(?:don'?t|do not)\s+(.+?)(?:\.|$)", "high"),
+        # Negative rules (combined to avoid duplicates)
+        (r"(?:please\s+)?(?:don'?t|do not|never|avoid)\s+(.+?)(?:\.|,|$)", "high"),
         # Positive rules
-        (r"always\s+(.+?)(?:\s+before|\s+when|\.|$)", "high"),
-        (r"make sure (?:to\s+)?(.+?)(?:\.|$)", "medium"),
+        (r"always\s+(.+?)(?:\s+before|\s+when|\.|,|$)", "high"),
+        (r"make sure (?:to\s+)?(.+?)(?:\.|,|$)", "medium"),
         # Explicit preferences
         (r"remember(?:\s+that)?\s*[:\-]?\s*(.+?)(?:\.|$)", "high"),
         (r"important\s*[:\-]\s*(.+?)(?:\.|$)", "high"),
@@ -450,20 +452,28 @@ def _extract_ceo_preferences(message: str, thread_id: str) -> List[Dict[str, Any
         (r"preference\s*[:\-]\s*(.+?)(?:\.|$)", "high"),
         (r"rule\s*[:\-]\s*(.+?)(?:\.|$)", "high"),
         # Expectations
-        (r"i (?:want|need|expect) you to\s+(.+?)(?:\.|$)", "high"),
+        (r"i (?:want|need|expect) you to\s+(.+?)(?:\.|,|$)", "high"),
         (r"from now on[,\s]+(.+?)(?:\.|$)", "high"),
     ]
 
     extracted = []
+    seen_rules = set()  # Track rules we've already extracted to avoid duplicates
     coo = get_coo()
 
     for pattern, priority in preference_patterns:
         matches = re.findall(pattern, message_lower, re.IGNORECASE)
         for match in matches:
             rule = match.strip()
+
             # Skip very short or generic matches
             if len(rule) < 10 or rule in ['it', 'that', 'this', 'me']:
                 continue
+
+            # Skip if we've already extracted this rule (deduplication)
+            rule_normalized = rule.lower().strip()
+            if rule_normalized in seen_rules:
+                continue
+            seen_rules.add(rule_normalized)
 
             # Generate a unique ID
             pref_id = f"pref_{uuid.uuid4().hex[:8]}"
@@ -475,13 +485,13 @@ def _extract_ceo_preferences(message: str, thread_id: str) -> List[Dict[str, Any
                     rule=rule.capitalize(),
                     source="conversation",
                     priority=priority,
-                    context=f"Extracted from conversation",
+                    context="Extracted from conversation",
                     conversation_id=thread_id
                 )
                 extracted.append(pref)
-                print(f"[COO] Extracted CEO preference: {rule[:50]}...")
+                logger.info(f"Extracted CEO preference: {rule[:50]}...")
             except Exception as e:
-                print(f"[COO] Failed to store preference: {e}")
+                logger.warning(f"Failed to store preference: {e}")
 
     return extracted
 
