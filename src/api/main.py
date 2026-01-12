@@ -295,7 +295,7 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
 
             # Execute delegation in background - COO responds IMMEDIATELY
             # Don't wait for LLM or sub-agents to process
-            result = _execute_delegation_async(coo, pending, thread_id)
+            result = _execute_delegation(coo, pending, thread_id)
 
             if result.get('success'):
                 coo_response = (
@@ -715,8 +715,7 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
         if thread_id in _pending_delegations:
             del _pending_delegations[thread_id]
 
-        # Trigger background processing (non-blocking)
-        _trigger_background_execution()
+        # Note: Background execution is triggered by caller via _run_corporation_cycle_async
 
         return {
             'success': True,
@@ -728,39 +727,6 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
 
     except Exception as e:
         return {'success': False, 'error': str(e)}
-
-
-def _trigger_background_execution():
-    """
-    Trigger background execution of agent work.
-
-    This is fire-and-forget - we don't wait for agents to complete.
-    The work will be processed by the executor in the background.
-    """
-    import threading
-
-    def run_executor():
-        try:
-            from src.agents.executor import CorporationExecutor
-            executor = CorporationExecutor(get_corp_path())
-            executor.initialize(['engineering', 'research', 'product', 'quality'])
-            # Run one cycle to kick off work
-            executor.run_cycle_skip_coo()
-        except Exception as e:
-            import logging
-            logging.error(f"Background executor error: {e}")
-
-    # Start in background thread - don't wait
-    thread = threading.Thread(target=run_executor, daemon=True)
-    thread.start()
-
-
-def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[str, Any]:
-    """
-    DEPRECATED: Use _execute_delegation_async instead.
-    This blocking version is kept for backwards compatibility.
-    """
-    return _execute_delegation_async(coo, pending, thread_id)
 
 
 @app.get("/api/coo/threads")
