@@ -61,8 +61,46 @@ interface Department {
   agents: Agent[];
 }
 
-// Empty - no mock data. Will come from API
-const departments: Department[] = [];
+// Department/VP structure - matches org hierarchy
+// Will be populated with real agent data from API
+const departments: Department[] = [
+  {
+    id: 'engineering',
+    name: 'Engineering',
+    head: 'VP Engineering',
+    status: 'idle',
+    agentCount: 0,
+    activeCount: 0,
+    agents: [],
+  },
+  {
+    id: 'research',
+    name: 'Research',
+    head: 'VP Research',
+    status: 'idle',
+    agentCount: 0,
+    activeCount: 0,
+    agents: [],
+  },
+  {
+    id: 'product',
+    name: 'Product',
+    head: 'VP Product',
+    status: 'idle',
+    agentCount: 0,
+    activeCount: 0,
+    agents: [],
+  },
+  {
+    id: 'quality',
+    name: 'Quality',
+    head: 'VP Quality',
+    status: 'idle',
+    agentCount: 0,
+    activeCount: 0,
+    agents: [],
+  },
+];
 
 // Tool icon mapping
 const toolIcons: Record<string, React.ComponentType<{ className?: string }>> = {
