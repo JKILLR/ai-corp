@@ -743,6 +743,7 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
 
     try:
         # Create molecule through COO - uses fast keyword analysis, not LLM
+        logger.info(f"[DEBUG] Creating molecule with title='{title}'")
         molecule = coo.receive_ceo_task_fast(
             title=title,
             description=description,
@@ -753,6 +754,12 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
                 'auto_delegated': True
             }
         )
+
+        if molecule is None:
+            logger.error("[DEBUG] receive_ceo_task_fast returned None!")
+            return {'success': False, 'error': 'Failed to create molecule (returned None)'}
+
+        logger.info(f"[DEBUG] Molecule created: {molecule.id}")
 
         # Start the molecule
         molecules = get_molecule_engine()

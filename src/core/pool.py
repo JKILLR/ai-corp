@@ -146,6 +146,11 @@ class WorkerPool:
 
     def add_worker(self, role_id: str) -> Worker:
         """Add a new worker to the pool"""
+        # Check if worker with this role_id already exists
+        for existing in self.workers:
+            if existing.role_id == role_id:
+                return existing  # Already in pool, return existing
+
         if len(self.workers) >= self.max_workers:
             raise ValueError(f"Pool at maximum capacity ({self.max_workers})")
 
