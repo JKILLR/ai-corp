@@ -339,29 +339,14 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                             "media_type": img.media_type
                         })
 
-                # Try Claude API first, then fall back to CLI
-                logger.info(f"[DEBUG] About to call LLM (images={bool(llm_images)})")
-                api_backend = LLMBackendFactory.create('claude_api')
-
-                if api_backend.is_available():
-                    # Use API backend (preferred)
-                    logger.info("[DEBUG] Using Claude API backend")
-                    response = api_backend.execute(LLMRequest(
-                        prompt=prompt,
-                        system_prompt=system_prompt,
-                        working_directory=get_corp_path(),
-                        images=llm_images,
-                        tools=[]  # No tools for COO - it delegates, doesn't execute
-                    ))
-                else:
-                    # Fall back to CLI backend
-                    logger.info("[DEBUG] API not available, using Claude CLI backend")
-                    response = coo.llm.execute(LLMRequest(
-                        prompt=prompt,
-                        system_prompt=system_prompt,
-                        working_directory=get_corp_path(),
-                        tools=[]  # No tools - faster response
-                    ))
+                # Use Claude CLI backend (Claude Max subscription)
+                logger.info(f"[DEBUG] About to call Claude CLI (tools disabled for fast response)")
+                response = coo.llm.execute(LLMRequest(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    working_directory=get_corp_path(),
+                    tools=[]  # Empty list = no tools, prevents CLI from hanging on tool use
+                ))
 
                 logger.info(f"[DEBUG] LLM response received: success={response.success}")
 
