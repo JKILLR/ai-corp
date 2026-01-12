@@ -339,15 +339,20 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                             "media_type": img.media_type
                         })
 
-                # Use Claude CLI backend (Claude Max subscription)
-                # COO gets read-only tools - can investigate but delegates execution
-                coo_tools = ['Read', 'Glob', 'Grep']
-                logger.info(f"[DEBUG] About to call Claude CLI with tools: {coo_tools}")
+                # Determine tools based on task size (same as PR 89)
+                # For BIG tasks (likely delegation), disable tools to force quick response
+                # For small tasks, allow ALL tools for quick lookups
+                if delegation_context.get('likely_delegation'):
+                    tools_to_use = []  # Empty = no tools allowed
+                else:
+                    tools_to_use = None  # None = use defaults (all tools)
+
+                logger.info(f"[DEBUG] About to call Claude CLI (likely_delegation={delegation_context.get('likely_delegation')}, tools={tools_to_use})")
                 response = coo.llm.execute(LLMRequest(
                     prompt=prompt,
                     system_prompt=system_prompt,
                     working_directory=get_corp_path(),
-                    tools=coo_tools  # Read-only tools for investigation
+                    tools=tools_to_use
                 ))
 
                 logger.info(f"[DEBUG] LLM response received: success={response.success}")
