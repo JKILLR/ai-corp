@@ -295,7 +295,7 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
 
             # Execute delegation in background - COO responds IMMEDIATELY
             # Don't wait for LLM or sub-agents to process
-            result = _execute_delegation_async(coo, pending, thread_id)
+            result = _execute_delegation(coo, pending, thread_id)
 
             if result.get('success'):
                 coo_response = (
@@ -753,14 +753,6 @@ def _trigger_background_execution():
     # Start in background thread - don't wait
     thread = threading.Thread(target=run_executor, daemon=True)
     thread.start()
-
-
-def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[str, Any]:
-    """
-    DEPRECATED: Use _execute_delegation_async instead.
-    This blocking version is kept for backwards compatibility.
-    """
-    return _execute_delegation_async(coo, pending, thread_id)
 
 
 @app.get("/api/coo/threads")
