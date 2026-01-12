@@ -20,6 +20,13 @@ import logging
 import re
 import uuid
 
+# Configure logging for the API module
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # AI Corp imports
 from src.agents.coo import COOAgent
 from src.core.molecule import MoleculeEngine
@@ -213,6 +220,18 @@ async def send_coo_message(request: COOMessageRequest):
 
 {org_context}
 
+## HOW YOU WORK (Architecture)
+
+You are a Claude instance running inside the AI Corp API server (FastAPI). Here's how the system works:
+
+1. **You run in-process** - You are part of the Python FastAPI server at {get_corp_path().parent}
+2. **You have direct file access** - Use tools like Read, Glob, Grep to access local files directly. NO HTTP/curl needed.
+3. **Delegation is a Python function call** - When you delegate work, the API calls CorporationExecutor directly (no network)
+4. **Workers are Claude Code CLI instances** - Each VP/Director/Worker is a separate Claude CLI subprocess
+5. **All paths are local** - The corp path is {get_corp_path()}
+
+**IMPORTANT**: You do NOT make network requests to access files or trigger delegation. Everything is local Python function calls. If you need to read code, use the Read tool with the file path.
+
 ## YOUR ROLE
 
 You are an executive who MANAGES the organization:
@@ -286,6 +305,7 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
 
                 # Spawn background task to run the corporation cycle
                 # This executes VP → Director → Worker chain without blocking
+                logger.info(f"Delegation successful - spawning background execution for molecule {result['molecule_id']}")
                 asyncio.create_task(_run_corporation_cycle_async(result['molecule_id']))
             else:
                 coo_response = f"I ran into an issue setting that up: {result.get('error')}. Want me to try a different approach?"
@@ -421,9 +441,6 @@ def _get_suggested_departments(project_type: str) -> List[str]:
         'general': ['research', 'engineering', 'quality']
     }
     return department_map.get(project_type, ['engineering'])
-
-
-logger = logging.getLogger(__name__)
 
 
 def _extract_ceo_preferences(message: str, thread_id: str) -> List[Dict[str, Any]]:
