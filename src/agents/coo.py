@@ -92,6 +92,136 @@ class COOAgent(BaseAgent):
         else:
             return self._handle_general_task(work_item)
 
+    def receive_ceo_task_fast(
+        self,
+        title: str,
+        description: str,
+        priority: str = "P2_MEDIUM",
+        context: Optional[Dict[str, Any]] = None
+    ) -> Molecule:
+        """
+        FAST version of receive_ceo_task - no LLM, no memory queries.
+
+        Used when COO needs to delegate immediately without blocking.
+        Uses keyword-based analysis only.
+
+        Args:
+            title: Task title
+            description: Task description
+            priority: Priority level
+            context: Additional context
+
+        Returns:
+            Created molecule
+        """
+        print(f"[COO] Fast task creation: {title}")
+
+        # Use fast keyword-only analysis (no LLM, no memory queries)
+        analysis = self._analyze_task_fast(title, description, context or {})
+
+        # Create the main molecule
+        molecule = self.molecule_engine.create_molecule(
+            name=title,
+            description=description,
+            created_by=self.identity.id,
+            priority=priority
+        )
+
+        # Set up RACI
+        molecule.raci = create_raci(
+            accountable=self.identity.role_id,
+            responsible=analysis['departments'],
+            informed=['ceo']
+        )
+
+        # Create steps based on analysis
+        self._create_molecule_steps(molecule, analysis)
+
+        # Save the molecule
+        self.molecule_engine._save_molecule(molecule)
+
+        # Record in bead (fast, local operation)
+        self.bead.create(
+            entity_type='molecule',
+            entity_id=molecule.id,
+            data=molecule.to_dict(),
+            message=f"Created molecule for CEO task: {title}"
+        )
+
+        print(f"[COO] Created molecule {molecule.id} with {len(molecule.steps)} steps")
+
+        return molecule
+
+    def _analyze_task_fast(
+        self,
+        title: str,
+        description: str,
+        context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        FAST task analysis - keyword-based only, no LLM or memory queries.
+
+        Returns analysis in same format as _analyze_task but without
+        the slow memory operations.
+        """
+        title_lower = title.lower()
+        desc_lower = description.lower()
+        combined = f"{title_lower} {desc_lower}"
+
+        departments = []
+        needs_research = False
+        needs_design = False
+        needs_build = False
+        needs_qa = False
+        needs_security = False
+
+        # Fast keyword-based analysis
+        if any(kw in combined for kw in ['research', 'analyze', 'study', 'investigate', 'evaluate', 'review', 'audit']):
+            needs_research = True
+            departments.append('vp_research')
+
+        if any(kw in combined for kw in ['design', 'ui', 'ux', 'interface', 'mockup', 'wireframe']):
+            needs_design = True
+            departments.append('vp_product')
+
+        if any(kw in combined for kw in ['build', 'implement', 'create', 'develop', 'code', 'feature', 'fix']):
+            needs_build = True
+            departments.append('vp_engineering')
+
+        if any(kw in combined for kw in ['test', 'qa', 'quality', 'verify', 'validate']):
+            needs_qa = True
+            departments.append('vp_quality')
+
+        if any(kw in combined for kw in ['security', 'secure', 'vulnerability', 'audit']):
+            needs_security = True
+            if 'vp_quality' not in departments:
+                departments.append('vp_quality')
+
+        # Default: if no specific departments, assume full pipeline
+        if not departments:
+            departments = ['vp_research', 'vp_product', 'vp_engineering', 'vp_quality']
+            needs_research = True
+            needs_design = True
+            needs_build = True
+            needs_qa = True
+
+        # Always include operations for project tracking
+        if 'vp_operations' not in departments:
+            departments.append('vp_operations')
+
+        return {
+            'departments': departments,
+            'needs_research': needs_research,
+            'needs_design': needs_design,
+            'needs_build': needs_build,
+            'needs_qa': needs_qa,
+            'needs_security': needs_security,
+            'estimated_steps': len(departments) * 2,
+            'context': context,
+            'memory_insights': {},  # Skip memory for speed
+            'decision_id': None  # Skip decision recording for speed
+        }
+
     def receive_ceo_task(
         self,
         title: str,
