@@ -1066,6 +1066,127 @@ class OrganizationalMemory:
 
         return pattern
 
+    # =========================================================================
+    # CEO Preferences - High-priority rules that persist across sessions
+    # =========================================================================
+
+    @property
+    def preferences_file(self) -> Path:
+        """Path to CEO preferences file"""
+        return self.memory_path / "ceo_preferences.yaml"
+
+    def store_preference(
+        self,
+        preference_id: str,
+        rule: str,
+        source: str = "explicit",  # explicit, inferred, conversation
+        priority: str = "high",  # high, medium, low
+        context: Optional[str] = None,
+        conversation_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Store a CEO preference/rule for persistent retrieval.
+
+        High-priority preferences are always included in COO context.
+
+        Args:
+            preference_id: Unique identifier
+            rule: The preference rule (e.g., "Don't modify local files")
+            source: Where this came from (explicit, inferred, conversation)
+            priority: How important (high = always load, medium = when relevant)
+            context: Additional context about when this applies
+            conversation_id: If extracted from a conversation, which one
+        """
+        preference = {
+            'id': preference_id,
+            'rule': rule,
+            'source': source,
+            'priority': priority,
+            'context': context,
+            'conversation_id': conversation_id,
+            'active': True,
+            'created_at': datetime.utcnow().isoformat(),
+            'updated_at': datetime.utcnow().isoformat()
+        }
+
+        preferences = self._load_file(self.preferences_file)
+
+        # Check if this preference already exists (by rule similarity)
+        existing_idx = None
+        for i, p in enumerate(preferences):
+            if p.get('rule', '').lower() == rule.lower():
+                existing_idx = i
+                break
+
+        if existing_idx is not None:
+            # Update existing preference
+            preferences[existing_idx].update({
+                'rule': rule,
+                'priority': priority,
+                'context': context,
+                'updated_at': datetime.utcnow().isoformat()
+            })
+            preference = preferences[existing_idx]  # Return the updated one
+        else:
+            preferences.append(preference)
+
+        self._save_file(self.preferences_file, preferences)
+        return preference
+
+    def get_all_preferences(self, active_only: bool = True) -> List[Dict[str, Any]]:
+        """Get all stored CEO preferences"""
+        preferences = self._load_file(self.preferences_file)
+        if active_only:
+            preferences = [p for p in preferences if p.get('active', True)]
+        return preferences
+
+    def get_priority_preferences(self, min_priority: str = "high") -> List[Dict[str, Any]]:
+        """
+        Get preferences at or above the specified priority level.
+
+        Priority levels: high > medium > low
+        """
+        priority_order = {"high": 3, "medium": 2, "low": 1}
+        min_level = priority_order.get(min_priority, 1)
+
+        preferences = self.get_all_preferences()
+        return [
+            p for p in preferences
+            if priority_order.get(p.get('priority', 'low'), 0) >= min_level
+        ]
+
+    def deactivate_preference(self, preference_id: str) -> bool:
+        """Deactivate a preference (soft delete)"""
+        preferences = self._load_file(self.preferences_file)
+
+        for p in preferences:
+            if p.get('id') == preference_id:
+                p['active'] = False
+                p['updated_at'] = datetime.utcnow().isoformat()
+                self._save_file(self.preferences_file, preferences)
+                return True
+
+        return False
+
+    def format_preferences_for_prompt(self) -> str:
+        """
+        Format high-priority preferences for LLM prompt injection.
+
+        Returns a string suitable for adding to system prompts.
+        """
+        preferences = self.get_priority_preferences("high")
+
+        if not preferences:
+            return ""
+
+        lines = ["## CEO PREFERENCES (Always Follow)", ""]
+        for p in preferences:
+            lines.append(f"- {p['rule']}")
+            if p.get('context'):
+                lines.append(f"  (Context: {p['context']})")
+
+        return "\n".join(lines)
+
     def _load_file(self, path: Path) -> List[Dict[str, Any]]:
         """Load a YAML file, returning empty list if not exists"""
         if not path.exists():

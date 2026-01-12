@@ -16,6 +16,8 @@ from pathlib import Path
 from datetime import datetime
 import asyncio
 import json
+import logging
+import re
 import uuid
 
 # AI Corp imports
@@ -176,8 +178,17 @@ async def send_coo_message(request: COOMessageRequest):
         message_type='message'
     )
 
+    # Extract any CEO preferences from the message
+    extracted_prefs = _extract_ceo_preferences(request.message, thread_id)
+
     # Check if this looks like a delegation request
     actions_taken = []
+    if extracted_prefs:
+        actions_taken.append({
+            'action': 'preferences_stored',
+            'count': len(extracted_prefs),
+            'preferences': [p.get('rule', '') for p in extracted_prefs]
+        })
     delegation_context = _analyze_for_delegation(request.message)
 
     # Generate COO response with full tool access and delegation awareness
@@ -192,10 +203,15 @@ async def send_coo_message(request: COOMessageRequest):
         molecules = get_molecule_engine()
         active_molecules = molecules.list_active_molecules()
 
+        # Load organizational context including CEO preferences
+        org_context = coo.get_context_summary_for_llm()
+
         # Check if this looks like a confirmation of a previous delegation proposal
         confirmation_context = _check_for_confirmation(request.message, thread_id)
 
-        system_prompt = """You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational.
+        system_prompt = f"""You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational.
+
+{org_context}
 
 ## YOUR ROLE
 
@@ -401,6 +417,83 @@ def _get_suggested_departments(project_type: str) -> List[str]:
         'general': ['research', 'engineering', 'quality']
     }
     return department_map.get(project_type, ['engineering'])
+
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_ceo_preferences(message: str, thread_id: str) -> List[Dict[str, Any]]:
+    """
+    Detect and store CEO preferences from their messages.
+
+    Looks for patterns like:
+    - "don't modify files"
+    - "never push to main"
+    - "always ask before..."
+    - "remember that..."
+    - "important: ..."
+
+    Returns list of extracted preferences.
+    """
+    message_lower = message.lower()
+
+    # Patterns that indicate a preference or rule
+    # Each pattern captures the rule content in group 1
+    preference_patterns = [
+        # Negative rules (combined to avoid duplicates)
+        (r"(?:please\s+)?(?:don'?t|do not|never|avoid)\s+(.+?)(?:\.|,|$)", "high"),
+        # Positive rules
+        (r"always\s+(.+?)(?:\s+before|\s+when|\.|,|$)", "high"),
+        (r"make sure (?:to\s+)?(.+?)(?:\.|,|$)", "medium"),
+        # Explicit preferences
+        (r"remember(?:\s+that)?\s*[:\-]?\s*(.+?)(?:\.|$)", "high"),
+        (r"important\s*[:\-]\s*(.+?)(?:\.|$)", "high"),
+        (r"note\s*[:\-]\s*(.+?)(?:\.|$)", "medium"),
+        (r"preference\s*[:\-]\s*(.+?)(?:\.|$)", "high"),
+        (r"rule\s*[:\-]\s*(.+?)(?:\.|$)", "high"),
+        # Expectations
+        (r"i (?:want|need|expect) you to\s+(.+?)(?:\.|,|$)", "high"),
+        (r"from now on[,\s]+(.+?)(?:\.|$)", "high"),
+    ]
+
+    extracted = []
+    seen_rules = set()  # Track rules we've already extracted to avoid duplicates
+    coo = get_coo()
+
+    for pattern, priority in preference_patterns:
+        matches = re.findall(pattern, message_lower, re.IGNORECASE)
+        for match in matches:
+            rule = match.strip()
+
+            # Skip very short or generic matches
+            if len(rule) < 10 or rule in ['it', 'that', 'this', 'me']:
+                continue
+
+            # Skip if we've already extracted this rule (deduplication)
+            rule_normalized = rule.lower().strip()
+            if rule_normalized in seen_rules:
+                continue
+            seen_rules.add(rule_normalized)
+
+            # Generate a unique ID
+            pref_id = f"pref_{uuid.uuid4().hex[:8]}"
+
+            # Store the preference
+            try:
+                pref = coo.org_memory.store_preference(
+                    preference_id=pref_id,
+                    rule=rule.capitalize(),
+                    source="conversation",
+                    priority=priority,
+                    context="Extracted from conversation",
+                    conversation_id=thread_id
+                )
+                extracted.append(pref)
+                logger.info(f"Extracted CEO preference: {rule[:50]}...")
+            except Exception as e:
+                logger.warning(f"Failed to store preference: {e}")
+
+    return extracted
 
 
 # Store pending delegation proposals per thread

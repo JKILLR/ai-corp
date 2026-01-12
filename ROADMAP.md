@@ -1,6 +1,6 @@
 # AI Corp Roadmap
 
-> **Last Updated:** 2026-01-11 (Composite Molecules Complete)
+> **Last Updated:** 2026-01-12 (API Layer Complete)
 > **Purpose:** Single source of truth for approved plans and priorities
 > **Update Rule:** Add new items when approved, move to "Completed" when done
 
@@ -24,12 +24,12 @@
 
 ### P0 - Immediate (Now)
 
-**P2 Progress:** Orchestration Layer + Swarm + Composite Molecules + Agent Tool Access **ALL COMPLETE**.
+**Full Stack Complete:** Backend + API Layer + Frontend **ALL COMPLETE**.
 
 **Next priority:**
 1. **Foundation Corp Dogfooding** - Use the system to do real work and validate end-to-end
 2. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
-3. Or move to P3 features (Apex Corp Registry, Web UI)
+3. Or move to P3 features (Apex Corp Registry)
 
 ---
 
@@ -71,7 +71,6 @@
 | Plan | Description | Design Doc | Notes |
 |------|-------------|------------|-------|
 | Apex Corp Registry | Multi-corp management | `PLATFORM_ARCHITECTURE.md` | Platform layer feature |
-| Web UI | Browser-based interface | - | Terminal-first for now |
 | Local Model Training | Phase 3 of Learning System | `LEARNING_SYSTEM_DESIGN.md` | Requires significant infra |
 | Factory Presets | Industry-specific templates | `PRESET_FACTORIES_DESIGN.md` | Sidetrack from main system |
 
@@ -91,6 +90,8 @@
 
 | Feature | Completed | Notes |
 |---------|-----------|-------|
+| **API Layer** | **2026-01-12** | **FastAPI server - COO chat, delegation, dashboard, gates, WebSocket** |
+| **Frontend Chat UI** | **2026-01-11** | **React web UI with chat interface, dashboard, image support** |
 | **Agent Tool Access** | **2026-01-11** | **All agents get full Claude Code tools (Read, Write, Edit, Bash, etc.)** |
 | **Composite Molecules** | **2026-01-11** | **Swarm→Ralph→escalate with CompositeConfig and phase transitions** |
 | **Swarm Molecule Type** | **2026-01-11** | **Scatter→Critique→Converge pattern with SwarmConfig** |
