@@ -214,7 +214,9 @@ async def send_coo_message(request: COOMessageRequest):
         org_context = coo.get_context_summary_for_llm()
 
         # Check if this looks like a confirmation of a previous delegation proposal
+        logger.info(f"[DEBUG] About to check for confirmation...")
         confirmation_context = _check_for_confirmation(request.message, thread_id)
+        logger.info(f"[DEBUG] Confirmation check done: should_delegate={confirmation_context.get('should_delegate')}")
 
         system_prompt = f"""You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational.
 
@@ -292,10 +294,12 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
         # Check if CEO is confirming a pending delegation
         if confirmation_context.get('should_delegate'):
             pending = confirmation_context['pending_delegation']
+            logger.info(f"[DEBUG] Executing delegation...")
 
             # Execute delegation in background - COO responds IMMEDIATELY
             # Don't wait for LLM or sub-agents to process
             result = _execute_delegation(coo, pending, thread_id)
+            logger.info(f"[DEBUG] Delegation result: {result.get('success')}")
 
             if result.get('success'):
                 coo_response = (
@@ -318,6 +322,7 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
 
         else:
             # Normal COO response
+            logger.info(f"[DEBUG] Using LLM path (no delegation)")
             # Convert images to LLM format if present
             llm_images = []
             if request.images:
@@ -339,6 +344,7 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
 
             # If images are present, use ClaudeAPIBackend directly since
             # ClaudeCodeBackend (CLI) doesn't support image input
+            logger.info(f"[DEBUG] About to call LLM (images={bool(llm_images)}, tools={tools_to_use})")
             if llm_images:
                 api_backend = LLMBackendFactory.create('claude_api')
                 if not api_backend.is_available():
@@ -360,6 +366,7 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                     working_directory=get_corp_path(),
                     tools=tools_to_use  # None = use defaults, [] = no tools
                 ))
+            logger.info(f"[DEBUG] LLM response received: success={response.success}")
 
             if response.success:
                 coo_response = response.content
@@ -587,20 +594,10 @@ def _check_for_confirmation(message: str, thread_id: str) -> Dict[str, Any]:
             'should_delegate': True
         }
 
-    # Fallback: If confirmation detected but no pending delegation (e.g., server restarted),
-    # check conversation history for a recent proposal from COO
-    if is_confirmation and not pending and thread_id:
-        logger.info(f"Confirmation detected but no pending delegation - checking conversation history")
-        recovered = _recover_pending_delegation_from_history(thread_id)
-        if recovered:
-            logger.info(f"Recovered pending delegation from conversation history")
-            return {
-                'is_confirmation': True,
-                'pending_delegation': recovered,
-                'should_delegate': True
-            }
-        else:
-            logger.info(f"No pending delegation found in history for thread {thread_id}")
+    # If confirmation detected but no pending delegation, try to recover from history
+    # DISABLED FOR DEBUGGING - just log and continue to LLM path
+    if is_confirmation and not pending:
+        logger.info(f"Confirmation detected but NO pending delegation for thread {thread_id} - using LLM path")
 
     return {
         'is_confirmation': is_confirmation,
