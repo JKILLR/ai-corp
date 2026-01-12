@@ -213,10 +213,8 @@ async def send_coo_message(request: COOMessageRequest):
         # Load organizational context including CEO preferences
         org_context = coo.get_context_summary_for_llm()
 
-        # Check if this looks like a confirmation of a previous delegation proposal
-        logger.info(f"[DEBUG] About to check for confirmation...")
-        confirmation_context = _check_for_confirmation(request.message, thread_id)
-        logger.info(f"[DEBUG] Confirmation check done: should_delegate={confirmation_context.get('should_delegate')}")
+        # Note: Delegation is now triggered by the COO including [DELEGATE] in its response
+        # No pre-checking needed - the COO decides when to delegate based on conversation
 
         system_prompt = f"""You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational.
 
@@ -251,14 +249,19 @@ When asked to review, audit, implement, or analyze something substantial:
 
 1. **Think about what's being asked** - What does the CEO actually want? What would be valuable?
 
-2. **Plan the delegation thoughtfully** - Which teams should be involved? What should they focus on? What would make this review/analysis meaningful?
+2. **Plan the delegation thoughtfully** - Which teams should be involved? What should they focus on?
 
-3. **Propose a concrete plan** - Explain what you'll have the team do:
-   - "I'll have the research team dig into X, Y, and Z"
-   - "Engineering will review the architecture for A and B"
-   - "QA will audit for C and D"
+3. **Discuss the plan if needed** - Ask clarifying questions if the request is unclear
 
-4. **Wait for confirmation** before starting
+4. **Start work when ready** - When you've discussed the plan OR the CEO indicates they want you to proceed, include [DELEGATE] in your response to kick off the work. This triggers the team to start.
+
+**EXAMPLES of when to delegate:**
+- CEO says "do a full codebase review" → Discuss plan, then include [DELEGATE] when ready
+- CEO says "sounds good, start it" → Include [DELEGATE] in your response
+- CEO says "go" or "yes" after you've proposed a plan → Include [DELEGATE]
+- CEO says "let's do it" → Include [DELEGATE]
+
+**The [DELEGATE] marker**: Include this ANYWHERE in your response when you're starting team work. It can be in a sentence like "I'm kicking this off now [DELEGATE]" or standalone. The system will automatically start the delegation.
 
 **IMPORTANT**: For big requests, DO NOT try to read/analyze the codebase yourself. Your job is to think about the request and plan how to delegate it effectively, not to do the work.
 
@@ -289,83 +292,83 @@ CEO'S MESSAGE:
 {request.message}
 {f'{chr(10)}[CEO has attached {len(request.images)} image(s)/screenshot(s) - review them carefully]' if request.images else ''}
 
-Respond naturally as the COO. Handle simple things directly. For bigger asks, propose a plan or ask clarifying questions conversationally."""
+Respond naturally as the COO. Handle simple things directly. For bigger asks, propose a plan. When you're ready to start work, include [DELEGATE] in your response."""
 
-        # Check if CEO is confirming a pending delegation
-        if confirmation_context.get('should_delegate'):
-            pending = confirmation_context['pending_delegation']
-            logger.info(f"[DEBUG] Executing delegation...")
-
-            # Execute delegation in background - COO responds IMMEDIATELY
-            # Don't wait for LLM or sub-agents to process
-            result = _execute_delegation(coo, pending, thread_id)
-            logger.info(f"[DEBUG] Delegation result: {result.get('success')}")
-
-            if result.get('success'):
-                coo_response = (
-                    f"Done. I've created the project '{result['molecule_name']}' and delegated it to the team. "
-                    f"They're starting work now on {result['step_count']} phases. "
-                    f"You'll see progress in the dashboard. What else can I help with?"
-                )
-                actions_taken.append({
-                    'action': 'delegation',
-                    'molecule_id': result['molecule_id'],
-                    'delegations': result['delegations']
-                })
-
-                # Spawn background task to run the corporation cycle
-                # This executes VP → Director → Worker chain without blocking
-                logger.info(f"Delegation successful - spawning background execution for molecule {result['molecule_id']}")
-                asyncio.create_task(_run_corporation_cycle_async(result['molecule_id']))
-            else:
-                coo_response = f"I ran into an issue setting that up: {result.get('error')}. Want me to try a different approach?"
-
+        # For simple greetings, respond directly without LLM call
+        simple_greetings = ['hello', 'hello?', 'hi', 'hey', 'test', 'ping', 'hey?', 'hi?']
+        if request.message.lower().strip() in simple_greetings:
+            coo_response = "Hello! I'm the COO. What would you like to work on today? I can help with project planning, codebase reviews, or delegating tasks to the team."
+            logger.info(f"[DEBUG] Using simple greeting response")
         else:
-            # Normal COO response
-            logger.info(f"[DEBUG] Using LLM path (no delegation)")
+            # Convert images to LLM format if present
+            llm_images = []
+            if request.images:
+                for img in request.images:
+                    llm_images.append({
+                        "data": img.data,
+                        "media_type": img.media_type
+                    })
 
-            # For simple greetings, respond directly without LLM call
-            simple_greetings = ['hello', 'hello?', 'hi', 'hey', 'test', 'ping', 'hey?', 'hi?']
-            if request.message.lower().strip() in simple_greetings:
-                coo_response = "Hello! I'm the COO. What would you like to work on today? I can help with project planning, codebase reviews, or delegating tasks to the team."
-                logger.info(f"[DEBUG] Using simple greeting response")
+            # Determine tools based on task size
+            # For BIG tasks (likely delegation), disable tools to force quick response
+            # For small tasks, allow ALL tools for quick lookups
+            if delegation_context.get('likely_delegation'):
+                tools_to_use = []  # Empty = no tools allowed
             else:
-                # Convert images to LLM format if present
-                llm_images = []
-                if request.images:
-                    for img in request.images:
-                        llm_images.append({
-                            "data": img.data,
-                            "media_type": img.media_type
+                tools_to_use = None  # None = use defaults (all tools)
+
+            logger.info(f"[DEBUG] About to call Claude CLI (likely_delegation={delegation_context.get('likely_delegation')}, tools={tools_to_use})")
+            response = coo.llm.execute(LLMRequest(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                working_directory=get_corp_path(),
+                tools=tools_to_use
+            ))
+
+            logger.info(f"[DEBUG] LLM response received: success={response.success}")
+
+            if response.success:
+                coo_response = response.content
+
+                # Check if COO included [DELEGATE] marker to trigger delegation
+                should_delegate, cleaned_response = _check_for_delegation_marker(coo_response)
+
+                if should_delegate:
+                    logger.info(f"[DEBUG] COO triggered delegation via [DELEGATE] marker")
+
+                    # Build pending delegation context from conversation
+                    pending = {
+                        'proposed_at': datetime.utcnow().isoformat(),
+                        'project_type': delegation_context.get('suggested_project_type', 'research'),
+                        'departments': delegation_context.get('suggested_departments', ['research', 'engineering']),
+                        'context': delegation_context
+                    }
+
+                    # Execute delegation
+                    result = _execute_delegation(coo, pending, thread_id)
+                    logger.info(f"[DEBUG] Delegation result: {result.get('success')}")
+
+                    if result.get('success'):
+                        # Use COO's response (without marker) + add status info
+                        coo_response = cleaned_response
+                        if not coo_response.strip():
+                            coo_response = f"Done! I've created '{result['molecule_name']}' and the team is starting on {result['step_count']} phases."
+
+                        actions_taken.append({
+                            'action': 'delegation',
+                            'molecule_id': result['molecule_id'],
+                            'delegations': result['delegations']
                         })
 
-                # Determine tools based on task size (same as PR 89)
-                # For BIG tasks (likely delegation), disable tools to force quick response
-                # For small tasks, allow ALL tools for quick lookups
-                if delegation_context.get('likely_delegation'):
-                    tools_to_use = []  # Empty = no tools allowed
-                else:
-                    tools_to_use = None  # None = use defaults (all tools)
-
-                logger.info(f"[DEBUG] About to call Claude CLI (likely_delegation={delegation_context.get('likely_delegation')}, tools={tools_to_use})")
-                response = coo.llm.execute(LLMRequest(
-                    prompt=prompt,
-                    system_prompt=system_prompt,
-                    working_directory=get_corp_path(),
-                    tools=tools_to_use
-                ))
-
-                logger.info(f"[DEBUG] LLM response received: success={response.success}")
-
-                if response.success:
-                    coo_response = response.content
-
-                    # Check if COO is proposing delegation - store for later confirmation
-                    _extract_delegation_proposal(coo_response, thread_id, delegation_context)
-                else:
-                    # Include the actual error for debugging
-                    error_detail = response.error or "Unknown error"
-                    coo_response = f"I apologize, I'm having trouble processing that right now. Error: {error_detail}"
+                        # Spawn background task to run the corporation cycle
+                        logger.info(f"Delegation successful - spawning background execution for molecule {result['molecule_id']}")
+                        asyncio.create_task(_run_corporation_cycle_async(result['molecule_id']))
+                    else:
+                        coo_response = f"{cleaned_response}\n\n(Note: I ran into an issue setting that up: {result.get('error')})"
+            else:
+                # Include the actual error for debugging
+                error_detail = response.error or "Unknown error"
+                coo_response = f"I apologize, I'm having trouble processing that right now. Error: {error_detail}"
 
     except Exception as e:
         coo_response = f"I encountered an issue: {str(e)}. Let me try to help anyway - what would you like to know?"
@@ -519,155 +522,26 @@ def _extract_ceo_preferences(message: str, thread_id: str) -> List[Dict[str, Any
     return extracted
 
 
-# Store pending delegation proposals per thread
-_pending_delegations: Dict[str, Dict[str, Any]] = {}
-
-# Cleanup stale pending delegations (older than 1 hour)
-def _cleanup_stale_delegations() -> None:
-    """Remove pending delegations older than 1 hour."""
-    now = datetime.utcnow()
-    stale_threads = []
-    for thread_id, pending in _pending_delegations.items():
-        proposed_at = datetime.fromisoformat(pending.get('proposed_at', now.isoformat()))
-        if (now - proposed_at).total_seconds() > 3600:  # 1 hour
-            stale_threads.append(thread_id)
-    for thread_id in stale_threads:
-        del _pending_delegations[thread_id]
-
-
-def _check_for_confirmation(message: str, thread_id: str) -> Dict[str, Any]:
+def _check_for_delegation_marker(coo_response: str) -> tuple[bool, str]:
     """
-    Check if the user's message is confirming a pending delegation proposal.
+    Check if the COO's response contains a delegation marker.
 
-    Returns context about whether to proceed with delegation.
+    The COO includes [DELEGATE] in its response when it decides to start work.
+
+    Returns:
+        (should_delegate, cleaned_response) - whether to delegate and response with marker removed
     """
-    # Cleanup old pending delegations periodically
-    _cleanup_stale_delegations()
+    import re
 
-    message_lower = message.lower().strip()
+    # Look for [DELEGATE] marker (case insensitive)
+    marker_pattern = r'\[DELEGATE\]'
 
-    # Short confirmation phrases (message should be mostly just the confirmation)
-    short_confirmations = [
-        'yes', 'yeah', 'yep', 'yup', 'sure', 'ok', 'okay', 'do it',
-        'go ahead', 'go for it', 'go', 'please do', 'approved', 'confirmed',
-        'absolutely', 'definitely', 'sounds good', 'that works', 'proceed',
-        'start', 'begin', 'run it', 'execute'  # Added common startup confirmations
-    ]
+    if re.search(marker_pattern, coo_response, re.IGNORECASE):
+        # Remove the marker from the response
+        cleaned = re.sub(marker_pattern, '', coo_response, flags=re.IGNORECASE).strip()
+        return True, cleaned
 
-    # Longer confirmation phrases that can appear in longer messages
-    action_confirmations = [
-        'kick it off', 'start it', 'let\'s do it', 'make it happen',
-        'get started', 'get them started', 'begin the', 'spin it up',
-        'start the project', 'run the project', 'execute the plan'
-    ]
-
-    # Check for short standalone confirmations (message is ~the confirmation itself)
-    is_short_confirmation = (
-        len(message_lower.split()) <= 5 and
-        any(phrase in message_lower for phrase in short_confirmations)
-    )
-
-    # Check for action confirmations (can be in longer messages)
-    is_action_confirmation = any(phrase in message_lower for phrase in action_confirmations)
-
-    is_confirmation = is_short_confirmation or is_action_confirmation
-
-    # Check if there's a pending delegation for this thread
-    pending = _pending_delegations.get(thread_id)
-
-    if is_confirmation and pending:
-        logger.info(f"Confirmation detected with pending delegation for thread {thread_id}")
-        return {
-            'is_confirmation': True,
-            'pending_delegation': pending,
-            'should_delegate': True
-        }
-
-    # If confirmation detected but no pending delegation, try to recover from history
-    # DISABLED FOR DEBUGGING - just log and continue to LLM path
-    if is_confirmation and not pending:
-        logger.info(f"Confirmation detected but NO pending delegation for thread {thread_id} - using LLM path")
-
-    return {
-        'is_confirmation': is_confirmation,
-        'pending_delegation': None,
-        'should_delegate': False
-    }
-
-
-def _recover_pending_delegation_from_history(thread_id: str) -> Optional[Dict[str, Any]]:
-    """
-    Try to recover a pending delegation by examining conversation history.
-
-    This handles the case where the server restarted and lost the in-memory
-    pending delegation, but the conversation still shows COO asking for confirmation.
-    """
-    try:
-        coo = get_coo()
-        thread = coo.get_thread(thread_id)
-        if not thread:
-            return None
-
-        messages = thread.get('messages', [])
-
-        # Look for a recent COO message that looks like a proposal
-        proposal_indicators = [
-            'want me to', 'shall i', 'should i', 'i can have the team',
-            'kick that off', 'get them started', 'spin up', 'delegate',
-            'have the team', 'assign this', 'put the team on',
-            'start it now', 'begin the', 'run the'
-        ]
-
-        # Check last 5 COO messages
-        coo_messages = [m for m in messages if m.get('role') == 'assistant'][-5:]
-
-        for msg in reversed(coo_messages):
-            content = msg.get('content', '').lower()
-            if any(indicator in content for indicator in proposal_indicators):
-                # Found a proposal - create a pending delegation
-                # Try to infer project type from the message
-                project_type = 'research'  # default
-                if any(kw in content for kw in ['implement', 'build', 'code', 'develop']):
-                    project_type = 'engineering'
-                elif any(kw in content for kw in ['review', 'audit', 'analyze']):
-                    project_type = 'research'
-                elif any(kw in content for kw in ['test', 'qa', 'quality']):
-                    project_type = 'quality'
-
-                return {
-                    'proposed_at': datetime.utcnow().isoformat(),
-                    'project_type': project_type,
-                    'departments': ['research', 'engineering'],
-                    'context': {'recovered_from_history': True}
-                }
-
-        return None
-    except Exception as e:
-        logger.warning(f"Failed to recover pending delegation: {e}")
-        return None
-
-
-def _extract_delegation_proposal(coo_response: str, thread_id: str, delegation_context: Dict[str, Any]) -> None:
-    """
-    Check if the COO's response proposes delegation and store it for later confirmation.
-    """
-    response_lower = coo_response.lower()
-
-    # Phrases that indicate COO is proposing delegation
-    proposal_indicators = [
-        'want me to', 'shall i', 'should i', 'i can have the team',
-        'kick that off', 'get them started', 'spin up', 'delegate',
-        'have the team', 'assign this', 'put the team on'
-    ]
-
-    if any(indicator in response_lower for indicator in proposal_indicators):
-        # Store the pending delegation
-        _pending_delegations[thread_id] = {
-            'proposed_at': datetime.utcnow().isoformat(),
-            'project_type': delegation_context.get('suggested_project_type', 'research'),
-            'departments': delegation_context.get('suggested_departments', ['research', 'engineering']),
-            'context': delegation_context
-        }
+    return False, coo_response
 
 
 # Track if a corporation cycle is already running to prevent concurrent execution
