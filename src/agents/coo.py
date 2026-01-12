@@ -1537,6 +1537,7 @@ IMPORTANT:
         """
         context = {
             'loaded_at': datetime.utcnow().isoformat(),
+            'ceo_preferences': [],
             'organization_status': {},
             'active_molecules': [],
             'pending_gates': [],
@@ -1545,6 +1546,12 @@ IMPORTANT:
             'recent_lessons': [],
             'warnings': []
         }
+
+        # Load CEO preferences (highest priority)
+        try:
+            context['ceo_preferences'] = self.org_memory.get_priority_preferences("high")
+        except Exception as e:
+            context['warnings'].append(f"Failed to load CEO preferences: {e}")
 
         # Load organization status
         try:
@@ -1626,6 +1633,14 @@ IMPORTANT:
             f"Generated: {context['loaded_at']}",
             ""
         ]
+
+        # CEO Preferences (highest priority - always at top)
+        ceo_prefs = context.get('ceo_preferences', [])
+        if ceo_prefs:
+            summary_parts.append("CEO PREFERENCES (Always Follow):")
+            for pref in ceo_prefs:
+                summary_parts.append(f"  ★ {pref.get('rule', '')}")
+            summary_parts.append("")
 
         # Organization status
         org_status = context.get('organization_status', {})
