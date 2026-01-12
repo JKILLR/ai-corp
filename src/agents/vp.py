@@ -77,11 +77,18 @@ class VPAgent(BaseAgent):
         2. Break into sub-tasks for directors
         3. Delegate to appropriate directors
         4. Monitor progress
+
+        NOTE: VPs delegate and return immediately - they do NOT wait
+        for directors/workers to complete. The subordinates will pick up
+        work from their hooks asynchronously.
         """
         task_type = work_item.context.get('task_type', 'delegation')
 
+        # Check for fast mode (skip LLM analysis)
+        fast_mode = work_item.context.get('fast_mode', False)
+
         if task_type == 'delegation':
-            return self._handle_delegation(work_item)
+            return self._handle_delegation(work_item, fast_mode=fast_mode)
         elif task_type == 'delegate_next':
             return self._handle_delegate_next(work_item)
         elif task_type == 'review_blockers':
@@ -93,23 +100,36 @@ class VPAgent(BaseAgent):
         else:
             return self._handle_general(work_item)
 
-    def _handle_delegation(self, work_item: WorkItem) -> Dict[str, Any]:
-        """Handle a delegation from COO"""
+    def _handle_delegation(self, work_item: WorkItem, fast_mode: bool = False) -> Dict[str, Any]:
+        """
+        Handle a delegation from COO.
+
+        Args:
+            work_item: The work to process
+            fast_mode: If True, skip LLM analysis and delegate immediately
+
+        NOTE: This method delegates to directors and returns immediately.
+        Directors will pick up their work asynchronously - VP does NOT wait.
+        """
         logger.info(f"[{self.identity.role_name}] Processing delegation: {work_item.title}")
 
-        # Analyze the work item using LLM
-        analysis = self.analyze_work_item(work_item)
+        if fast_mode:
+            # Fast mode: skip LLM analysis, delegate immediately
+            analysis = self._fast_analysis(work_item)
+        else:
+            # Normal mode: use LLM to analyze
+            analysis = self.analyze_work_item(work_item)
 
-        # Store context for future reference
-        self.store_context(
-            name=f"delegation_{work_item.id}",
-            content={
-                'work_item': work_item.to_dict(),
-                'analysis': analysis
-            },
-            context_type=ContextType.MOLECULE,
-            summary=f"Delegation analysis for {work_item.title}"
-        )
+            # Store context for future reference
+            self.store_context(
+                name=f"delegation_{work_item.id}",
+                content={
+                    'work_item': work_item.to_dict(),
+                    'analysis': analysis
+                },
+                context_type=ContextType.MOLECULE,
+                summary=f"Delegation analysis for {work_item.title}"
+            )
 
         # Check if this should be delegated to directors
         if analysis.get('delegation_candidate', True) and self.identity.direct_reports:
@@ -117,6 +137,24 @@ class VPAgent(BaseAgent):
 
         # Otherwise, handle directly (rare for VPs)
         return self._handle_directly(work_item, analysis)
+
+    def _fast_analysis(self, work_item: WorkItem) -> Dict[str, Any]:
+        """
+        Fast analysis without LLM - for immediate delegation.
+
+        Uses simple heuristics to determine delegation strategy.
+        """
+        # Default to delegating to first director with the task as-is
+        target_director = self.identity.direct_reports[0] if self.identity.direct_reports else None
+
+        return {
+            'delegation_candidate': True,
+            'delegation_to': target_director,
+            'subtasks': [work_item.title],
+            'understanding': work_item.description,
+            'approach': 'Direct delegation for execution',
+            'fast_mode': True
+        }
 
     def _delegate_to_directors(
         self,

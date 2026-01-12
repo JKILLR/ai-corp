@@ -104,8 +104,12 @@ class DirectorAgent(BaseAgent):
         2. Decide: delegate to workers or handle directly
         3. Monitor worker progress
         4. Report results to VP
+
+        NOTE: Directors delegate to workers and return immediately.
+        Workers process asynchronously - Director does NOT wait.
         """
         task_type = work_item.context.get('task_type', 'general')
+        fast_mode = work_item.context.get('fast_mode', False)
 
         if task_type == 'delegate_to_workers':
             return self._delegate_to_workers(work_item)
@@ -116,25 +120,35 @@ class DirectorAgent(BaseAgent):
         elif task_type == 'peer_response':
             return self._handle_peer_request(work_item)
         else:
-            return self._handle_general(work_item)
+            return self._handle_general(work_item, fast_mode=fast_mode)
 
-    def _handle_general(self, work_item: WorkItem) -> Dict[str, Any]:
-        """Handle a general work item"""
+    def _handle_general(self, work_item: WorkItem, fast_mode: bool = False) -> Dict[str, Any]:
+        """
+        Handle a general work item.
+
+        Args:
+            work_item: The work to process
+            fast_mode: If True, skip LLM analysis and delegate immediately
+        """
         logger.info(f"[{self.identity.role_name}] Processing: {work_item.title}")
 
-        # Analyze the work
-        analysis = self.analyze_work_item(work_item)
+        if fast_mode:
+            # Fast mode: skip LLM analysis, delegate immediately
+            analysis = self._fast_analysis(work_item)
+        else:
+            # Normal mode: use LLM to analyze
+            analysis = self.analyze_work_item(work_item)
 
-        # Store context
-        self.store_context(
-            name=f"work_{work_item.id}",
-            content={
-                'work_item': work_item.to_dict(),
-                'analysis': analysis
-            },
-            context_type=ContextType.MOLECULE,
-            summary=f"Work analysis for {work_item.title}"
-        )
+            # Store context
+            self.store_context(
+                name=f"work_{work_item.id}",
+                content={
+                    'work_item': work_item.to_dict(),
+                    'analysis': analysis
+                },
+                context_type=ContextType.MOLECULE,
+                summary=f"Work analysis for {work_item.title}"
+            )
 
         complexity = analysis.get('estimated_complexity', 'medium')
 
@@ -145,6 +159,20 @@ class DirectorAgent(BaseAgent):
 
         # Handle directly for simple tasks or when no workers available
         return self._handle_directly(work_item, analysis)
+
+    def _fast_analysis(self, work_item: WorkItem) -> Dict[str, Any]:
+        """
+        Fast analysis without LLM - for immediate delegation.
+
+        Uses simple heuristics to determine delegation strategy.
+        """
+        return {
+            'delegation_candidate': True,
+            'estimated_complexity': 'medium',
+            'understanding': work_item.description,
+            'approach': 'Direct execution',
+            'fast_mode': True
+        }
 
     def _pool_has_capacity(self) -> bool:
         """Check if worker pool has capacity"""

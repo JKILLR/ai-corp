@@ -254,13 +254,16 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
         # Check if CEO is confirming a pending delegation
         if confirmation_context.get('should_delegate'):
             pending = confirmation_context['pending_delegation']
-            result = _execute_delegation(coo, pending, thread_id)
+
+            # Execute delegation in background - COO responds IMMEDIATELY
+            # Don't wait for LLM or sub-agents to process
+            result = _execute_delegation_async(coo, pending, thread_id)
 
             if result.get('success'):
                 coo_response = (
                     f"Done. I've created the project '{result['molecule_name']}' and delegated it to the team. "
-                    f"They'll work through {result['step_count']} phases including research, analysis, and review. "
-                    f"I'll keep you posted on progress. Anything else you'd like me to focus them on?"
+                    f"They're starting work now on {result['step_count']} phases. "
+                    f"You'll see progress in the dashboard. What else can I help with?"
                 )
                 actions_taken.append({
                     'action': 'delegation',
@@ -494,9 +497,12 @@ def _extract_delegation_proposal(coo_response: str, thread_id: str, delegation_c
         }
 
 
-def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[str, Any]:
+def _execute_delegation_async(coo, pending: Dict[str, Any], thread_id: str) -> Dict[str, Any]:
     """
-    Execute the pending delegation - create molecule and delegate to VPs.
+    Execute delegation FAST - create molecule, queue work, return immediately.
+
+    The COO does NOT wait for VPs/Directors/Workers to process.
+    Work is queued in hooks and processed by background executor.
     """
     # Get recent conversation to extract title/description
     thread = coo.get_thread(thread_id)
@@ -509,20 +515,18 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
     description = "Comprehensive review requested by CEO"
 
     # Look for the original CEO request (skip recent confirmation/proposal exchanges)
-    # Find user messages that contain substantive requests, not just confirmations
     for msg in reversed(messages):
         if msg.get('role') == 'user':
             content = msg.get('content', '')
             # Skip short confirmation messages
             if len(content.split()) > 5:
                 description = content
-                # Create title from first sentence or first 50 chars
                 title = description.split('.')[0][:50] if '.' in description else description[:50]
                 break
 
     try:
-        # Create molecule through COO
-        molecule = coo.receive_ceo_task(
+        # Create molecule through COO - uses fast keyword analysis, not LLM
+        molecule = coo.receive_ceo_task_fast(
             title=title,
             description=description,
             priority="P2_MEDIUM",
@@ -537,7 +541,7 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
         molecules = get_molecule_engine()
         molecule = molecules.start_molecule(molecule.id)
 
-        # Delegate to VPs
+        # Delegate to VPs - just queues work items, doesn't wait for processing
         delegations = coo.delegate_molecule(molecule)
 
         # Link to thread
@@ -550,6 +554,9 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
         if thread_id in _pending_delegations:
             del _pending_delegations[thread_id]
 
+        # Trigger background processing (non-blocking)
+        _trigger_background_execution()
+
         return {
             'success': True,
             'molecule_id': molecule.id,
@@ -560,6 +567,39 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
 
     except Exception as e:
         return {'success': False, 'error': str(e)}
+
+
+def _trigger_background_execution():
+    """
+    Trigger background execution of agent work.
+
+    This is fire-and-forget - we don't wait for agents to complete.
+    The work will be processed by the executor in the background.
+    """
+    import threading
+
+    def run_executor():
+        try:
+            from src.agents.executor import CorporationExecutor
+            executor = CorporationExecutor(get_corp_path())
+            executor.initialize(['engineering', 'research', 'product', 'quality'])
+            # Run one cycle to kick off work
+            executor.run_cycle_skip_coo()
+        except Exception as e:
+            import logging
+            logging.error(f"Background executor error: {e}")
+
+    # Start in background thread - don't wait
+    thread = threading.Thread(target=run_executor, daemon=True)
+    thread.start()
+
+
+def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[str, Any]:
+    """
+    DEPRECATED: Use _execute_delegation_async instead.
+    This blocking version is kept for backwards compatibility.
+    """
+    return _execute_delegation_async(coo, pending, thread_id)
 
 
 @app.get("/api/coo/threads")
