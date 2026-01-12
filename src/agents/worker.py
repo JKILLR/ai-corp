@@ -30,6 +30,7 @@ from .base import BaseAgent, AgentIdentity
 from ..core.hook import WorkItem, WorkItemPriority
 from ..core.memory import ContextType
 from ..core.llm import LLMResponse
+from ..core.gate import GateKeeper
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,9 @@ class WorkerAgent(BaseAgent):
         super().__init__(identity, corp_path)
 
         self.specialty = specialty
+
+        # Initialize gate keeper for submitting completed work
+        self.gate_keeper = GateKeeper(self.corp_path)
 
     def process_work(self, work_item: WorkItem) -> Dict[str, Any]:
         """
@@ -183,6 +187,38 @@ class WorkerAgent(BaseAgent):
             },
             message=f"Completed: {work_item.title}"
         )
+
+        # Mark the molecule step as COMPLETED
+        if work_item.molecule_id and work_item.step_id:
+            try:
+                step = self.molecule_engine.complete_step(
+                    molecule_id=work_item.molecule_id,
+                    step_id=work_item.step_id,
+                    result={
+                        'summary': summary.get('summary', 'Completed'),
+                        'artifacts': summary.get('artifacts_created', []),
+                        'completed_by': self.identity.id
+                    }
+                )
+                logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as COMPLETED")
+
+                # Submit to gate if step has a gate_id
+                if step.gate_id:
+                    try:
+                        self.gate_keeper.submit_for_review(
+                            gate_id=step.gate_id,
+                            molecule_id=work_item.molecule_id,
+                            step_id=work_item.step_id,
+                            submitted_by=self.identity.id,
+                            summary=summary.get('summary', f'Completed: {work_item.title}'),
+                            artifacts=summary.get('artifacts_created', [])
+                        )
+                        logger.info(f"[{self.identity.role_name}] Submitted to gate {step.gate_id}")
+                    except Exception as e:
+                        logger.warning(f"[{self.identity.role_name}] Could not submit to gate: {e}")
+            except ValueError as e:
+                # Step may not exist or be in unexpected state
+                logger.warning(f"[{self.identity.role_name}] Could not complete step: {e}")
 
         logger.info(f"[{self.identity.role_name}] Completed: {work_item.title}")
 
