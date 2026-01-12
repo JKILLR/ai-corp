@@ -114,6 +114,19 @@ class WorkerAgent(BaseAgent):
         # Get any prior analysis from director
         analysis = work_item.context.get('analysis', {})
 
+        # Mark the molecule step as IN_PROGRESS (idempotent - may already be started by VP)
+        if work_item.molecule_id and work_item.step_id:
+            try:
+                self.molecule_engine.start_step(
+                    molecule_id=work_item.molecule_id,
+                    step_id=work_item.step_id,
+                    assigned_to=self.identity.id
+                )
+                logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as IN_PROGRESS")
+            except ValueError as e:
+                # Step may already be in progress (started by VP) - that's fine
+                logger.debug(f"[{self.identity.role_name}] Step already started: {e}")
+
         # Checkpoint: Starting work
         self.checkpoint(
             description="Starting task execution",
@@ -128,6 +141,20 @@ class WorkerAgent(BaseAgent):
 
         if not response.success:
             logger.error(f"[{self.identity.role_name}] Execution failed: {response.error}")
+
+            # Mark the molecule step as FAILED
+            if work_item.molecule_id and work_item.step_id:
+                try:
+                    self.molecule_engine.fail_step(
+                        molecule_id=work_item.molecule_id,
+                        step_id=work_item.step_id,
+                        error=response.error or "Execution failed",
+                        error_type="execution_failure",
+                        context={'worker': self.identity.id}
+                    )
+                    logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as FAILED")
+                except ValueError as e:
+                    logger.warning(f"[{self.identity.role_name}] Could not mark step failed: {e}")
 
             # Check if we should escalate
             if self._should_escalate(response.error):
