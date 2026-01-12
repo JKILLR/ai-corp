@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-12
-> **Current Phase:** API Layer Complete - Ready for Dogfooding
-> **Status:** ✅ Full Stack Complete (Backend + API + Frontend)
-> **Next Action:** Foundation Corp Dogfooding - validate end-to-end with real work
+> **Current Phase:** Molecule Step Integration Fixed - Testing Dogfooding
+> **Status:** ✅ Full Stack Complete + Orchestration Fixes
+> **Next Action:** Continue Foundation Corp Dogfooding - molecule tracking now working
 
 ---
 
@@ -35,6 +35,7 @@
 
 | Area | Status | Notes |
 |------|--------|-------|
+| **Molecule Step Integration** | ✅ Complete | VP/Director/Worker update step status; all depts have workers |
 | **API Layer** | ✅ Complete | FastAPI server with COO chat, delegation, dashboard, gates, WebSocket |
 | Core Infrastructure | ✅ Complete | Molecules, hooks, beads, channels, gates, pools |
 | Memory System | ✅ Complete | RLM-inspired context + SimpleMem adaptive retrieval |
@@ -69,6 +70,54 @@
 ---
 
 ## Recent Changes
+
+### 2026-01-12: Molecule Step Integration & Orchestration Fixes
+
+**Issue:** Work was completing successfully but molecule steps remained "pending" - the tracking wasn't updating.
+
+**Root Cause Analysis:**
+1. VP's `_handle_directly()` never called `start_step()` or `complete_step()`
+2. Director's `_handle_directly()` same issue
+3. Worker needed defensive `start_step()` call (idempotent)
+4. VP Research had no directors assigned → fell back to handling directly
+5. Product Director had no workers → fell back to handling directly
+
+**Fixes Applied:**
+
+1. **VP `_delegate_to_directors()` (`src/agents/vp.py:245-258`):**
+   - Added `start_step()` call when VP begins delegating work
+   - Marks molecule step as IN_PROGRESS with assigned_to
+
+2. **VP `_handle_directly()` (`src/agents/vp.py:285-320`):**
+   - Added `start_step()` at beginning of direct handling
+   - Added `complete_step()` on successful LLM response
+   - Records action, reasoning, and completed_by in result
+
+3. **Director `_handle_directly()` (`src/agents/director.py:220-260`):**
+   - Added `start_step()` at beginning
+   - Added `complete_step()` on success with result details
+   - Added `fail_step()` on execution failure
+
+4. **Worker `_execute_work()` (`src/agents/worker.py:145-200`):**
+   - Added defensive `start_step()` (idempotent - may already be started by VP)
+   - Added `fail_step()` when execution fails
+   - Added `complete_step()` + gate submission on success
+   - Added GateKeeper initialization for gate submissions
+
+5. **Corporation Structure (`src/agents/executor.py:150-200`):**
+   - Added Research Director (`dir_research`) reporting to `vp_research`
+   - Added 8 workers across all departments:
+     - Engineering: `backend`, `frontend`, `devops`
+     - Quality: `qa`, `security`
+     - Research: `researcher`
+     - Product: `designer`, `writer`
+
+**API Layer Fixes (from PR #86 cherry-pick):**
+- Fixed `_execute_delegation_async` → `_execute_delegation` naming
+- Removed duplicate `_trigger_background_execution()` function
+- Kept `_run_corporation_cycle_async()` with lock for background execution
+
+**Result:** Molecule steps now properly transition from PENDING → IN_PROGRESS → COMPLETED as work flows through the hierarchy.
 
 ### 2026-01-12: Documentation Sync - API Layer Complete
 
@@ -1117,6 +1166,8 @@ CorporationExecutor
 | ~~Hook cache staleness~~ | ~~Low~~ | ✅ Fixed: `refresh_hook()` methods added in orchestration layer |
 | ~~No orchestration layer~~ | ~~Medium~~ | ✅ Fixed: P2 complete - `run_cycle()` works autonomously |
 | ~~Single-shot agent execution~~ | ~~High~~ | ✅ Fixed: Agents now have full tool access (Read, Write, Edit, Bash, etc.) via level-based defaults |
+| ~~Molecule steps stay pending~~ | ~~High~~ | ✅ Fixed: VP/Director `_handle_directly()` and Worker now call `start_step()`/`complete_step()` |
+| ~~Missing workers in departments~~ | ~~Medium~~ | ✅ Fixed: Added 8 workers across all departments (eng, quality, research, product) |
 
 ---
 
@@ -1174,7 +1225,7 @@ CorporationExecutor
 - **Python:** 3.x
 - **LLM:** Claude Opus 4.5 (claude-opus-4-5-20251101)
 - **Storage:** YAML + Git
-- **Branch:** `claude/agent-swarm-setup-ft3BZ`
+- **Branch:** `claude/ai-corporation-simulation-dgYIu`
 
 ---
 

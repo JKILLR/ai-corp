@@ -26,8 +26,15 @@
 
 **Full Stack Complete:** Backend + API Layer + Frontend **ALL COMPLETE**.
 
+**Foundation Corp Dogfooding - IN PROGRESS:**
+- ✅ Molecule step integration fixed (VP/Director/Worker now update step status)
+- ✅ All departments have workers (8 workers across 4 departments)
+- ✅ Research Director added (VP Research no longer handles directly)
+- ✅ API layer execution chain fixed (removed duplicate triggers)
+- 🔄 Continue real-world testing to validate end-to-end flow
+
 **Next priority:**
-1. **Foundation Corp Dogfooding** - Use the system to do real work and validate end-to-end
+1. **Continue Foundation Corp Dogfooding** - Run more complex tasks through the hierarchy
 2. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
 3. Or move to P3 features (Apex Corp Registry)
 
@@ -90,6 +97,7 @@
 
 | Feature | Completed | Notes |
 |---------|-----------|-------|
+| **Molecule Step Integration** | **2026-01-12** | **VP/Director/Worker now update step status; all departments staffed** |
 | **API Layer** | **2026-01-12** | **FastAPI server - COO chat, delegation, dashboard, gates, WebSocket** |
 | **Frontend Chat UI** | **2026-01-11** | **React web UI with chat interface, dashboard, image support** |
 | **Agent Tool Access** | **2026-01-11** | **All agents get full Claude Code tools (Read, Write, Edit, Bash, etc.)** |
