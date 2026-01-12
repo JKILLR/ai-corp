@@ -4,7 +4,9 @@
  * Handles all communication with the FastAPI backend.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+// Use empty string in dev (requests go through Vite proxy to port 8000)
+// In production, set VITE_API_URL to the actual API server
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 // Types
 export interface Message {
