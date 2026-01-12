@@ -213,9 +213,6 @@ async def send_coo_message(request: COOMessageRequest):
         # Load organizational context including CEO preferences
         org_context = coo.get_context_summary_for_llm()
 
-        # Note: Delegation is now triggered by the COO including [DELEGATE] in its response
-        # No pre-checking needed - the COO decides when to delegate based on conversation
-
         system_prompt = f"""You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational.
 
 {org_context}
@@ -317,12 +314,13 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
             else:
                 tools_to_use = None  # None = use defaults (all tools)
 
-            logger.info(f"[DEBUG] About to call Claude CLI (likely_delegation={delegation_context.get('likely_delegation')}, tools={tools_to_use})")
+            logger.info(f"[DEBUG] About to call Claude CLI (likely_delegation={delegation_context.get('likely_delegation')}, tools={tools_to_use}, images={len(llm_images)})")
             response = coo.llm.execute(LLMRequest(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 working_directory=get_corp_path(),
-                tools=tools_to_use
+                tools=tools_to_use,
+                images=llm_images
             ))
 
             logger.info(f"[DEBUG] LLM response received: success={response.success}")
@@ -531,8 +529,6 @@ def _check_for_delegation_marker(coo_response: str) -> tuple[bool, str]:
     Returns:
         (should_delegate, cleaned_response) - whether to delegate and response with marker removed
     """
-    import re
-
     # Look for [DELEGATE] marker (case insensitive)
     marker_pattern = r'\[DELEGATE\]'
 
@@ -647,10 +643,6 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
             coo.link_thread_to_molecule(thread_id, molecule.id)
         except Exception:
             pass
-
-        # Clear the pending delegation
-        if thread_id in _pending_delegations:
-            del _pending_delegations[thread_id]
 
         # Note: Background execution is triggered by caller via _run_corporation_cycle_async
 
