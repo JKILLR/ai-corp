@@ -262,6 +262,18 @@ class DirectorAgent(BaseAgent):
         """Handle work directly"""
         logger.info(f"[{self.identity.role_name}] Handling directly: {work_item.title}")
 
+        # Mark the molecule step as IN_PROGRESS
+        if work_item.molecule_id and work_item.step_id:
+            try:
+                self.molecule_engine.start_step(
+                    molecule_id=work_item.molecule_id,
+                    step_id=work_item.step_id,
+                    assigned_to=self.identity.id
+                )
+                logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as IN_PROGRESS")
+            except ValueError as e:
+                logger.debug(f"[{self.identity.role_name}] Step already started: {e}")
+
         # Use LLM to execute the task
         task_prompt = f"""
 You are executing this task as {self.identity.role_name} (focus: {self.focus}).
@@ -308,6 +320,21 @@ Report your results clearly.
                 message=f"Completed: {work_item.title}"
             )
 
+            # Mark the molecule step as COMPLETED
+            if work_item.molecule_id and work_item.step_id:
+                try:
+                    self.molecule_engine.complete_step(
+                        molecule_id=work_item.molecule_id,
+                        step_id=work_item.step_id,
+                        result={
+                            'summary': summary,
+                            'completed_by': self.identity.id
+                        }
+                    )
+                    logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as COMPLETED")
+                except ValueError as e:
+                    logger.warning(f"[{self.identity.role_name}] Could not complete step: {e}")
+
             return {
                 'status': 'completed',
                 'summary': summary,
@@ -315,6 +342,21 @@ Report your results clearly.
             }
         else:
             logger.error(f"[{self.identity.role_name}] Failed to execute: {response.error}")
+
+            # Mark the molecule step as FAILED
+            if work_item.molecule_id and work_item.step_id:
+                try:
+                    self.molecule_engine.fail_step(
+                        molecule_id=work_item.molecule_id,
+                        step_id=work_item.step_id,
+                        error=response.error or "Execution failed",
+                        error_type="execution_failure",
+                        context={'director': self.identity.id}
+                    )
+                    logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as FAILED")
+                except ValueError as e:
+                    logger.warning(f"[{self.identity.role_name}] Could not mark step failed: {e}")
+
             return {
                 'status': 'failed',
                 'error': response.error

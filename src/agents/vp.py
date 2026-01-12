@@ -265,6 +265,18 @@ Approach: {analysis.get('approach', 'Use your judgment.')}
         """Handle work directly (usually for oversight/review tasks)"""
         logger.info(f"[{self.identity.role_name}] Handling directly: {work_item.title}")
 
+        # Mark the molecule step as IN_PROGRESS
+        if work_item.molecule_id and work_item.step_id:
+            try:
+                self.molecule_engine.start_step(
+                    molecule_id=work_item.molecule_id,
+                    step_id=work_item.step_id,
+                    assigned_to=self.identity.id
+                )
+                logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as IN_PROGRESS")
+            except ValueError as e:
+                logger.debug(f"[{self.identity.role_name}] Step already started: {e}")
+
         # Use LLM to think about and execute
         thought = self.think(
             task=work_item.title,
@@ -283,6 +295,22 @@ Approach: {analysis.get('approach', 'Use your judgment.')}
             chosen_option=thought.chosen_action,
             rationale=thought.reasoning
         )
+
+        # Mark the molecule step as COMPLETED
+        if work_item.molecule_id and work_item.step_id:
+            try:
+                self.molecule_engine.complete_step(
+                    molecule_id=work_item.molecule_id,
+                    step_id=work_item.step_id,
+                    result={
+                        'action': thought.chosen_action,
+                        'reasoning': thought.reasoning,
+                        'completed_by': self.identity.id
+                    }
+                )
+                logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as COMPLETED")
+            except ValueError as e:
+                logger.warning(f"[{self.identity.role_name}] Could not complete step: {e}")
 
         return {
             'status': 'completed',
