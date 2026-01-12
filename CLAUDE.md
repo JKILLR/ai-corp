@@ -28,15 +28,20 @@ Before making any changes, read these files:
 
 ## Current Priority
 
-**Backend Complete ✅** - All core systems implemented. Critical path is now **API Layer**:
+**Backend + API Layer Complete ✅** - All core systems and API endpoints implemented.
 
-1. **API Server** - FastAPI server connecting frontend to backend (CRITICAL)
-2. **COO Chat Endpoint** - `POST /api/coo/message` routing to COOAgent
-3. **Frontend-Backend Integration** - Replace mock data with real API calls
+**What's Ready:**
+- FastAPI server (`src/api/main.py`) with COO chat, delegation, dashboard, gates endpoints
+- WebSocket streaming for real-time updates
+- Image/screenshot support in COO conversations
+- Chat session persistence
 
-The frontend chat UI exists but uses mock data. The backend (COOAgent, Memory, Hierarchy) exists but has no API. Building the API layer connects them.
+**Current Focus:** Foundation Corp Dogfooding
+- Use the system to do real work and validate end-to-end
+- Run architecture reviews, delegate actual tasks through the hierarchy
+- Verify COO → VP → Director → Worker chain works with real Claude CLI
 
-See `docs/COO_INTERFACE_DESIGN.md` for how the CEO-COO interaction should work.
+See `docs/COO_INTERFACE_DESIGN.md` for how the CEO-COO interaction works.
 
 ---
 
@@ -67,9 +72,11 @@ See `docs/COO_INTERFACE_DESIGN.md` for how the CEO-COO interaction should work.
 ```
 ai-corp/
 ├── src/
+│   ├── api/            # FastAPI server (COO chat, delegation, dashboard, gates)
 │   ├── core/           # Infrastructure (molecules, hooks, beads, channels, gates, etc.)
 │   ├── agents/         # Agent implementations (COO, VP, Director, Worker)
 │   └── cli/            # Command-line interface
+├── frontend/           # React web UI (chat interface, dashboard)
 ├── templates/          # Organization templates
 ├── foundation/         # Foundation Corp (AI Corp building AI Corp)
 ├── tests/              # Test suite (778+ tests)
@@ -81,6 +88,7 @@ ai-corp/
 
 ## Key Systems (All Implemented)
 
+- **API Layer** - FastAPI server connecting frontend to backend (`src/api/main.py`)
 - **Molecules** - Persistent workflows (with Ralph Mode for persistent execution)
 - **Hooks** - Pull-based work queues
 - **Beads** - Git-backed audit trail

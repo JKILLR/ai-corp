@@ -158,7 +158,7 @@ COO: "Done. Created contract CTR-047, delegated to VP Engineering.
 
 ## What's Built vs What's Missing
 
-### Built
+### Built (All Complete ✅)
 - [x] Frontend chat UI (COOChannel.tsx, CommandChannel.tsx)
 - [x] COOAgent Python class with conversation methods
 - [x] Memory system (OrganizationalMemory, ContextEnvironment)
@@ -168,52 +168,64 @@ COO: "Done. Created contract CTR-047, delegated to VP Engineering.
 - [x] Molecule engine (standard, swarm, ralph, composite)
 - [x] Agent hierarchy (VP, Director, Worker)
 - [x] Hooks, Gates, Channels, Beads
+- [x] **API Server** - FastAPI server (`src/api/main.py`, 1300+ lines)
+- [x] **COO Chat Endpoint** - `POST /api/coo/message` with image support
+- [x] **Streaming Responses** - WebSocket `/api/ws/coo/execute`
+- [x] **Dashboard Data API** - `/api/dashboard`, `/api/projects`, `/api/gates`
+- [x] **Real-time Updates** - WebSocket events for system changes
+- [x] **Delegation Endpoint** - `POST /api/coo/delegate` and status tracking
+- [x] **Chat Session Persistence** - Thread ID stored in localStorage
 
-### Missing
-- [ ] **API Server** - FastAPI server to connect frontend to backend
-- [ ] **COO Chat Endpoint** - `POST /api/coo/message` → COOAgent
-- [ ] **Streaming Responses** - WebSocket for COO typing/responses
-- [ ] **Dashboard Data API** - Endpoints for projects, agents, gates
-- [ ] **Real-time Updates** - WebSocket events for system changes
-- [ ] **COO Context Loading** - Dynamic prompt from memory system
+### What's Next
+- Foundation Corp Dogfooding - validate end-to-end with real work
+- Data Source Connectors (Gmail, iMessage, Calendar)
 
 ---
 
-## API Endpoints Needed
+## API Endpoints (Implemented ✅)
 
 ### COO Chat
 ```
-POST /api/coo/message
-  Body: { message: string, thread_id?: string }
+POST /api/coo/message          ✅ Implemented (with image support)
+  Body: { message: string, thread_id?: string, images?: [] }
   Response: { response: string, thread_id: string, actions_taken?: [] }
 
-GET /api/coo/threads
-  Response: { threads: [...] }
+GET /api/coo/threads           ✅ Implemented
+POST /api/coo/delegate         ✅ Implemented
+GET /api/coo/delegation-status/{id}  ✅ Implemented
+POST /api/coo/run-cycle        ✅ Implemented
 
-WS /api/coo/stream
-  Events: coo.typing, coo.message.chunk, coo.message.complete
+WS /api/ws/coo/execute         ✅ Implemented (streaming execution)
 ```
 
 ### System Status
 ```
-GET /api/dashboard
-GET /api/projects
-GET /api/agents
-GET /api/gates
-GET /api/forge/intentions
+GET /api/dashboard             ✅ Implemented
+GET /api/dashboard/metrics     ✅ Implemented
+GET /api/projects              ✅ Implemented
+GET /api/projects/{id}         ✅ Implemented
+GET /api/gates                 ✅ Implemented
+GET /api/gates/pending         ✅ Implemented
+POST /api/gates/{id}/approve   ✅ Implemented
+POST /api/gates/{id}/reject    ✅ Implemented
+```
+
+### Discovery
+```
+POST /api/discovery/start           ✅ Implemented
+POST /api/discovery/{id}/message    ✅ Implemented
+POST /api/discovery/{id}/finalize   ✅ Implemented
 ```
 
 ---
 
-## Priority
+## Current Priority
 
-Building the API layer is the critical path to making this work:
+The API layer is complete. Current focus:
 
-1. **FastAPI server** with COO message endpoint
-2. **COO message handler** that routes to COOAgent with proper context
-3. **Streaming support** for long responses
-4. **Dashboard endpoints** for system visibility
-5. **WebSocket** for real-time updates
+1. **Foundation Corp Dogfooding** - Use the system to do real work
+2. **Validate end-to-end** - COO → VP → Director → Worker chain with real Claude CLI
+3. **Data Source Connectors** - Gmail, iMessage, Calendar for Personal edition
 
 ---
 

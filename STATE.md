@@ -1,9 +1,9 @@
 # AI Corp Project State
 
-> **Last Updated:** 2026-01-11
-> **Current Phase:** P2 - Composite Molecules Complete
-> **Status:** ✅ Real Claude Testing SUCCESSFUL + Orchestration + Swarm + Composite Molecules
-> **Next Action:** P2 Features (Data Source Connectors) or P3
+> **Last Updated:** 2026-01-12
+> **Current Phase:** API Layer Complete - Ready for Dogfooding
+> **Status:** ✅ Full Stack Complete (Backend + API + Frontend)
+> **Next Action:** Foundation Corp Dogfooding - validate end-to-end with real work
 
 ---
 
@@ -35,6 +35,7 @@
 
 | Area | Status | Notes |
 |------|--------|-------|
+| **API Layer** | ✅ Complete | FastAPI server with COO chat, delegation, dashboard, gates, WebSocket |
 | Core Infrastructure | ✅ Complete | Molecules, hooks, beads, channels, gates, pools |
 | Memory System | ✅ Complete | RLM-inspired context + SimpleMem adaptive retrieval |
 | Agent Hierarchy | ✅ Complete | COO, VP, Director, Worker agents |
@@ -68,6 +69,26 @@
 ---
 
 ## Recent Changes
+
+### 2026-01-12: Documentation Sync - API Layer Complete
+
+**Issue:** Documentation stated API layer was "missing" and "critical path", but it was already fully implemented.
+
+**Updates:**
+- Updated CLAUDE.md to reflect API layer completion
+- Updated STATE.md with API Layer status
+- Updated ROADMAP.md to add API Layer to Completed section
+- Updated docs/COO_INTERFACE_DESIGN.md to mark all endpoints as implemented
+
+**Current State:**
+- `src/api/main.py` - 1300+ lines with full endpoint coverage
+- COO chat endpoint with image support
+- Delegation and discovery endpoints
+- Dashboard, gates, projects endpoints
+- WebSocket streaming for real-time updates
+- Chat session persistence
+
+**Next Priority:** Foundation Corp Dogfooding - use the system for real work.
 
 ### 2026-01-11: COO Image/Screenshot Support + Chat Session Persistence
 
@@ -1079,6 +1100,12 @@ CorporationExecutor
 | Module | Status | Description |
 |--------|--------|-------------|
 | `main.py` | ✅ Stable | CLI entry point |
+
+### API (`src/api/`)
+
+| Module | Status | Description |
+|--------|--------|-------------|
+| `main.py` | ✅ Stable | FastAPI server - COO chat, delegation, dashboard, gates, WebSocket |
 
 ---
 
