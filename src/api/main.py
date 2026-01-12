@@ -283,6 +283,10 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                     'molecule_id': result['molecule_id'],
                     'delegations': result['delegations']
                 })
+
+                # Spawn background task to run the corporation cycle
+                # This executes VP → Director → Worker chain without blocking
+                asyncio.create_task(_run_corporation_cycle_async(result['molecule_id']))
             else:
                 coo_response = f"I ran into an issue setting that up: {result.get('error')}. Want me to try a different approach?"
 
@@ -585,6 +589,50 @@ def _extract_delegation_proposal(coo_response: str, thread_id: str, delegation_c
             'departments': delegation_context.get('suggested_departments', ['research', 'engineering']),
             'context': delegation_context
         }
+
+
+# Track if a corporation cycle is already running to prevent concurrent execution
+_corporation_cycle_running = False
+
+
+async def _run_corporation_cycle_async(molecule_id: str) -> None:
+    """
+    Run the corporation cycle in the background after delegation.
+
+    This executes the VP → Director → Worker chain without blocking the API response.
+    Note: molecule_id is for logging; run_cycle_skip_coo() processes all pending work.
+    """
+    from src.agents.executor import CorporationExecutor
+
+    global _corporation_cycle_running
+
+    # Prevent concurrent execution - if already running, skip
+    if _corporation_cycle_running:
+        logger.info(f"Corporation cycle already running, skipping for molecule {molecule_id}")
+        return
+
+    _corporation_cycle_running = True
+
+    try:
+        logger.info(f"Starting background execution for molecule {molecule_id}")
+
+        # Run in executor to not block the event loop
+        def run_cycle():
+            executor = CorporationExecutor(get_corp_path())
+            executor.initialize(['engineering', 'research', 'product', 'quality'])
+            return executor.run_cycle_skip_coo()
+
+        # Run the blocking operation in a thread pool
+        loop = asyncio.get_running_loop()
+        results = await loop.run_in_executor(None, run_cycle)
+
+        logger.info(f"Background execution completed for molecule {molecule_id}: {results}")
+
+    except Exception as e:
+        logger.error(f"Background execution failed for molecule {molecule_id}: {e}")
+
+    finally:
+        _corporation_cycle_running = False
 
 
 def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[str, Any]:
