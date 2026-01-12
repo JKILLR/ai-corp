@@ -554,13 +554,15 @@ def _check_for_confirmation(message: str, thread_id: str) -> Dict[str, Any]:
     short_confirmations = [
         'yes', 'yeah', 'yep', 'yup', 'sure', 'ok', 'okay', 'do it',
         'go ahead', 'go for it', 'please do', 'approved', 'confirmed',
-        'absolutely', 'definitely', 'sounds good', 'that works', 'proceed'
+        'absolutely', 'definitely', 'sounds good', 'that works', 'proceed',
+        'start', 'begin', 'run it', 'execute'  # Added common startup confirmations
     ]
 
     # Longer confirmation phrases that can appear in longer messages
     action_confirmations = [
         'kick it off', 'start it', 'let\'s do it', 'make it happen',
-        'get started', 'get them started', 'begin', 'spin it up'
+        'get started', 'get them started', 'begin the', 'spin it up',
+        'start the project', 'run the project', 'execute the plan'
     ]
 
     # Check for short standalone confirmations (message is ~the confirmation itself)
@@ -578,17 +580,85 @@ def _check_for_confirmation(message: str, thread_id: str) -> Dict[str, Any]:
     pending = _pending_delegations.get(thread_id)
 
     if is_confirmation and pending:
+        logger.info(f"Confirmation detected with pending delegation for thread {thread_id}")
         return {
             'is_confirmation': True,
             'pending_delegation': pending,
             'should_delegate': True
         }
 
+    # Fallback: If confirmation detected but no pending delegation (e.g., server restarted),
+    # check conversation history for a recent proposal from COO
+    if is_confirmation and not pending and thread_id:
+        logger.info(f"Confirmation detected but no pending delegation - checking conversation history")
+        recovered = _recover_pending_delegation_from_history(thread_id)
+        if recovered:
+            logger.info(f"Recovered pending delegation from conversation history")
+            return {
+                'is_confirmation': True,
+                'pending_delegation': recovered,
+                'should_delegate': True
+            }
+        else:
+            logger.info(f"No pending delegation found in history for thread {thread_id}")
+
     return {
         'is_confirmation': is_confirmation,
         'pending_delegation': None,
         'should_delegate': False
     }
+
+
+def _recover_pending_delegation_from_history(thread_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Try to recover a pending delegation by examining conversation history.
+
+    This handles the case where the server restarted and lost the in-memory
+    pending delegation, but the conversation still shows COO asking for confirmation.
+    """
+    try:
+        coo = get_coo()
+        thread = coo.get_thread(thread_id)
+        if not thread:
+            return None
+
+        messages = thread.get('messages', [])
+
+        # Look for a recent COO message that looks like a proposal
+        proposal_indicators = [
+            'want me to', 'shall i', 'should i', 'i can have the team',
+            'kick that off', 'get them started', 'spin up', 'delegate',
+            'have the team', 'assign this', 'put the team on',
+            'start it now', 'begin the', 'run the'
+        ]
+
+        # Check last 5 COO messages
+        coo_messages = [m for m in messages if m.get('role') == 'assistant'][-5:]
+
+        for msg in reversed(coo_messages):
+            content = msg.get('content', '').lower()
+            if any(indicator in content for indicator in proposal_indicators):
+                # Found a proposal - create a pending delegation
+                # Try to infer project type from the message
+                project_type = 'research'  # default
+                if any(kw in content for kw in ['implement', 'build', 'code', 'develop']):
+                    project_type = 'engineering'
+                elif any(kw in content for kw in ['review', 'audit', 'analyze']):
+                    project_type = 'research'
+                elif any(kw in content for kw in ['test', 'qa', 'quality']):
+                    project_type = 'quality'
+
+                return {
+                    'proposed_at': datetime.utcnow().isoformat(),
+                    'project_type': project_type,
+                    'departments': ['research', 'engineering'],
+                    'context': {'recovered_from_history': True}
+                }
+
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to recover pending delegation: {e}")
+        return None
 
 
 def _extract_delegation_proposal(coo_response: str, thread_id: str, delegation_context: Dict[str, Any]) -> None:
