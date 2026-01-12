@@ -88,11 +88,12 @@ COO: "Got it. Let me run through discovery with you to make sure I understand th
       What's the main problem we're solving - gates hanging forever waiting for approval?"
 CEO: "Yes, and it blocks the whole workflow"
 COO: "Understood. Success criteria would be: gates auto-fail or escalate after timeout.
-      Should I create a contract and get the team working on it?"
-CEO: "Do it"
-COO: "Done. Created contract CTR-047, delegated to VP Engineering.
-      I'll keep you posted on progress."
+      I'll create a contract and get the team working on it now.
+      [Creates contract CTR-047, delegates to VP Engineering]
+      Done - the team's starting on it. I'll keep you posted on progress."
 ```
+
+**Note:** The COO decides when to delegate based on conversational context. When ready to start work, the COO includes a `[DELEGATE]` marker in its response (automatically stripped before showing to user). No specific "magic words" are required from the CEO - the COO understands intent naturally.
 
 ---
 

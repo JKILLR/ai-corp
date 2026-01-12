@@ -71,6 +71,39 @@
 
 ## Recent Changes
 
+### 2026-01-12: COO Delegation Marker System + VP Processing Fix
+
+**Issue 1: Magic Confirmation Words**
+The old delegation system required users to say specific "magic words" like "go", "yes", "start it" to trigger delegation. This was brittle and unnatural.
+
+**Fix: [DELEGATE] Marker System (`src/api/main.py`)**
+- COO now decides when to delegate based on conversation context
+- When ready to start work, COO includes `[DELEGATE]` anywhere in its response
+- System automatically detects marker and triggers delegation
+- Marker is stripped from response shown to user
+- Much more natural - COO understands intent, not pattern-matching words
+
+**Issue 2: VP Not Processing Work**
+Work items were queued in VP hooks but VPs weren't processing them. Root cause: stale hook cache.
+
+**Root Cause Analysis:**
+1. COO adds work to VP hook via `hook_manager.add_work_to_hook()` → saves to disk
+2. Background task creates new `CorporationExecutor` with its own `HookManager`
+3. `_refresh_all_agent_hooks()` updates `vp.hook` to point to executor's hook object
+4. But `claim_work()` was calling `self.hook_manager.claim_work()` which used the VP's OWN `HookManager` with stale cache!
+5. Work existed in `self.hook` but `self.hook_manager.get_hook()` returned old cached hook without work items
+
+**Fix: Use self.hook Directly (`src/agents/base.py`)**
+- `claim_work()` now uses `self.hook.claim_next()` directly instead of going through `hook_manager`
+- `complete_work()` now uses `self.current_work.complete()` directly
+- `fail_work()` now uses `self.current_work.fail()` directly
+- Added warning log when work exists but can't be claimed (helps debug capability mismatches)
+
+**Issue 3: Images Silently Ignored**
+The `llm_images` list was built but never passed to `LLMRequest`.
+
+**Fix:** Added `images=llm_images` to LLMRequest call in COO message endpoint.
+
 ### 2026-01-12: Molecule Step Integration & Orchestration Fixes
 
 **Issue:** Work was completing successfully but molecule steps remained "pending" - the tracking wasn't updating.

@@ -1176,6 +1176,21 @@ The primary orchestrator that:
 5. Monitors progress
 6. Reports to CEO
 
+**Delegation Trigger: [DELEGATE] Marker**
+When the COO decides to start work, it includes `[DELEGATE]` in its response. The API layer detects this marker, triggers delegation, and strips the marker from the response shown to the user.
+
+```python
+# COO response example
+"Great, I'll get the team started on that architecture review. [DELEGATE]
+I'll have VP Engineering coordinate the research phase first."
+
+# User sees (marker stripped)
+"Great, I'll get the team started on that architecture review.
+I'll have VP Engineering coordinate the research phase first."
+```
+
+This is more natural than requiring specific confirmation phrases from the user - the COO understands conversational intent and decides when to delegate.
+
 #### VPAgent (`src/agents/vp.py`)
 Department heads that:
 1. Receive delegations from COO
@@ -1263,6 +1278,14 @@ COO creates work → VP hook updated → _refresh_all_agent_hooks() →
 VP sees work → VP delegates → Director hook updated → _refresh_all_agent_hooks() →
 Director sees work → Director delegates → Workers claim from Director's hook
 ```
+
+**Critical Fix: Direct Hook Access**
+Agents must use `self.hook` directly for work operations, not go through `self.hook_manager`:
+- `claim_work()` uses `self.hook.claim_next()` directly
+- `complete_work()` uses `self.current_work.complete()` directly
+- `fail_work()` uses `self.current_work.fail()` directly
+
+This is because `_refresh_all_agent_hooks()` updates `agent.hook` to point to the executor's hook object, but each agent has its own `HookManager` with potentially stale cache. Going through `self.hook_manager.get_hook()` would return the stale cached hook without new work items.
 
 ---
 
