@@ -340,12 +340,14 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                         })
 
                 # Use Claude CLI backend (Claude Max subscription)
-                logger.info(f"[DEBUG] About to call Claude CLI (tools disabled for fast response)")
+                # COO gets read-only tools - can investigate but delegates execution
+                coo_tools = ['Read', 'Glob', 'Grep']
+                logger.info(f"[DEBUG] About to call Claude CLI with tools: {coo_tools}")
                 response = coo.llm.execute(LLMRequest(
                     prompt=prompt,
                     system_prompt=system_prompt,
                     working_directory=get_corp_path(),
-                    tools=[]  # Empty list = no tools, prevents CLI from hanging on tool use
+                    tools=coo_tools  # Read-only tools for investigation
                 ))
 
                 logger.info(f"[DEBUG] LLM response received: success={response.success}")
