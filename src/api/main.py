@@ -37,6 +37,7 @@ from src.core.monitor import SystemMonitor
 from src.core.forge import TheForge
 from src.core.contract import ContractManager
 from src.core.llm import LLMRequest, LLMBackendFactory
+from src.core.preset import init_from_preset
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -54,18 +55,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Get corp path from environment or default
+# Track if corp has been initialized this session
+_corp_initialized = False
+
+
 def get_corp_path() -> Path:
+    """
+    Get the corporation path, auto-initializing if needed.
+
+    Priority:
+    1. AI_CORP_PATH environment variable
+    2. {cwd}/corp directory (created if doesn't exist)
+
+    Auto-initializes with 'software-company' preset on first access.
+    """
+    global _corp_initialized
     import os
+
     env_path = os.environ.get('AI_CORP_PATH')
     if env_path:
-        return Path(env_path)
+        corp_path = Path(env_path)
+    else:
+        corp_path = Path.cwd() / 'corp'
 
-    cwd = Path.cwd()
-    if (cwd / 'corp').exists():
-        return cwd / 'corp'
+    # Auto-initialize if corp doesn't exist or isn't properly set up
+    if not _corp_initialized:
+        # Check for key indicator that corp is initialized (org.yaml or hooks dir with content)
+        org_config = corp_path / "org.yaml"
+        if not org_config.exists():
+            logger.info(f"Corporation not initialized at {corp_path}, initializing with software-company preset...")
+            try:
+                # init_from_preset creates the structure inside target_path
+                # It returns the path to the created directory
+                init_from_preset(
+                    preset_id="software-company",
+                    target_path=corp_path.parent,
+                    name="AI Corp"
+                )
+                logger.info(f"Corporation initialized at {corp_path}")
+            except Exception as e:
+                logger.error(f"Failed to initialize corporation: {e}")
+                # Create minimal directory structure as fallback
+                corp_path.mkdir(parents=True, exist_ok=True)
+                (corp_path / "hooks").mkdir(exist_ok=True)
+                (corp_path / "molecules").mkdir(exist_ok=True)
+                (corp_path / "beads").mkdir(exist_ok=True)
+                (corp_path / "channels").mkdir(exist_ok=True)
+                (corp_path / "gates").mkdir(exist_ok=True)
+                (corp_path / "memory").mkdir(exist_ok=True)
+                logger.info(f"Created minimal corp structure at {corp_path}")
+        _corp_initialized = True
 
-    return cwd / 'corp'
+    return corp_path
 
 # Initialize core systems (lazy loading)
 _systems = {}
