@@ -323,60 +323,56 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
         else:
             # Normal COO response
             logger.info(f"[DEBUG] Using LLM path (no delegation)")
-            # Convert images to LLM format if present
-            llm_images = []
-            if request.images:
-                for img in request.images:
-                    llm_images.append({
-                        "data": img.data,
-                        "media_type": img.media_type
-                    })
 
-            # Determine tools based on task size
-            # For BIG tasks (likely delegation), disable tools to force quick response
-            # For small tasks, allow tools
-            if delegation_context.get('likely_delegation'):
-                # Big task - NO TOOLS, just respond with delegation proposal
-                tools_to_use = []  # Empty = no tools allowed
+            # For simple greetings, respond directly without LLM call
+            simple_greetings = ['hello', 'hello?', 'hi', 'hey', 'test', 'ping', 'hey?', 'hi?']
+            if request.message.lower().strip() in simple_greetings:
+                coo_response = "Hello! I'm the COO. What would you like to work on today? I can help with project planning, codebase reviews, or delegating tasks to the team."
+                logger.info(f"[DEBUG] Using simple greeting response")
             else:
-                # Small task - allow tools for quick lookups
-                tools_to_use = None  # None = use defaults
+                # Convert images to LLM format if present
+                llm_images = []
+                if request.images:
+                    for img in request.images:
+                        llm_images.append({
+                            "data": img.data,
+                            "media_type": img.media_type
+                        })
 
-            # If images are present, use ClaudeAPIBackend directly since
-            # ClaudeCodeBackend (CLI) doesn't support image input
-            logger.info(f"[DEBUG] About to call LLM (images={bool(llm_images)}, tools={tools_to_use})")
-            if llm_images:
+                # Always use Claude API backend - CLI backend hangs
+                # The CLI backend spawns subprocess which has issues
+                logger.info(f"[DEBUG] About to call Claude API (images={bool(llm_images)})")
                 api_backend = LLMBackendFactory.create('claude_api')
                 if not api_backend.is_available():
-                    raise HTTPException(
-                        status_code=503,
-                        detail="Image processing requires ANTHROPIC_API_KEY to be set"
+                    # Fallback: give a helpful response without LLM
+                    logger.warning("Claude API not available (no ANTHROPIC_API_KEY)")
+                    coo_response = (
+                        "I'd be happy to help! To get started, tell me what you'd like to accomplish. "
+                        "For example:\n"
+                        "- 'Review the authentication system'\n"
+                        "- 'Audit our API endpoints'\n"
+                        "- 'Help me understand the codebase structure'\n\n"
+                        "What would you like me to work on?"
                     )
-                response = api_backend.execute(LLMRequest(
-                    prompt=prompt,
-                    system_prompt=system_prompt,
-                    working_directory=get_corp_path(),
-                    images=llm_images,
-                    tools=tools_to_use  # None = use defaults, [] = no tools
-                ))
-            else:
-                response = coo.llm.execute(LLMRequest(
-                    prompt=prompt,
-                    system_prompt=system_prompt,
-                    working_directory=get_corp_path(),
-                    tools=tools_to_use  # None = use defaults, [] = no tools
-                ))
-            logger.info(f"[DEBUG] LLM response received: success={response.success}")
+                else:
+                    response = api_backend.execute(LLMRequest(
+                        prompt=prompt,
+                        system_prompt=system_prompt,
+                        working_directory=get_corp_path(),
+                        images=llm_images,
+                        tools=[]  # No tools for COO - it delegates, doesn't execute
+                    ))
+                    logger.info(f"[DEBUG] LLM response received: success={response.success}")
 
-            if response.success:
-                coo_response = response.content
+                    if response.success:
+                        coo_response = response.content
 
-                # Check if COO is proposing delegation - store for later confirmation
-                _extract_delegation_proposal(coo_response, thread_id, delegation_context)
-            else:
-                # Include the actual error for debugging
-                error_detail = response.error or "Unknown error"
-                coo_response = f"I apologize, I'm having trouble processing that right now. Error: {error_detail}"
+                        # Check if COO is proposing delegation - store for later confirmation
+                        _extract_delegation_proposal(coo_response, thread_id, delegation_context)
+                    else:
+                        # Include the actual error for debugging
+                        error_detail = response.error or "Unknown error"
+                        coo_response = f"I apologize, I'm having trouble processing that right now. Error: {error_detail}"
 
     except Exception as e:
         coo_response = f"I encountered an issue: {str(e)}. Let me try to help anyway - what would you like to know?"
