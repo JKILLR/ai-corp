@@ -549,7 +549,7 @@ def _check_for_confirmation(message: str, thread_id: str) -> Dict[str, Any]:
     # Short confirmation phrases (message should be mostly just the confirmation)
     short_confirmations = [
         'yes', 'yeah', 'yep', 'yup', 'sure', 'ok', 'okay', 'do it',
-        'go ahead', 'go for it', 'please do', 'approved', 'confirmed',
+        'go ahead', 'go for it', 'go', 'please do', 'approved', 'confirmed',
         'absolutely', 'definitely', 'sounds good', 'that works', 'proceed',
         'start', 'begin', 'run it', 'execute'  # Added common startup confirmations
     ]
