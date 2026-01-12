@@ -325,14 +325,14 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                     system_prompt=system_prompt,
                     working_directory=get_corp_path(),
                     images=llm_images,
-                    tools=tools_to_use or []
+                    tools=tools_to_use  # None = use defaults, [] = no tools
                 ))
             else:
                 response = coo.llm.execute(LLMRequest(
                     prompt=prompt,
                     system_prompt=system_prompt,
                     working_directory=get_corp_path(),
-                    tools=tools_to_use or []
+                    tools=tools_to_use  # None = use defaults, [] = no tools
                 ))
 
             if response.success:

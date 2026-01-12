@@ -40,7 +40,7 @@ class LLMRequest:
     prompt: str
     system_prompt: Optional[str] = None
     context: Dict[str, Any] = field(default_factory=dict)
-    tools: List[str] = field(default_factory=list)
+    tools: Optional[List[str]] = None  # None = use defaults, [] = no tools
     skills: List[str] = field(default_factory=list)
     working_directory: Optional[Path] = None
     max_tokens: int = 8192
@@ -202,8 +202,12 @@ class ClaudeCodeBackend(LLMBackend):
         if request.system_prompt:
             cmd.extend(['--system-prompt', request.system_prompt])
 
-        # Determine tools to enable (explicit tools or all by default)
-        tools_to_use = request.tools if request.tools else ALL_TOOLS
+        # Determine tools to enable
+        # None = use all tools (default), [] = no tools, list = specific tools
+        if request.tools is None:
+            tools_to_use = ALL_TOOLS  # Default: all tools
+        else:
+            tools_to_use = request.tools  # Explicit: could be [] for no tools
 
         # Add allowed tools (actual Claude Code tools: Read, Write, Edit, etc.)
         for tool in tools_to_use:
