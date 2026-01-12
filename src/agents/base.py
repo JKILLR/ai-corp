@@ -262,18 +262,30 @@ class BaseAgent(ABC):
                     except Exception as e:
                         logger.error(f"Work failed: {e}")
                         self.fail_work(str(e))
+                else:
+                    # Work exists but couldn't be claimed - likely capability mismatch
+                    queued = self.hook.get_queued_items()
+                    logger.warning(
+                        f"[{self.identity.role_name}] Work exists but claim failed! "
+                        f"Agent capabilities: {self.identity.capabilities}, "
+                        f"Queued items: {[(item.title, item.required_capabilities) for item in queued[:3]]}"
+                    )
         else:
             logger.debug(f"[{self.identity.role_name}] No work in hook")
 
     def claim_work(self) -> Optional[WorkItem]:
         """Claim the next available work item from hook"""
-        work_item = self.hook_manager.claim_work(
-            hook_id=self.hook.id,
-            agent_id=self.identity.id,
-            capabilities=self.identity.capabilities
+        # Use self.hook directly (may have been refreshed by executor)
+        # instead of going through hook_manager which may have stale cache
+        work_item = self.hook.claim_next(
+            self.identity.id,
+            self.identity.capabilities
         )
 
         if work_item:
+            # Save the claim to disk
+            self.hook_manager._save_hook(self.hook)
+
             self.current_work = work_item
             work_item.start()
 
@@ -458,12 +470,9 @@ Always maintain professional communication and follow the organizational hierarc
         if not self.current_work:
             return
 
-        # Complete work item
-        self.hook_manager.complete_work(
-            hook_id=self.hook.id,
-            item_id=self.current_work.id,
-            result=result
-        )
+        # Complete work item - use self.hook directly (may have been refreshed)
+        self.current_work.complete(result)
+        self.hook_manager._save_hook(self.hook)
 
         # Complete molecule step if applicable
         if self.current_molecule and self.current_step:
@@ -501,12 +510,9 @@ Always maintain professional communication and follow the organizational hierarc
         if not self.current_work:
             return
 
-        # Fail work item (may trigger retry)
-        self.hook_manager.fail_work(
-            hook_id=self.hook.id,
-            item_id=self.current_work.id,
-            error=error
-        )
+        # Fail work item - use self.current_work directly (may have been refreshed)
+        self.current_work.fail(error)
+        self.hook_manager._save_hook(self.hook)
 
         # Fail molecule step if applicable
         if self.current_molecule and self.current_step:
