@@ -412,6 +412,7 @@ class CorporationExecutor:
             ('dir_backend', 'Backend Director', 'engineering', 'Backend', 'vp_engineering'),
             ('dir_qa', 'QA Director', 'quality', 'Quality Assurance', 'vp_quality'),
             ('dir_product', 'Product Director', 'product', 'Product Management', 'vp_product'),
+            ('dir_research', 'Research Director', 'research', 'Research & Analysis', 'vp_research'),
         ]
 
         # Track which directors report to which VP
@@ -441,10 +442,20 @@ class CorporationExecutor:
 
         # Create Workers (before VPs, so we can set up pools)
         # Worker configs: (worker_type, dept, reports_to_director)
+        # Each director should have at least 1-2 workers
         worker_configs = [
+            # Engineering - 3 workers across directors
             ('backend', 'engineering', 'director_engineering'),
             ('frontend', 'engineering', 'dir_frontend'),
+            ('devops', 'engineering', 'dir_backend'),
+            # Quality - 2 workers
             ('qa', 'quality', 'dir_qa'),
+            ('security', 'quality', 'dir_qa'),
+            # Research - 2 workers
+            ('researcher', 'research', 'dir_research'),
+            # Product - 2 workers
+            ('designer', 'product', 'dir_product'),
+            ('writer', 'product', 'dir_product'),
         ]
 
         for worker_type, dept, reports_to in worker_configs:
