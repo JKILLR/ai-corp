@@ -632,15 +632,16 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
                     if tier in results:
                         total_processed[tier] += results[tier].completed
 
-                # Refresh hooks and check if there's still work to do
+                # Refresh hooks and check if there's still incomplete work
+                # (QUEUED, CLAIMED, or IN_PROGRESS - not just QUEUED)
                 executor._refresh_all_agent_hooks()
-                all_queued = executor.hook_manager.get_all_queued_work()
+                incomplete = executor.hook_manager.get_all_incomplete_work()
 
-                if len(all_queued) == 0:
+                if len(incomplete) == 0:
                     logger.info(f"[Cycle {cycle_count}] All work complete after {cycle_count} cycles")
                     break
 
-                logger.info(f"[Cycle {cycle_count}] {len(all_queued)} items still queued, continuing...")
+                logger.info(f"[Cycle {cycle_count}] {len(incomplete)} items still incomplete, continuing...")
                 time.sleep(0.5)  # Brief pause between cycles
 
             if cycle_count >= max_cycles:
