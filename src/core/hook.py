@@ -488,6 +488,67 @@ class HookManager:
                     items.append(item)
         return items
 
+    def recover_stale_claims(self, stale_threshold_minutes: int = 10) -> List[WorkItem]:
+        """
+        Find and reset work items that have been claimed/in-progress too long.
+
+        If a worker crashes or times out, work items get stuck in CLAIMED or
+        IN_PROGRESS status forever. This method resets them to QUEUED so
+        another worker can pick them up.
+
+        Args:
+            stale_threshold_minutes: Minutes after which a claim is considered stale
+
+        Returns:
+            List of work items that were reset
+        """
+        from datetime import datetime, timedelta
+
+        threshold = datetime.utcnow() - timedelta(minutes=stale_threshold_minutes)
+        recovered = []
+
+        for hook in self.list_hooks():
+            hook_modified = False
+
+            for item in hook.items:
+                if item.status not in (WorkItemStatus.CLAIMED, WorkItemStatus.IN_PROGRESS):
+                    continue
+
+                # Check if claimed_at is older than threshold
+                if not item.claimed_at:
+                    continue
+
+                try:
+                    claimed_time = datetime.fromisoformat(item.claimed_at.replace('Z', '+00:00'))
+                    # Handle timezone-naive comparison
+                    if claimed_time.tzinfo:
+                        claimed_time = claimed_time.replace(tzinfo=None)
+
+                    if claimed_time < threshold:
+                        logger.warning(
+                            f"Recovering stale work item: {item.title} "
+                            f"(claimed {stale_threshold_minutes}+ min ago by {item.assigned_to})"
+                        )
+                        # Reset to queued
+                        item.status = WorkItemStatus.QUEUED
+                        item.assigned_to = None
+                        item.claimed_at = None
+                        item.updated_at = datetime.utcnow().isoformat()
+                        recovered.append(item)
+                        hook_modified = True
+
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Could not parse claimed_at for {item.id}: {e}")
+
+            # Save hook if modified
+            if hook_modified:
+                self._save_hook(hook)
+
+        if recovered:
+            logger.info(f"Recovered {len(recovered)} stale work items")
+
+        return recovered
+
     def _save_hook(self, hook: Hook) -> None:
         """Save hook to disk"""
         hook_file = self.hooks_path / f"{hook.id}.yaml"

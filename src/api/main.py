@@ -625,6 +625,12 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
                 cycle_count += 1
                 logger.info(f"[Cycle {cycle_count}] Running corporation cycle...")
 
+                # Recover any stale claims from crashed/timed-out workers
+                # This resets items stuck in CLAIMED/IN_PROGRESS back to QUEUED
+                recovered = executor.hook_manager.recover_stale_claims(stale_threshold_minutes=10)
+                if recovered:
+                    logger.info(f"[Cycle {cycle_count}] Recovered {len(recovered)} stale work items")
+
                 results = executor.run_cycle_skip_coo()
 
                 # Accumulate results
