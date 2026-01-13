@@ -276,6 +276,9 @@ class ClaudeCodeBackend(LLMBackend):
             import shlex
             shell_cmd = f'cat {shlex.quote(temp_file)} | {" ".join(shlex.quote(c) for c in cmd)}'
 
+            logger.debug(f"Executing Claude CLI command: {' '.join(cmd)}")
+            logger.debug(f"Prompt length: {len(full_prompt)} chars")
+
             result = subprocess.run(
                 shell_cmd,
                 shell=True,
@@ -304,10 +307,17 @@ class ClaudeCodeBackend(LLMBackend):
                     }
                 )
             else:
+                # Log detailed error info for debugging
+                logger.error(f"Claude CLI failed with exit code {result.returncode}")
+                logger.error(f"stderr: {result.stderr[:500] if result.stderr else 'empty'}")
+                logger.error(f"stdout: {result.stdout[:500] if result.stdout else 'empty'}")
+
+                # Build informative error message
+                error_msg = result.stderr or result.stdout or f"Exit code: {result.returncode}"
                 return LLMResponse(
                     content=result.stdout,
                     success=False,
-                    error=result.stderr or f"Exit code: {result.returncode}",
+                    error=error_msg,
                     metadata={
                         'stderr': result.stderr,
                         'returncode': result.returncode
