@@ -469,6 +469,25 @@ class HookManager:
             items.extend(hook.get_queued_items())
         return sorted(items, key=lambda x: x.priority.value)
 
+    def get_all_incomplete_work(self) -> List[WorkItem]:
+        """
+        Get all incomplete work items across all hooks.
+
+        Returns items with status: QUEUED, CLAIMED, or IN_PROGRESS.
+        Use this to check if the corporation cycle should continue running.
+        """
+        incomplete_statuses = {
+            WorkItemStatus.QUEUED,
+            WorkItemStatus.CLAIMED,
+            WorkItemStatus.IN_PROGRESS
+        }
+        items = []
+        for hook in self.list_hooks():
+            for item in hook.items:
+                if item.status in incomplete_statuses:
+                    items.append(item)
+        return items
+
     def _save_hook(self, hook: Hook) -> None:
         """Save hook to disk"""
         hook_file = self.hooks_path / f"{hook.id}.yaml"
