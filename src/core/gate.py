@@ -233,6 +233,12 @@ class GateSubmission:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'GateSubmission':
+        # Map old field names to new ones
+        if 'criteria_results' in data and 'checklist_results' not in data:
+            data['checklist_results'] = data.pop('criteria_results')
+        elif 'criteria_results' in data:
+            data.pop('criteria_results')  # Remove duplicate
+
         # Handle missing or invalid status - default to PENDING
         status_value = data.get('status', 'pending')
         try:
@@ -257,7 +263,17 @@ class GateSubmission:
 
         if data.get('evaluation_result'):
             data['evaluation_result'] = AsyncEvaluationResult.from_dict(data['evaluation_result'])
-        return cls(**data)
+
+        # Filter to only known fields to handle old YAML files with extra fields
+        known_fields = {
+            'id', 'gate_id', 'molecule_id', 'step_id', 'submitted_by', 'status',
+            'summary', 'checklist_results', 'artifacts', 'submitted_at', 'reviewed_at',
+            'reviewed_by', 'review_notes', 'rejection_reasons', 'evaluation_status',
+            'evaluation_result', 'auto_approved'
+        }
+        filtered_data = {k: v for k, v in data.items() if k in known_fields}
+
+        return cls(**filtered_data)
 
 
 @dataclass
@@ -458,9 +474,18 @@ class Gate:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Gate':
-        criteria = [GateCriterion(**c) for c in data.pop('criteria', [])]
-        submissions = [GateSubmission.from_dict(s) for s in data.pop('submissions', [])]
+        criteria_data = data.pop('criteria', [])
+        submissions_data = data.pop('submissions', [])
         policy_data = data.pop('auto_approval_policy', None)
+
+        # Parse criteria with field filtering
+        criteria = []
+        known_criterion_fields = {'id', 'name', 'description', 'required', 'auto_check', 'check_command'}
+        for c in criteria_data:
+            filtered_c = {k: v for k, v in c.items() if k in known_criterion_fields}
+            criteria.append(GateCriterion(**filtered_c))
+
+        submissions = [GateSubmission.from_dict(s) for s in submissions_data]
         auto_approval_policy = AutoApprovalPolicy.from_dict(policy_data) if policy_data else None
 
         # Handle missing or invalid gate status - default to OPEN
@@ -477,7 +502,11 @@ class Gate:
             data['status'] = status_map.get(status_value, GateStatus.OPEN)
             logger.warning(f"Invalid gate status '{status_value}', mapped to {data['status'].value}")
 
-        gate = cls(**data)
+        # Filter to only known fields
+        known_fields = {'id', 'name', 'description', 'owner_role', 'pipeline_stage', 'status', 'created_at', 'updated_at'}
+        filtered_data = {k: v for k, v in data.items() if k in known_fields}
+
+        gate = cls(**filtered_data)
         gate.criteria = criteria
         gate.submissions = submissions
         gate.auto_approval_policy = auto_approval_policy
