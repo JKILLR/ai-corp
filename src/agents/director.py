@@ -248,6 +248,22 @@ class DirectorAgent(BaseAgent):
             }
         )
 
+        # Mark the molecule step as DELEGATED (not COMPLETED - worker is still processing)
+        if work_item.molecule_id and work_item.step_id:
+            try:
+                self.molecule_engine.delegate_step(
+                    molecule_id=work_item.molecule_id,
+                    step_id=work_item.step_id,
+                    delegations=[{
+                        'worker_id': worker.id,
+                        'work_item_id': worker_work.id
+                    }],
+                    delegated_by=self.identity.id
+                )
+                logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as DELEGATED to worker {worker.id}")
+            except ValueError as e:
+                logger.warning(f"[{self.identity.role_name}] Could not mark step as delegated: {e}")
+
         return {
             'status': 'delegated_to_worker',
             'worker_id': worker.id,

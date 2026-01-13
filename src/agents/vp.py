@@ -251,6 +251,19 @@ Approach: {analysis.get('approach', 'Use your judgment.')}
             data={'delegations': delegations}
         )
 
+        # Mark the molecule step as DELEGATED (not COMPLETED - work is still in progress)
+        if work_item.molecule_id and work_item.step_id and delegations:
+            try:
+                self.molecule_engine.delegate_step(
+                    molecule_id=work_item.molecule_id,
+                    step_id=work_item.step_id,
+                    delegations=delegations,
+                    delegated_by=self.identity.id
+                )
+                logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as DELEGATED")
+            except ValueError as e:
+                logger.warning(f"[{self.identity.role_name}] Could not mark step as delegated: {e}")
+
         return {
             'status': 'delegated',
             'delegations': delegations,
@@ -362,16 +375,25 @@ Approach: {analysis.get('approach', 'Use your judgment.')}
                         instructions=f"Please complete: {step.name}\n\n{step.description}"
                     )
 
-                    # Update step assignment
-                    step.assigned_to = target_director
-                    step.status = StepStatus.PENDING
-                    self.molecule_engine._save_molecule(self.current_molecule)
-
-                    delegations.append({
+                    delegation_info = {
                         'step_id': step.id,
                         'step_name': step.name,
-                        'director': target_director
-                    })
+                        'director': target_director,
+                        'work_item_id': dir_work.id
+                    }
+                    delegations.append(delegation_info)
+
+                    # Mark step as DELEGATED (not COMPLETED - work is still in progress)
+                    try:
+                        self.molecule_engine.delegate_step(
+                            molecule_id=self.current_molecule.id,
+                            step_id=step.id,
+                            delegations=[delegation_info],
+                            delegated_by=self.identity.id
+                        )
+                        logger.info(f"[{self.identity.role_name}] Marked step {step.id} as DELEGATED to {target_director}")
+                    except ValueError as e:
+                        logger.warning(f"[{self.identity.role_name}] Could not mark step as delegated: {e}")
 
         return {
             'status': 'delegated',

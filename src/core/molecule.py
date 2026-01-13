@@ -41,6 +41,7 @@ class StepStatus(Enum):
     """Status of a molecule step"""
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
+    DELEGATED = "delegated"      # Delegated to subordinates, waiting for child work items
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -1219,6 +1220,59 @@ class MoleculeEngine:
         else:
             self._save_molecule(molecule)
 
+        return step
+
+    def delegate_step(
+        self,
+        molecule_id: str,
+        step_id: str,
+        delegations: Optional[List[Dict[str, Any]]] = None,
+        delegated_by: Optional[str] = None
+    ) -> MoleculeStep:
+        """
+        Mark a step as DELEGATED without setting completed_at.
+
+        This is used when a VP or Director delegates work to subordinates.
+        The step is NOT complete - it will only be marked complete when
+        all child work items complete.
+
+        IMPORTANT: This method marks the step as DELEGATED, not COMPLETED.
+        The step should only transition to COMPLETED when ALL delegated
+        child work items are complete (via complete_step() called later).
+
+        Args:
+            molecule_id: The molecule containing the step
+            step_id: The step to mark as delegated
+            delegations: Optional list of delegation info (child work items, directors, etc.)
+            delegated_by: Optional agent ID that performed the delegation
+
+        Returns:
+            The updated MoleculeStep
+
+        Raises:
+            ValueError: If molecule or step not found
+        """
+        molecule = self.get_molecule(molecule_id)
+        if not molecule:
+            raise ValueError(f"Molecule {molecule_id} not found")
+
+        step = molecule.get_step(step_id)
+        if not step:
+            raise ValueError(f"Step {step_id} not found")
+
+        # Mark as DELEGATED - NOT completed
+        step.status = StepStatus.DELEGATED
+        # Do NOT set completed_at - step is not complete yet
+        # Store delegation info in result for tracking
+        step.result = {
+            'status': 'delegated',
+            'delegations': delegations or [],
+            'delegated_by': delegated_by,
+            'delegated_at': datetime.utcnow().isoformat()
+        }
+        molecule.updated_at = datetime.utcnow().isoformat()
+
+        self._save_molecule(molecule)
         return step
 
     def fail_step(
