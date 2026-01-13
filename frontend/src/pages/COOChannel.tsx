@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search, X, Image as ImageIcon, Terminal as TerminalIcon } from 'lucide-react';
 import { GlassCard, Button, StatusOrb } from '../components/ui';
@@ -250,6 +250,12 @@ export function COOChannel() {
     setAttachedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Memoize image data URLs to avoid recreating large strings on every keystroke
+  const imageDataUrls = useMemo(() =>
+    attachedImages.map(img => `data:${img.media_type};base64,${img.data}`),
+    [attachedImages]
+  );
+
   return (
     <div className="flex h-full -m-6">
       {/* Conversation Threads Sidebar */}
@@ -410,12 +416,12 @@ export function COOChannel() {
         {/* Input Area */}
         <div className="p-4 border-t border-[var(--glass-border)]">
           {/* Image Preview Area */}
-          {attachedImages.length > 0 && (
+          {imageDataUrls.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2">
-              {attachedImages.map((img, idx) => (
+              {imageDataUrls.map((dataUrl, idx) => (
                 <div key={idx} className="relative group">
                   <img
-                    src={`data:${img.media_type};base64,${img.data}`}
+                    src={dataUrl}
                     alt={`Attachment ${idx + 1}`}
                     className="h-20 w-auto rounded-lg border border-[var(--glass-border)] object-cover"
                   />
