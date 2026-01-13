@@ -249,28 +249,44 @@ class BaseAgent(ABC):
                 if not result.success:
                     logger.warning(f"Failed to process message {result.message_id}: {result.error}")
 
-        # Check hook for work
-        if self.hook.has_work():
-            logger.info(f"[{self.identity.role_name}] Found work in hook")
+        # Check hook for work - process ALL available items, not just one
+        # Max iterations prevents infinite loops if something goes wrong
+        max_iterations = 100
+        iterations = 0
+        items_processed = 0
 
-            if self.auto_claim:
-                work_item = self.claim_work()
-                if work_item:
-                    try:
-                        result = self.process_work(work_item)
-                        self.complete_work(result)
-                    except Exception as e:
-                        logger.error(f"Work failed: {e}")
-                        self.fail_work(str(e))
-                else:
-                    # Work exists but couldn't be claimed - likely capability mismatch
-                    queued = self.hook.get_queued_items()
-                    logger.warning(
-                        f"[{self.identity.role_name}] Work exists but claim failed! "
-                        f"Agent capabilities: {self.identity.capabilities}, "
-                        f"Queued items: {[(item.title, item.required_capabilities) for item in queued[:3]]}"
-                    )
-        else:
+        while self.hook.has_work() and iterations < max_iterations:
+            iterations += 1
+
+            if not self.auto_claim:
+                logger.debug(f"[{self.identity.role_name}] Work available but auto_claim disabled")
+                break
+
+            work_item = self.claim_work()
+            if work_item:
+                logger.info(f"[{self.identity.role_name}] Processing work item {iterations}: {work_item.title}")
+                try:
+                    result = self.process_work(work_item)
+                    self.complete_work(result)
+                    items_processed += 1
+                except Exception as e:
+                    logger.error(f"Work failed: {e}")
+                    self.fail_work(str(e))
+                    # Continue processing other items even if one fails
+            else:
+                # Work exists but couldn't be claimed - likely capability mismatch
+                # Don't keep looping if we can't claim anything
+                queued = self.hook.get_queued_items()
+                logger.warning(
+                    f"[{self.identity.role_name}] Work exists but claim failed! "
+                    f"Agent capabilities: {self.identity.capabilities}, "
+                    f"Queued items: {[(item.title, item.required_capabilities) for item in queued[:3]]}"
+                )
+                break
+
+        if items_processed > 0:
+            logger.info(f"[{self.identity.role_name}] Processed {items_processed} work items this cycle")
+        elif iterations == 0:
             logger.debug(f"[{self.identity.role_name}] No work in hook")
 
     def claim_work(self) -> Optional[WorkItem]:
