@@ -311,11 +311,11 @@ class BaseAgent(ABC):
         )
 
         if work_item:
-            # Save the claim to disk
-            self.hook_manager._save_hook(self.hook)
-
             self.current_work = work_item
-            work_item.start()
+            work_item.start()  # Transition CLAIMED -> IN_PROGRESS
+
+            # Save AFTER start() so status is IN_PROGRESS, not CLAIMED
+            self.hook_manager._save_hook(self.hook)
 
             # Load associated molecule
             self.current_molecule = self.molecule_engine.get_molecule(work_item.molecule_id)
