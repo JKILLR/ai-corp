@@ -17,6 +17,8 @@ import os
 import json
 import subprocess
 import logging
+import tempfile
+import base64
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Callable, TYPE_CHECKING, Iterator
@@ -220,10 +222,11 @@ class ClaudeCodeBackend(LLMBackend):
         if request.working_directory:
             cmd.extend(['--add-dir', str(request.working_directory)])
 
-        # Handle images - save to temp files and pass via --image flag
+        # Handle images - save to temp files and reference in prompt
+        # Claude Code CLI accepts images by including file paths in the prompt text
         image_temp_files = []
+        image_prompt_prefix = ""
         if request.images:
-            import base64
             for i, img in enumerate(request.images):
                 try:
                     # Decode base64 to bytes
@@ -234,17 +237,27 @@ class ClaudeCodeBackend(LLMBackend):
                     if ext == 'jpeg':
                         ext = 'jpg'
 
-                    # Write to temp file
+                    # Write to temp file (use a recognizable prefix for debugging)
                     with tempfile.NamedTemporaryFile(
                         mode='wb',
+                        prefix='coo_image_',
                         suffix=f'.{ext}',
                         delete=False
                     ) as img_file:
                         img_file.write(img_data)
                         image_temp_files.append(img_file.name)
-                        cmd.extend(['--image', img_file.name])
+                        logger.info(f"Saved image {i} to temp file: {img_file.name}")
                 except Exception as e:
                     logger.warning(f"Failed to process image {i}: {e}")
+
+            # Build image reference section to prepend to prompt
+            # Claude Code can view images via the Read tool - we must instruct it to do so
+            if image_temp_files:
+                if len(image_temp_files) == 1:
+                    image_prompt_prefix = f"[ATTACHED IMAGE: The user has attached an image file. Use the Read tool to view this image file: {image_temp_files[0]}]\n\n"
+                else:
+                    image_paths = '\n'.join(f"  {path}" for path in image_temp_files)
+                    image_prompt_prefix = f"[ATTACHED IMAGES: The user has attached {len(image_temp_files)} image files. Use the Read tool to view each of these images:\n{image_paths}]\n\n"
 
         # Set up environment
         env = os.environ.copy()
@@ -252,10 +265,11 @@ class ClaudeCodeBackend(LLMBackend):
             env['AI_CORP_CONTEXT'] = json.dumps(request.context)
 
         # Write prompt to temp file to avoid shell escaping issues with complex prompts
-        import tempfile
         try:
+            # Prepend image references if any images were attached
+            full_prompt = image_prompt_prefix + request.prompt
             with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-                f.write(request.prompt)
+                f.write(full_prompt)
                 temp_file = f.name
 
             # Use cat to pipe the file contents to Claude CLI
