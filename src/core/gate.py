@@ -264,16 +264,28 @@ class GateSubmission:
         if data.get('evaluation_result'):
             data['evaluation_result'] = AsyncEvaluationResult.from_dict(data['evaluation_result'])
 
-        # Filter to only known fields to handle old YAML files with extra fields
-        known_fields = {
-            'id', 'gate_id', 'molecule_id', 'step_id', 'submitted_by', 'status',
-            'summary', 'checklist_results', 'artifacts', 'submitted_at', 'reviewed_at',
-            'reviewed_by', 'review_notes', 'rejection_reasons', 'evaluation_status',
-            'evaluation_result', 'auto_approved'
+        # Provide defaults for required fields that might be missing in old YAML files
+        defaults = {
+            'id': data.get('id', f"SUB-{uuid.uuid4().hex[:8].upper()}"),
+            'gate_id': data.get('gate_id', 'UNKNOWN'),
+            'molecule_id': data.get('molecule_id', 'UNKNOWN'),
+            'step_id': data.get('step_id'),  # Can be None
+            'submitted_by': data.get('submitted_by', 'unknown'),
+            'status': data.get('status', SubmissionStatus.PENDING),
+            'summary': data.get('summary', ''),
+            'checklist_results': data.get('checklist_results', {}),
+            'artifacts': data.get('artifacts', []),
+            'submitted_at': data.get('submitted_at', ''),
+            'reviewed_at': data.get('reviewed_at'),
+            'reviewed_by': data.get('reviewed_by'),
+            'review_notes': data.get('review_notes'),
+            'rejection_reasons': data.get('rejection_reasons', []),
+            'evaluation_status': data.get('evaluation_status', EvaluationStatus.NOT_STARTED),
+            'evaluation_result': data.get('evaluation_result'),
+            'auto_approved': data.get('auto_approved', False),
         }
-        filtered_data = {k: v for k, v in data.items() if k in known_fields}
 
-        return cls(**filtered_data)
+        return cls(**defaults)
 
 
 @dataclass
@@ -478,12 +490,18 @@ class Gate:
         submissions_data = data.pop('submissions', [])
         policy_data = data.pop('auto_approval_policy', None)
 
-        # Parse criteria with field filtering
+        # Parse criteria with defaults for missing required fields
         criteria = []
-        known_criterion_fields = {'id', 'name', 'description', 'required', 'auto_check', 'check_command'}
         for c in criteria_data:
-            filtered_c = {k: v for k, v in c.items() if k in known_criterion_fields}
-            criteria.append(GateCriterion(**filtered_c))
+            criterion_defaults = {
+                'id': c.get('id', f"CRIT-{uuid.uuid4().hex[:6].upper()}"),
+                'name': c.get('name', 'Unknown'),
+                'description': c.get('description', ''),
+                'required': c.get('required', True),
+                'auto_check': c.get('auto_check', False),
+                'check_command': c.get('check_command'),
+            }
+            criteria.append(GateCriterion(**criterion_defaults))
 
         submissions = [GateSubmission.from_dict(s) for s in submissions_data]
         auto_approval_policy = AutoApprovalPolicy.from_dict(policy_data) if policy_data else None
@@ -491,7 +509,7 @@ class Gate:
         # Handle missing or invalid gate status - default to OPEN
         status_value = data.get('status', 'open')
         try:
-            data['status'] = GateStatus(status_value)
+            status = GateStatus(status_value)
         except ValueError:
             # Map common invalid values to valid ones
             status_map = {
@@ -499,14 +517,22 @@ class Gate:
                 'failed': GateStatus.REJECTED,
                 'closed': GateStatus.BLOCKED,
             }
-            data['status'] = status_map.get(status_value, GateStatus.OPEN)
-            logger.warning(f"Invalid gate status '{status_value}', mapped to {data['status'].value}")
+            status = status_map.get(status_value, GateStatus.OPEN)
+            logger.warning(f"Invalid gate status '{status_value}', mapped to {status.value}")
 
-        # Filter to only known fields
-        known_fields = {'id', 'name', 'description', 'owner_role', 'pipeline_stage', 'status', 'created_at', 'updated_at'}
-        filtered_data = {k: v for k, v in data.items() if k in known_fields}
+        # Build gate with defaults for all fields
+        gate_defaults = {
+            'id': data.get('id', f"GATE-{uuid.uuid4().hex[:8].upper()}"),
+            'name': data.get('name', 'Unknown Gate'),
+            'description': data.get('description', ''),
+            'owner_role': data.get('owner_role', 'unknown'),
+            'pipeline_stage': data.get('pipeline_stage', 'unknown'),
+            'status': status,
+            'created_at': data.get('created_at', ''),
+            'updated_at': data.get('updated_at', ''),
+        }
 
-        gate = cls(**filtered_data)
+        gate = cls(**gate_defaults)
         gate.criteria = criteria
         gate.submissions = submissions
         gate.auto_approval_policy = auto_approval_policy
