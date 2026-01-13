@@ -217,6 +217,32 @@ class ClaudeCodeBackend(LLMBackend):
         if request.working_directory:
             cmd.extend(['--add-dir', str(request.working_directory)])
 
+        # Handle images - save to temp files and pass via --image flag
+        image_temp_files = []
+        if request.images:
+            import base64
+            for i, img in enumerate(request.images):
+                try:
+                    # Decode base64 to bytes
+                    img_data = base64.b64decode(img.get('data', ''))
+                    media_type = img.get('media_type', 'image/png')
+                    # Determine extension from media type
+                    ext = media_type.split('/')[-1] if '/' in media_type else 'png'
+                    if ext == 'jpeg':
+                        ext = 'jpg'
+
+                    # Write to temp file
+                    with tempfile.NamedTemporaryFile(
+                        mode='wb',
+                        suffix=f'.{ext}',
+                        delete=False
+                    ) as img_file:
+                        img_file.write(img_data)
+                        image_temp_files.append(img_file.name)
+                        cmd.extend(['--image', img_file.name])
+                except Exception as e:
+                    logger.warning(f"Failed to process image {i}: {e}")
+
         # Set up environment
         env = os.environ.copy()
         if request.context:
@@ -243,8 +269,13 @@ class ClaudeCodeBackend(LLMBackend):
                 cwd=request.working_directory or Path.cwd()
             )
 
-            # Clean up temp file
+            # Clean up temp files
             os.unlink(temp_file)
+            for img_temp in image_temp_files:
+                try:
+                    os.unlink(img_temp)
+                except OSError:
+                    pass
 
             if result.returncode == 0:
                 return LLMResponse(
@@ -267,10 +298,15 @@ class ClaudeCodeBackend(LLMBackend):
                 )
 
         except subprocess.TimeoutExpired:
-            # Clean up temp file on timeout
+            # Clean up temp files on timeout
             if 'temp_file' in locals():
                 try:
                     os.unlink(temp_file)
+                except OSError:
+                    pass
+            for img_temp in image_temp_files:
+                try:
+                    os.unlink(img_temp)
                 except OSError:
                     pass
             return LLMResponse(
@@ -279,10 +315,15 @@ class ClaudeCodeBackend(LLMBackend):
                 error=f"Execution timed out after {self.timeout}s"
             )
         except Exception as e:
-            # Clean up temp file on error
+            # Clean up temp files on error
             if 'temp_file' in locals():
                 try:
                     os.unlink(temp_file)
+                except OSError:
+                    pass
+            for img_temp in image_temp_files:
+                try:
+                    os.unlink(img_temp)
                 except OSError:
                     pass
             return LLMResponse(
