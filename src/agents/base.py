@@ -254,6 +254,7 @@ class BaseAgent(ABC):
         max_iterations = 100
         iterations = 0
         items_processed = 0
+        items_failed = 0
 
         while self.hook.has_work() and iterations < max_iterations:
             iterations += 1
@@ -270,8 +271,9 @@ class BaseAgent(ABC):
                     self.complete_work(result)
                     items_processed += 1
                 except Exception as e:
-                    logger.error(f"Work failed: {e}")
+                    logger.error(f"[{self.identity.role_name}] Work item failed: {e}")
                     self.fail_work(str(e))
+                    items_failed += 1
                     # Continue processing other items even if one fails
             else:
                 # Work exists but couldn't be claimed - likely capability mismatch
@@ -284,8 +286,18 @@ class BaseAgent(ABC):
                 )
                 break
 
-        if items_processed > 0:
-            logger.info(f"[{self.identity.role_name}] Processed {items_processed} work items this cycle")
+        # Log results
+        if iterations >= max_iterations:
+            logger.warning(
+                f"[{self.identity.role_name}] Hit max_iterations ({max_iterations}) - "
+                f"possible infinite loop or very large queue"
+            )
+
+        if items_processed > 0 or items_failed > 0:
+            logger.info(
+                f"[{self.identity.role_name}] Cycle complete: "
+                f"{items_processed} processed, {items_failed} failed"
+            )
         elif iterations == 0:
             logger.debug(f"[{self.identity.role_name}] No work in hook")
 
