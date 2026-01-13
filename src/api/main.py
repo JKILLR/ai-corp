@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 import uuid
 
 # Configure logging for the API module
@@ -546,8 +547,38 @@ def _check_for_delegation_marker(coo_response: str) -> tuple[bool, str]:
     return False, coo_response
 
 
-# Track if a corporation cycle is already running to prevent concurrent execution
-_corporation_cycle_running = False
+# Track corporation cycle state with timestamp for timeout recovery
+_corporation_cycle_started_at: Optional[float] = None
+_corporation_cycle_molecule_id: Optional[str] = None
+_corporation_cycle_last_error: Optional[str] = None
+_corporation_cycle_last_completed: Optional[float] = None
+CYCLE_TIMEOUT_SECONDS = 300  # 5 minutes max before considering cycle stuck
+
+
+def get_cycle_status() -> Dict[str, Any]:
+    """Get current corporation cycle status for visibility."""
+    global _corporation_cycle_started_at, _corporation_cycle_molecule_id
+    global _corporation_cycle_last_error, _corporation_cycle_last_completed
+
+    if _corporation_cycle_started_at:
+        elapsed = time.time() - _corporation_cycle_started_at
+        return {
+            'running': True,
+            'molecule_id': _corporation_cycle_molecule_id,
+            'elapsed_seconds': round(elapsed, 1),
+            'timeout_seconds': CYCLE_TIMEOUT_SECONDS,
+            'last_error': _corporation_cycle_last_error,
+            'last_completed': _corporation_cycle_last_completed,
+        }
+    else:
+        return {
+            'running': False,
+            'molecule_id': None,
+            'elapsed_seconds': 0,
+            'timeout_seconds': CYCLE_TIMEOUT_SECONDS,
+            'last_error': _corporation_cycle_last_error,
+            'last_completed': _corporation_cycle_last_completed,
+        }
 
 
 async def _run_corporation_cycle_async(molecule_id: str) -> None:
@@ -556,17 +587,26 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
 
     This executes the VP → Director → Worker chain without blocking the API response.
     Note: molecule_id is for logging; run_cycle_skip_coo() processes all pending work.
+
+    Uses timestamp-based lock with timeout for self-healing if a previous cycle got stuck.
     """
     from src.agents.executor import CorporationExecutor
 
-    global _corporation_cycle_running
+    global _corporation_cycle_started_at, _corporation_cycle_molecule_id
+    global _corporation_cycle_last_error, _corporation_cycle_last_completed
 
-    # Prevent concurrent execution - if already running, skip
-    if _corporation_cycle_running:
-        logger.info(f"Corporation cycle already running, skipping for molecule {molecule_id}")
-        return
+    # Check if already running, but with timeout escape hatch
+    if _corporation_cycle_started_at:
+        elapsed = time.time() - _corporation_cycle_started_at
+        if elapsed < CYCLE_TIMEOUT_SECONDS:
+            logger.info(f"Corporation cycle running for {elapsed:.1f}s (molecule {_corporation_cycle_molecule_id}), skipping for {molecule_id}")
+            return
+        else:
+            logger.warning(f"Previous cycle timed out after {elapsed:.1f}s, resetting lock and proceeding")
+            _corporation_cycle_last_error = f"Previous cycle timed out after {elapsed:.1f}s"
 
-    _corporation_cycle_running = True
+    _corporation_cycle_started_at = time.time()
+    _corporation_cycle_molecule_id = molecule_id
 
     try:
         logger.info(f"Starting background execution for molecule {molecule_id}")
@@ -582,12 +622,17 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
         results = await loop.run_in_executor(None, run_cycle)
 
         logger.info(f"Background execution completed for molecule {molecule_id}: {results}")
+        _corporation_cycle_last_completed = time.time()
+        _corporation_cycle_last_error = None
 
     except Exception as e:
-        logger.error(f"Background execution failed for molecule {molecule_id}: {e}")
+        error_msg = f"Background execution failed for molecule {molecule_id}: {e}"
+        logger.error(error_msg)
+        _corporation_cycle_last_error = str(e)
 
     finally:
-        _corporation_cycle_running = False
+        _corporation_cycle_started_at = None
+        _corporation_cycle_molecule_id = None
 
 
 def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[str, Any]:
@@ -802,6 +847,25 @@ async def get_delegation_status(molecule_id: str):
             for s in molecule.steps
         ]
     }
+
+
+@app.get("/api/coo/cycle-status")
+async def get_corporation_cycle_status():
+    """
+    Get the current corporation cycle execution status.
+
+    Returns whether a cycle is running, how long it's been running,
+    and any recent errors. Useful for debugging stuck work items.
+    """
+    status = get_cycle_status()
+
+    # Add human-readable time formatting
+    if status['last_completed']:
+        import datetime
+        last_completed_dt = datetime.datetime.fromtimestamp(status['last_completed'])
+        status['last_completed_formatted'] = last_completed_dt.strftime('%Y-%m-%d %H:%M:%S')
+
+    return status
 
 
 @app.post("/api/coo/run-cycle")
