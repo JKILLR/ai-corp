@@ -16,9 +16,12 @@ Backends:
 import os
 import json
 import subprocess
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Callable, TYPE_CHECKING, Iterator
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .skills import SkillRegistry
