@@ -233,8 +233,28 @@ class GateSubmission:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'GateSubmission':
-        data['status'] = SubmissionStatus(data['status'])
-        data['evaluation_status'] = EvaluationStatus(data.get('evaluation_status', 'not_started'))
+        # Handle missing or invalid status - default to PENDING
+        status_value = data.get('status', 'pending')
+        try:
+            data['status'] = SubmissionStatus(status_value)
+        except ValueError:
+            # Map common invalid values to valid ones
+            status_map = {
+                'passed': SubmissionStatus.APPROVED,
+                'failed': SubmissionStatus.REJECTED,
+                'open': SubmissionStatus.PENDING,
+            }
+            data['status'] = status_map.get(status_value, SubmissionStatus.PENDING)
+            logger.warning(f"Invalid submission status '{status_value}', mapped to {data['status'].value}")
+
+        # Handle missing or invalid evaluation_status
+        eval_status_value = data.get('evaluation_status', 'not_started')
+        try:
+            data['evaluation_status'] = EvaluationStatus(eval_status_value)
+        except ValueError:
+            data['evaluation_status'] = EvaluationStatus.NOT_STARTED
+            logger.warning(f"Invalid evaluation status '{eval_status_value}', defaulting to NOT_STARTED")
+
         if data.get('evaluation_result'):
             data['evaluation_result'] = AsyncEvaluationResult.from_dict(data['evaluation_result'])
         return cls(**data)
@@ -442,7 +462,21 @@ class Gate:
         submissions = [GateSubmission.from_dict(s) for s in data.pop('submissions', [])]
         policy_data = data.pop('auto_approval_policy', None)
         auto_approval_policy = AutoApprovalPolicy.from_dict(policy_data) if policy_data else None
-        data['status'] = GateStatus(data['status'])
+
+        # Handle missing or invalid gate status - default to OPEN
+        status_value = data.get('status', 'open')
+        try:
+            data['status'] = GateStatus(status_value)
+        except ValueError:
+            # Map common invalid values to valid ones
+            status_map = {
+                'passed': GateStatus.APPROVED,
+                'failed': GateStatus.REJECTED,
+                'closed': GateStatus.BLOCKED,
+            }
+            data['status'] = status_map.get(status_value, GateStatus.OPEN)
+            logger.warning(f"Invalid gate status '{status_value}', mapped to {data['status'].value}")
+
         gate = cls(**data)
         gate.criteria = criteria
         gate.submissions = submissions
