@@ -615,7 +615,38 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
         def run_cycle():
             executor = CorporationExecutor(get_corp_path())
             executor.initialize(['engineering', 'research', 'product', 'quality'])
-            return executor.run_cycle_skip_coo()
+
+            # Loop until all work is complete (with safeguard)
+            max_cycles = 50
+            cycle_count = 0
+            total_processed = {'vps': 0, 'directors': 0, 'workers': 0}
+
+            while cycle_count < max_cycles:
+                cycle_count += 1
+                logger.info(f"[Cycle {cycle_count}] Running corporation cycle...")
+
+                results = executor.run_cycle_skip_coo()
+
+                # Accumulate results
+                for tier in ['vps', 'directors', 'workers']:
+                    if tier in results:
+                        total_processed[tier] += results[tier].completed
+
+                # Refresh hooks and check if there's still work to do
+                executor._refresh_all_agent_hooks()
+                all_queued = executor.hook_manager.get_all_queued_work()
+
+                if len(all_queued) == 0:
+                    logger.info(f"[Cycle {cycle_count}] All work complete after {cycle_count} cycles")
+                    break
+
+                logger.info(f"[Cycle {cycle_count}] {len(all_queued)} items still queued, continuing...")
+                time.sleep(0.5)  # Brief pause between cycles
+
+            if cycle_count >= max_cycles:
+                logger.warning(f"Hit max_cycles ({max_cycles}) - some work may remain queued")
+
+            return {'cycles': cycle_count, 'total_processed': total_processed}
 
         # Run the blocking operation in a thread pool
         loop = asyncio.get_running_loop()
