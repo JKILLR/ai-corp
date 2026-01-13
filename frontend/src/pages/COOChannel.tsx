@@ -145,6 +145,7 @@ export function COOChannel() {
 
     try {
       // Call real API with images
+      console.log('[COOChannel] Sending message with', imagesToSend.length, 'images');
       const response = await api.sendCOOMessage(messageText, threadId, undefined, imagesToSend);
 
       // Save thread ID for conversation continuity
@@ -198,12 +199,15 @@ export function COOChannel() {
   // Handle image paste from clipboard
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
+    console.log('[COOChannel] Paste event - items:', items?.length, 'types:', items ? Array.from(items).map(i => i.type) : []);
     if (!items) return;
 
     for (const item of items) {
+      console.log('[COOChannel] Checking item:', item.type, item.kind);
       if (item.type.startsWith('image/')) {
         e.preventDefault();
         const file = item.getAsFile();
+        console.log('[COOChannel] Got image file:', file?.name, file?.size, 'bytes');
         if (file) {
           processImageFile(file);
         }
@@ -218,7 +222,11 @@ export function COOChannel() {
     reader.onload = () => {
       const base64 = (reader.result as string).split(',')[1]; // Remove data:image/xxx;base64, prefix
       const mediaType = file.type || 'image/png';
-      setAttachedImages((prev) => [...prev, { data: base64, media_type: mediaType }]);
+      console.log('[COOChannel] Image processed - size:', base64.length, 'chars, type:', mediaType);
+      setAttachedImages((prev) => {
+        console.log('[COOChannel] Attaching image, total will be:', prev.length + 1);
+        return [...prev, { data: base64, media_type: mediaType }];
+      });
     };
     reader.readAsDataURL(file);
   };
