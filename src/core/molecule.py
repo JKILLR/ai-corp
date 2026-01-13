@@ -1404,6 +1404,64 @@ class MoleculeEngine:
                 # Don't fail molecule completion if learning system has issues
                 print(f"Warning: Learning system callback failed: {e}")
 
+    def molecule_exists(self, molecule_id: str) -> bool:
+        """
+        Check if a molecule exists (active or completed).
+
+        Args:
+            molecule_id: The molecule ID to check
+
+        Returns:
+            True if the molecule exists, False otherwise
+        """
+        active_file = self.active_path / f"{molecule_id}.yaml"
+        if active_file.exists():
+            return True
+
+        completed_file = self.completed_path / f"{molecule_id}.yaml"
+        if completed_file.exists():
+            return True
+
+        return False
+
+    def delete_molecule(self, molecule_id: str, cleanup_hooks: bool = True) -> bool:
+        """
+        Delete a molecule and optionally clean up related work items.
+
+        Args:
+            molecule_id: The molecule ID to delete
+            cleanup_hooks: If True, also remove work items from hooks
+
+        Returns:
+            True if the molecule was deleted, False if not found
+        """
+        deleted = False
+
+        # Try to delete from active
+        active_file = self.active_path / f"{molecule_id}.yaml"
+        if active_file.exists():
+            active_file.unlink()
+            deleted = True
+
+        # Try to delete from completed
+        completed_file = self.completed_path / f"{molecule_id}.yaml"
+        if completed_file.exists():
+            completed_file.unlink()
+            deleted = True
+
+        # Clean up related work items in hooks
+        if deleted and cleanup_hooks:
+            try:
+                from .hook import HookManager
+                hook_manager = HookManager(self.base_path)
+                removed = hook_manager.cleanup_molecule_work_items(molecule_id)
+                if removed > 0:
+                    print(f"Cleaned up {removed} work items for deleted molecule {molecule_id}")
+            except Exception as e:
+                print(f"Warning: Could not clean up hooks for molecule {molecule_id}: {e}")
+
+        return deleted
+
     def create_from_template(
         self,
         template_name: str,
