@@ -7,6 +7,7 @@ for specific industries or use cases.
 """
 
 import shutil
+import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
@@ -316,6 +317,47 @@ class PresetManager:
         for dir_path in runtime_dirs:
             (aicorp_path / dir_path).mkdir(parents=True, exist_ok=True)
 
+        # Create Claude Code settings for sandbox permissions
+        self._create_claude_settings(aicorp_path)
+
+    def _create_claude_settings(self, aicorp_path: Path):
+        """
+        Create .claude/settings.local.json with sandbox permissions.
+
+        This allows COO and other agents to read/write/delete files within
+        the corp directory (molecules, hooks, channels, etc.) while still
+        restricting access to system source code.
+        """
+        # The .claude directory goes in the project root (parent of .aicorp)
+        project_root = aicorp_path.parent
+        claude_dir = project_root / '.claude'
+        claude_dir.mkdir(parents=True, exist_ok=True)
+
+        settings_file = claude_dir / 'settings.local.json'
+
+        # Get the absolute path to the corp directory
+        corp_path = str(aicorp_path.resolve())
+
+        settings = {
+            "permissions": {
+                "allow": [
+                    # Allow full access to the corp directory for state management
+                    f"Bash(rm:{corp_path}/*)",
+                    f"Bash(rm:{corp_path}/**/*)",
+                    f"Bash(mkdir:{corp_path}/*)",
+                    f"Bash(mkdir:{corp_path}/**/*)",
+                ],
+                "deny": []
+            },
+            "allowedDirectories": [
+                corp_path
+            ]
+        }
+
+        # Don't overwrite if exists (user may have customized)
+        if not settings_file.exists():
+            settings_file.write_text(json.dumps(settings, indent=2))
+
     def _run_post_init_hooks(
         self,
         preset: PresetConfig,
@@ -351,6 +393,61 @@ def list_presets(templates_path: Optional[Path] = None) -> List[PresetMetadata]:
     """Convenience function to list available presets"""
     manager = PresetManager(templates_path)
     return manager.list_presets()
+
+
+def create_claude_settings_for_corp(corp_path: Path) -> Path:
+    """
+    Create Claude Code sandbox settings for an existing corp directory.
+
+    This enables COO and other agents to manage corp files (molecules,
+    hooks, channels, etc.) without sandbox restrictions.
+
+    Use this for corps that were created before this feature was added.
+
+    Args:
+        corp_path: Path to the corp directory (e.g., /path/to/project/.aicorp
+                   or /path/to/project/corp)
+
+    Returns:
+        Path to the created settings file
+
+    Example:
+        >>> from src.core.preset import create_claude_settings_for_corp
+        >>> create_claude_settings_for_corp(Path('/Users/me/project/corp'))
+    """
+    corp_path = Path(corp_path).resolve()
+
+    if not corp_path.exists():
+        raise ValueError(f"Corp path does not exist: {corp_path}")
+
+    # The .claude directory goes in the project root (parent of corp dir)
+    project_root = corp_path.parent
+    claude_dir = project_root / '.claude'
+    claude_dir.mkdir(parents=True, exist_ok=True)
+
+    settings_file = claude_dir / 'settings.local.json'
+    corp_path_str = str(corp_path)
+
+    settings = {
+        "permissions": {
+            "allow": [
+                # Allow rm and mkdir operations in corp directory
+                f"Bash(rm:{corp_path_str}/*)",
+                f"Bash(rm:{corp_path_str}/**/*)",
+                f"Bash(mkdir:{corp_path_str}/*)",
+                f"Bash(mkdir:{corp_path_str}/**/*)",
+            ],
+            "deny": []
+        },
+        "allowedDirectories": [
+            corp_path_str
+        ]
+    }
+
+    # Write settings (overwrite if exists to ensure correct permissions)
+    settings_file.write_text(json.dumps(settings, indent=2))
+
+    return settings_file
 
 
 def init_from_preset(
