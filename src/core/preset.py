@@ -335,27 +335,9 @@ class PresetManager:
 
         settings_file = claude_dir / 'settings.local.json'
 
-        # Get the absolute path to the corp directory
-        corp_path = str(aicorp_path.resolve())
-
-        settings = {
-            "permissions": {
-                "allow": [
-                    # Allow full access to the corp directory for state management
-                    f"Bash(rm:{corp_path}/*)",
-                    f"Bash(rm:{corp_path}/**/*)",
-                    f"Bash(mkdir:{corp_path}/*)",
-                    f"Bash(mkdir:{corp_path}/**/*)",
-                ],
-                "deny": []
-            },
-            "allowedDirectories": [
-                corp_path
-            ]
-        }
-
         # Don't overwrite if exists (user may have customized)
         if not settings_file.exists():
+            settings = _build_claude_settings(str(aicorp_path.resolve()))
             settings_file.write_text(json.dumps(settings, indent=2))
 
     def _run_post_init_hooks(
@@ -387,6 +369,39 @@ class PresetManager:
                     if not git_dir.exists():
                         import subprocess
                         subprocess.run(['git', 'init'], cwd=project_path, capture_output=True)
+
+
+def _build_claude_settings(corp_path: str) -> Dict[str, Any]:
+    """
+    Build Claude Code settings dict for a corp directory.
+
+    Args:
+        corp_path: Absolute path to the corp directory as a string
+
+    Returns:
+        Settings dict ready to be written as JSON
+    """
+    return {
+        "permissions": {
+            "allow": [
+                # File operations in corp directory for state management
+                f"Bash(rm:{corp_path}/*)",
+                f"Bash(rm:{corp_path}/**/*)",
+                f"Bash(mkdir:{corp_path}/*)",
+                f"Bash(mkdir:{corp_path}/**/*)",
+                f"Bash(mv:{corp_path}/*)",
+                f"Bash(mv:{corp_path}/**/*)",
+                f"Bash(cp:{corp_path}/*)",
+                f"Bash(cp:{corp_path}/**/*)",
+                f"Bash(touch:{corp_path}/*)",
+                f"Bash(touch:{corp_path}/**/*)",
+            ],
+            "deny": []
+        },
+        "allowedDirectories": [
+            corp_path
+        ]
+    }
 
 
 def list_presets(templates_path: Optional[Path] = None) -> List[PresetMetadata]:
@@ -426,23 +441,7 @@ def create_claude_settings_for_corp(corp_path: Path) -> Path:
     claude_dir.mkdir(parents=True, exist_ok=True)
 
     settings_file = claude_dir / 'settings.local.json'
-    corp_path_str = str(corp_path)
-
-    settings = {
-        "permissions": {
-            "allow": [
-                # Allow rm and mkdir operations in corp directory
-                f"Bash(rm:{corp_path_str}/*)",
-                f"Bash(rm:{corp_path_str}/**/*)",
-                f"Bash(mkdir:{corp_path_str}/*)",
-                f"Bash(mkdir:{corp_path_str}/**/*)",
-            ],
-            "deny": []
-        },
-        "allowedDirectories": [
-            corp_path_str
-        ]
-    }
+    settings = _build_claude_settings(str(corp_path))
 
     # Write settings (overwrite if exists to ensure correct permissions)
     settings_file.write_text(json.dumps(settings, indent=2))
