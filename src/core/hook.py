@@ -266,6 +266,28 @@ class Hook:
 
         return original_count - len(self.items)
 
+    def remove_items_for_molecule(self, molecule_id: str) -> int:
+        """
+        Remove all work items associated with a specific molecule.
+
+        Use this when a molecule is deleted to prevent orphaned work items.
+
+        Args:
+            molecule_id: The molecule ID whose work items should be removed
+
+        Returns:
+            Number of items removed
+        """
+        original_count = len(self.items)
+        self.items = [item for item in self.items if item.molecule_id != molecule_id]
+        removed = original_count - len(self.items)
+
+        if removed > 0:
+            self.updated_at = datetime.utcnow().isoformat()
+            logger.info(f"Removed {removed} work items for molecule {molecule_id} from hook {self.id}")
+
+        return removed
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
@@ -630,3 +652,67 @@ class HookManager:
             self._hooks.pop(hook_id, None)
             return True
         return False
+
+    def cleanup_molecule_work_items(self, molecule_id: str) -> int:
+        """
+        Remove all work items for a molecule from all hooks.
+
+        Call this when a molecule is deleted to prevent orphaned work items.
+
+        Args:
+            molecule_id: The molecule ID whose work items should be removed
+
+        Returns:
+            Total number of items removed across all hooks
+        """
+        total_removed = 0
+
+        for hook in self.list_hooks():
+            removed = hook.remove_items_for_molecule(molecule_id)
+            if removed > 0:
+                self._save_hook(hook)
+                total_removed += removed
+
+        if total_removed > 0:
+            logger.info(f"Cleaned up {total_removed} work items for molecule {molecule_id}")
+
+        return total_removed
+
+    def cleanup_orphaned_work_items(self, molecule_exists_fn) -> int:
+        """
+        Remove work items that reference non-existent molecules.
+
+        Args:
+            molecule_exists_fn: A callable(molecule_id) -> bool that checks
+                               if a molecule exists
+
+        Returns:
+            Total number of orphaned items removed
+        """
+        total_removed = 0
+        orphaned_molecules = set()
+
+        for hook in self.list_hooks():
+            hook_modified = False
+            items_to_keep = []
+
+            for item in hook.items:
+                if molecule_exists_fn(item.molecule_id):
+                    items_to_keep.append(item)
+                else:
+                    orphaned_molecules.add(item.molecule_id)
+                    hook_modified = True
+                    total_removed += 1
+
+            if hook_modified:
+                hook.items = items_to_keep
+                hook.updated_at = datetime.utcnow().isoformat()
+                self._save_hook(hook)
+
+        if total_removed > 0:
+            logger.info(
+                f"Cleaned up {total_removed} orphaned work items "
+                f"referencing {len(orphaned_molecules)} missing molecules"
+            )
+
+        return total_removed

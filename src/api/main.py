@@ -103,6 +103,42 @@ def get_forge() -> TheForge:
 
 
 # =============================================================================
+# Startup Events
+# =============================================================================
+
+@app.on_event("startup")
+async def startup_cleanup_orphaned_work_items():
+    """
+    Clean up orphaned work items on API startup.
+
+    Work items can become orphaned when molecules are deleted but their
+    associated work items in hooks are not cleaned up. This happens during
+    development/testing when the corp directory is manually cleaned.
+    """
+    try:
+        from src.core.hook import HookManager
+        from src.core.molecule import MoleculeEngine
+
+        corp_path = get_corp_path()
+        if not corp_path.exists():
+            logger.info("Corp path doesn't exist yet, skipping orphan cleanup")
+            return
+
+        hook_manager = HookManager(corp_path)
+        molecule_engine = MoleculeEngine(corp_path)
+
+        removed = hook_manager.cleanup_orphaned_work_items(molecule_engine.molecule_exists)
+
+        if removed > 0:
+            logger.info(f"Startup cleanup: Removed {removed} orphaned work items")
+        else:
+            logger.info("Startup cleanup: No orphaned work items found")
+
+    except Exception as e:
+        logger.warning(f"Startup cleanup failed (non-fatal): {e}")
+
+
+# =============================================================================
 # Request/Response Models
 # =============================================================================
 
