@@ -194,8 +194,11 @@ export function ActivityPanel({
   const [sessionMolecules, setSessionMolecules] = useState<Set<string>>(
     () => new Set(sessionMoleculeIds)
   );
-  // Initialize session ID on mount (for future use in cross-tab sync)
-  useMemo(() => getSessionId(), []);
+
+  // Initialize session ID on mount (side effect, so use useEffect)
+  useEffect(() => {
+    getSessionId();
+  }, []);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -205,11 +208,11 @@ export function ActivityPanel({
   const hasReceivedFirstEvent = useRef(events.length > 0);
   const panelStateRef = useRef(panelState);
   const autoMinimizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastEventTimeRef = useRef<number>(Date.now());
-  const panelRef = useRef<HTMLDivElement>(null);
+  const hasUnacknowledgedErrorRef = useRef(hasUnacknowledgedError);
 
-  // Keep refs in sync
+  // Keep refs in sync (avoids stale closures in callbacks)
   panelStateRef.current = panelState;
+  hasUnacknowledgedErrorRef.current = hasUnacknowledgedError;
 
   // Filtered events for display
   const displayEvents = useMemo(() => {
@@ -244,21 +247,21 @@ export function ActivityPanel({
       clearTimeout(autoMinimizeTimeoutRef.current);
       autoMinimizeTimeoutRef.current = null;
     }
-    lastEventTimeRef.current = Date.now();
   }, []);
 
   // Start auto-minimize timer
   const startAutoMinimizeTimer = useCallback(() => {
-    // Don't auto-minimize if there are unacknowledged errors
-    if (hasUnacknowledgedError) return;
+    // Don't auto-minimize if there are unacknowledged errors (use ref for current value)
+    if (hasUnacknowledgedErrorRef.current) return;
 
     resetAutoMinimizeTimer();
     autoMinimizeTimeoutRef.current = setTimeout(() => {
-      if (panelStateRef.current === 'open' && !hasUnacknowledgedError) {
+      // Check ref again inside timeout to get current value
+      if (panelStateRef.current === 'open' && !hasUnacknowledgedErrorRef.current) {
         setPanelState('minimized');
       }
     }, AUTO_MINIMIZE_DELAY);
-  }, [hasUnacknowledgedError, resetAutoMinimizeTimer]);
+  }, [resetAutoMinimizeTimer]);
 
   // Handle a single activity event
   const handleActivityEvent = useCallback((event: ActivityEvent) => {
@@ -329,10 +332,12 @@ export function ActivityPanel({
       const historyEvents = data.events as ActivityEvent[];
       if (historyEvents.length > 0) {
         setEvents(prev => {
-          // Merge with existing, dedupe by event_id
+          // Merge with existing, dedupe by event_id, sort by timestamp
           const existing = new Set(prev.map(e => e.event_id));
           const newEvents = historyEvents.filter(e => !existing.has(e.event_id));
-          const merged = [...prev, ...newEvents].slice(-MAX_EVENTS);
+          const merged = [...prev, ...newEvents]
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            .slice(-MAX_EVENTS);
           setTimeout(() => saveHistoryToStorage(merged), 0);
           return merged;
         });
@@ -549,7 +554,6 @@ export function ActivityPanel({
       <AnimatePresence>
         {panelState !== 'hidden' && (
           <motion.div
-            ref={panelRef}
             {...panelVariants}
             transition={prefersReducedMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed top-0 right-0 h-full z-[var(--z-modal)]"
