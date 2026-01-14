@@ -1070,6 +1070,15 @@ class OrganizationalMemory:
     # CEO Preferences - High-priority rules that persist across sessions
     # =========================================================================
 
+    # Keywords that indicate opposite/conflicting intent
+    _CONFLICT_PAIRS = [
+        ({'always', 'must', 'require', 'need'}, {'never', 'dont', "don't", 'avoid', 'stop', 'no'}),
+        ({'enable', 'allow', 'permit', 'use'}, {'disable', 'disallow', 'forbid', 'block'}),
+        ({'include', 'add', 'keep'}, {'exclude', 'remove', 'delete'}),
+        ({'before', 'first'}, {'after', 'last'}),
+        ({'more', 'increase'}, {'less', 'decrease', 'reduce'}),
+    ]
+
     @property
     def preferences_file(self) -> Path:
         """Path to CEO preferences file"""
@@ -1082,7 +1091,10 @@ class OrganizationalMemory:
         source: str = "explicit",  # explicit, inferred, conversation
         priority: str = "high",  # high, medium, low
         context: Optional[str] = None,
-        conversation_id: Optional[str] = None
+        conversation_id: Optional[str] = None,
+        topic: Optional[str] = None,
+        supersedes: Optional[str] = None,
+        confidence: float = 1.0
     ) -> Dict[str, Any]:
         """
         Store a CEO preference/rule for persistent retrieval.
@@ -1096,7 +1108,16 @@ class OrganizationalMemory:
             priority: How important (high = always load, medium = when relevant)
             context: Additional context about when this applies
             conversation_id: If extracted from a conversation, which one
+            topic: Category/topic for grouping (e.g., "code_style", "communication")
+            supersedes: ID of preference this one replaces (for tracking history)
+            confidence: Confidence level 0-1 (lower for inferred preferences)
         """
+        now = datetime.utcnow().isoformat()
+
+        # Auto-detect topic if not provided
+        if not topic:
+            topic = self._infer_preference_topic(rule)
+
         preference = {
             'id': preference_id,
             'rule': rule,
@@ -1104,9 +1125,14 @@ class OrganizationalMemory:
             'priority': priority,
             'context': context,
             'conversation_id': conversation_id,
+            'topic': topic,
             'active': True,
-            'created_at': datetime.utcnow().isoformat(),
-            'updated_at': datetime.utcnow().isoformat()
+            'supersedes': supersedes,  # ID of preference this replaces
+            'superseded_by': None,     # ID of preference that replaced this
+            'confidence': confidence,
+            'last_confirmed': now,     # When CEO last confirmed this is accurate
+            'created_at': now,
+            'updated_at': now
         }
 
         preferences = self._load_file(self.preferences_file)
@@ -1119,19 +1145,199 @@ class OrganizationalMemory:
                 break
 
         if existing_idx is not None:
-            # Update existing preference
+            # Update existing preference - preserve history fields
+            old_pref = preferences[existing_idx]
             preferences[existing_idx].update({
                 'rule': rule,
                 'priority': priority,
                 'context': context,
-                'updated_at': datetime.utcnow().isoformat()
+                'topic': topic or old_pref.get('topic'),
+                'confidence': confidence,
+                'last_confirmed': now,
+                'updated_at': now
             })
-            preference = preferences[existing_idx]  # Return the updated one
+            preference = preferences[existing_idx]
         else:
             preferences.append(preference)
 
         self._save_file(self.preferences_file, preferences)
         return preference
+
+    def _infer_preference_topic(self, rule: str) -> str:
+        """Infer a topic/category from the preference rule text."""
+        rule_lower = rule.lower()
+
+        topic_keywords = {
+            'code_style': ['code', 'style', 'format', 'indent', 'naming', 'comment'],
+            'communication': ['ask', 'tell', 'notify', 'confirm', 'report', 'update'],
+            'workflow': ['commit', 'push', 'branch', 'review', 'test', 'deploy'],
+            'files': ['file', 'directory', 'folder', 'path', 'edit', 'modify', 'delete'],
+            'security': ['password', 'secret', 'key', 'credential', 'auth', 'permission'],
+            'delegation': ['delegate', 'assign', 'worker', 'team', 'vp', 'director'],
+            'quality': ['test', 'quality', 'check', 'verify', 'validate', 'ensure'],
+        }
+
+        for topic, keywords in topic_keywords.items():
+            if any(kw in rule_lower for kw in keywords):
+                return topic
+
+        return 'general'
+
+    def detect_preference_conflict(
+        self,
+        new_rule: str,
+        check_inactive: bool = False
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Detect if a new preference conflicts with existing ones.
+
+        Uses keyword analysis to find semantic conflicts like
+        "always do X" vs "never do X".
+
+        Args:
+            new_rule: The new preference rule to check
+            check_inactive: Whether to also check inactive preferences
+
+        Returns:
+            The conflicting preference dict if found, None otherwise
+        """
+        new_rule_lower = new_rule.lower()
+        new_words = set(re.findall(r'\b\w+\b', new_rule_lower))
+
+        # Extract the "action" part - what the preference is about
+        # Remove common prefixes to get the core action
+        action_words = new_words - {
+            'always', 'never', 'dont', "don't", 'do', 'not', 'please',
+            'make', 'sure', 'to', 'the', 'a', 'an', 'i', 'want', 'you',
+            'must', 'should', 'need', 'avoid', 'stop', 'use', 'keep'
+        }
+
+        # Determine the "polarity" of the new preference
+        new_positive = any(w in new_words for w in {'always', 'must', 'use', 'enable', 'include', 'keep', 'add'})
+        new_negative = any(w in new_words for w in {'never', 'dont', "don't", 'avoid', 'stop', 'disable', 'exclude', 'remove', 'no'})
+
+        preferences = self._load_file(self.preferences_file)
+
+        for pref in preferences:
+            # Skip inactive unless requested
+            if not check_inactive and not pref.get('active', True):
+                continue
+
+            existing_rule_lower = pref.get('rule', '').lower()
+            existing_words = set(re.findall(r'\b\w+\b', existing_rule_lower))
+            existing_action_words = existing_words - {
+                'always', 'never', 'dont', "don't", 'do', 'not', 'please',
+                'make', 'sure', 'to', 'the', 'a', 'an', 'i', 'want', 'you',
+                'must', 'should', 'need', 'avoid', 'stop', 'use', 'keep'
+            }
+
+            # Check for significant action word overlap
+            overlap = action_words & existing_action_words
+            if len(overlap) < 2:  # Need at least 2 common action words
+                continue
+
+            # Determine polarity of existing preference
+            existing_positive = any(w in existing_words for w in {'always', 'must', 'use', 'enable', 'include', 'keep', 'add'})
+            existing_negative = any(w in existing_words for w in {'never', 'dont', "don't", 'avoid', 'stop', 'disable', 'exclude', 'remove', 'no'})
+
+            # Conflict: same topic, opposite polarity
+            if (new_positive and existing_negative) or (new_negative and existing_positive):
+                return {
+                    'conflicting_preference': pref,
+                    'overlap_words': list(overlap),
+                    'conflict_type': 'polarity_reversal',
+                    'new_polarity': 'positive' if new_positive else 'negative',
+                    'existing_polarity': 'positive' if existing_positive else 'negative'
+                }
+
+            # Also check for exact topic + different instruction
+            if pref.get('topic') and self._infer_preference_topic(new_rule) == pref.get('topic'):
+                # Same topic - check if instructions differ significantly
+                if len(overlap) >= 3 and new_rule_lower != existing_rule_lower:
+                    # Significant overlap in same topic but different rules
+                    return {
+                        'conflicting_preference': pref,
+                        'overlap_words': list(overlap),
+                        'conflict_type': 'same_topic_different_rule',
+                        'topic': pref.get('topic')
+                    }
+
+        return None
+
+    def update_preference(
+        self,
+        old_id: str,
+        new_rule: str,
+        reason: str,
+        new_priority: Optional[str] = None,
+        new_context: Optional[str] = None,
+        conversation_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update a preference by superseding the old one with a new one.
+
+        Preserves history: marks old as inactive with reference to new,
+        and new has reference to what it replaced.
+
+        Args:
+            old_id: ID of the preference being replaced
+            new_rule: The new preference rule
+            reason: Why this preference changed
+            new_priority: Priority for new preference (defaults to old priority)
+            new_context: Context for new preference
+            conversation_id: Conversation where this update occurred
+
+        Returns:
+            The new preference dict, or None if old_id not found
+        """
+        preferences = self._load_file(self.preferences_file)
+
+        # Find the old preference
+        old_pref = None
+        old_idx = None
+        for i, p in enumerate(preferences):
+            if p.get('id') == old_id:
+                old_pref = p
+                old_idx = i
+                break
+
+        if old_pref is None:
+            return None
+
+        now = datetime.utcnow().isoformat()
+        new_id = f"pref_{uuid.uuid4().hex[:8]}"
+
+        # Create the new preference
+        new_pref = {
+            'id': new_id,
+            'rule': new_rule,
+            'source': 'update',
+            'priority': new_priority or old_pref.get('priority', 'high'),
+            'context': new_context or f"Updated: {reason}",
+            'conversation_id': conversation_id,
+            'topic': self._infer_preference_topic(new_rule) or old_pref.get('topic'),
+            'active': True,
+            'supersedes': old_id,  # Link to what this replaced
+            'superseded_by': None,
+            'confidence': 1.0,  # High confidence since explicitly updated
+            'last_confirmed': now,
+            'created_at': now,
+            'updated_at': now,
+            'update_reason': reason,
+            'previous_rule': old_pref.get('rule')  # Keep history
+        }
+
+        # Mark old preference as inactive and link to new
+        preferences[old_idx]['active'] = False
+        preferences[old_idx]['superseded_by'] = new_id
+        preferences[old_idx]['updated_at'] = now
+        preferences[old_idx]['deactivation_reason'] = reason
+
+        # Add new preference
+        preferences.append(new_pref)
+
+        self._save_file(self.preferences_file, preferences)
+        return new_pref
 
     def get_all_preferences(self, active_only: bool = True) -> List[Dict[str, Any]]:
         """Get all stored CEO preferences"""
@@ -1139,6 +1345,128 @@ class OrganizationalMemory:
         if active_only:
             preferences = [p for p in preferences if p.get('active', True)]
         return preferences
+
+    def get_preferences_by_topic(self, topic: str, active_only: bool = True) -> List[Dict[str, Any]]:
+        """Get preferences filtered by topic/category"""
+        preferences = self.get_all_preferences(active_only=active_only)
+        return [p for p in preferences if p.get('topic') == topic]
+
+    def get_preference_history(self, preference_id: str) -> List[Dict[str, Any]]:
+        """
+        Get the full history of a preference chain.
+
+        Follows supersedes/superseded_by links to build the evolution timeline.
+        """
+        preferences = self._load_file(self.preferences_file)
+        pref_map = {p['id']: p for p in preferences}
+
+        # Find the starting preference
+        current = pref_map.get(preference_id)
+        if not current:
+            return []
+
+        history = []
+
+        # Walk backwards through supersedes chain
+        backward_chain = []
+        p = current
+        while p:
+            backward_chain.append(p)
+            supersedes_id = p.get('supersedes')
+            p = pref_map.get(supersedes_id) if supersedes_id else None
+
+        # Reverse to get chronological order
+        history = list(reversed(backward_chain))
+
+        # Walk forward through superseded_by chain (in case we started mid-chain)
+        p = current
+        while p.get('superseded_by'):
+            next_id = p.get('superseded_by')
+            p = pref_map.get(next_id)
+            if p and p not in history:
+                history.append(p)
+
+        return history
+
+    def get_preferences_for_confirmation(
+        self,
+        max_age_days: int = 30,
+        min_confidence: float = 0.8
+    ) -> List[Dict[str, Any]]:
+        """
+        Get preferences that should be surfaced for CEO confirmation.
+
+        Returns preferences that:
+        - Haven't been confirmed recently
+        - Have lower confidence (inferred rather than explicit)
+        - Were extracted from conversations (vs explicitly stated)
+
+        Args:
+            max_age_days: Consider preferences not confirmed in this many days
+            min_confidence: Consider preferences below this confidence level
+        """
+        preferences = self.get_all_preferences(active_only=True)
+        now = datetime.utcnow()
+        needs_confirmation = []
+
+        for pref in preferences:
+            should_confirm = False
+            reason = []
+
+            # Check last confirmed time
+            last_confirmed = pref.get('last_confirmed')
+            if last_confirmed:
+                try:
+                    confirmed_time = datetime.fromisoformat(last_confirmed.replace('Z', '+00:00'))
+                    days_since = (now - confirmed_time.replace(tzinfo=None)).days
+                    if days_since > max_age_days:
+                        should_confirm = True
+                        reason.append(f"not confirmed in {days_since} days")
+                except (ValueError, TypeError):
+                    should_confirm = True
+                    reason.append("invalid confirmation timestamp")
+            else:
+                should_confirm = True
+                reason.append("never confirmed")
+
+            # Check confidence level
+            confidence = pref.get('confidence', 1.0)
+            if confidence < min_confidence:
+                should_confirm = True
+                reason.append(f"low confidence ({confidence:.0%})")
+
+            # Inferred preferences need confirmation more often
+            if pref.get('source') == 'inferred':
+                should_confirm = True
+                reason.append("inferred (not explicitly stated)")
+
+            if should_confirm:
+                needs_confirmation.append({
+                    **pref,
+                    'confirmation_reasons': reason
+                })
+
+        # Sort by priority (high first) then by age
+        priority_order = {'high': 0, 'medium': 1, 'low': 2}
+        needs_confirmation.sort(key=lambda p: (
+            priority_order.get(p.get('priority', 'low'), 3),
+            p.get('last_confirmed', '0')
+        ))
+
+        return needs_confirmation
+
+    def confirm_preference(self, preference_id: str) -> bool:
+        """Mark a preference as confirmed by the CEO."""
+        preferences = self._load_file(self.preferences_file)
+
+        for p in preferences:
+            if p.get('id') == preference_id:
+                p['last_confirmed'] = datetime.utcnow().isoformat()
+                p['confidence'] = 1.0  # Confirmed = high confidence
+                self._save_file(self.preferences_file, preferences)
+                return True
+
+        return False
 
     def get_priority_preferences(self, min_priority: str = "high") -> List[Dict[str, Any]]:
         """
@@ -1155,7 +1483,7 @@ class OrganizationalMemory:
             if priority_order.get(p.get('priority', 'low'), 0) >= min_level
         ]
 
-    def deactivate_preference(self, preference_id: str) -> bool:
+    def deactivate_preference(self, preference_id: str, reason: str = "manually deactivated") -> bool:
         """Deactivate a preference (soft delete)"""
         preferences = self._load_file(self.preferences_file)
 
@@ -1163,6 +1491,7 @@ class OrganizationalMemory:
             if p.get('id') == preference_id:
                 p['active'] = False
                 p['updated_at'] = datetime.utcnow().isoformat()
+                p['deactivation_reason'] = reason
                 self._save_file(self.preferences_file, preferences)
                 return True
 
@@ -1180,10 +1509,23 @@ class OrganizationalMemory:
             return ""
 
         lines = ["## CEO PREFERENCES (Always Follow)", ""]
+
+        # Group by topic for better organization
+        by_topic: Dict[str, List[Dict[str, Any]]] = {}
         for p in preferences:
-            lines.append(f"- {p['rule']}")
-            if p.get('context'):
-                lines.append(f"  (Context: {p['context']})")
+            topic = p.get('topic', 'general')
+            if topic not in by_topic:
+                by_topic[topic] = []
+            by_topic[topic].append(p)
+
+        for topic, prefs in by_topic.items():
+            if len(by_topic) > 1:  # Only show topic headers if multiple topics
+                lines.append(f"### {topic.replace('_', ' ').title()}")
+            for p in prefs:
+                lines.append(f"- {p['rule']}")
+                if p.get('context') and p.get('context') != "Extracted from conversation":
+                    lines.append(f"  (Context: {p['context']})")
+            lines.append("")
 
         return "\n".join(lines)
 
