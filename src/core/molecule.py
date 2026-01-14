@@ -706,6 +706,7 @@ class MoleculeEngine:
         self.templates_path = self.base_path / "molecules" / "templates"
         self.learning_system = learning_system
         self.on_step_complete: Optional[Callable[['Molecule'], None]] = None  # Callback for auto-advance
+        self.on_molecule_complete: Optional[Callable[['Molecule'], None]] = None  # Callback for outcome recording
 
         # Ensure directories exist
         self.active_path.mkdir(parents=True, exist_ok=True)
@@ -1231,6 +1232,13 @@ class MoleculeEngine:
             molecule.status = MoleculeStatus.COMPLETED
             molecule.completed_at = datetime.utcnow().isoformat()
             self._move_to_completed(molecule)
+
+            # Fire molecule completion callback for outcome recording
+            if self.on_molecule_complete:
+                try:
+                    self.on_molecule_complete(molecule)
+                except Exception as e:
+                    logger.warning(f"Molecule completion callback failed: {e}")
         else:
             self._save_molecule(molecule)
             # Auto-advance: trigger callback to delegate next steps
