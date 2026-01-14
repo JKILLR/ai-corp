@@ -702,6 +702,7 @@ class MoleculeEngine:
         self.completed_path = self.base_path / "molecules" / "completed"
         self.templates_path = self.base_path / "molecules" / "templates"
         self.learning_system = learning_system
+        self.on_step_complete: Optional[Callable[['Molecule'], None]] = None  # Callback for auto-advance
 
         # Ensure directories exist
         self.active_path.mkdir(parents=True, exist_ok=True)
@@ -1198,7 +1199,7 @@ class MoleculeEngine:
         step_id: str,
         result: Optional[Dict[str, Any]] = None
     ) -> MoleculeStep:
-        """Mark a step as completed"""
+        """Mark a step as completed and trigger auto-advance to next steps"""
         molecule = self.get_molecule(molecule_id)
         if not molecule:
             raise ValueError(f"Molecule {molecule_id} not found")
@@ -1219,6 +1220,14 @@ class MoleculeEngine:
             self._move_to_completed(molecule)
         else:
             self._save_molecule(molecule)
+            # Auto-advance: trigger callback to delegate next steps
+            if self.on_step_complete:
+                try:
+                    self.on_step_complete(molecule)
+                except Exception as e:
+                    # Log but don't fail the step completion
+                    import logging
+                    logging.getLogger(__name__).warning(f"Auto-advance failed: {e}")
 
         return step
 
