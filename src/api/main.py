@@ -16,9 +16,10 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Deque
 from pathlib import Path
 from datetime import datetime
+from collections import deque
 import asyncio
 import json
 import logging
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # AI Corp imports
 from src.agents.coo import COOAgent
-from src.core.molecule import MoleculeEngine
+from src.core.molecule import MoleculeEngine, Molecule, MoleculeStep
 from src.core.hook import HookManager
 from src.core.gate import GateKeeper
 from src.core.bead import BeadLedger
@@ -82,37 +83,34 @@ _systems = {}
 # Activity Event Broadcasting (Real-time Activity Feed)
 # =============================================================================
 
+
 class ActivityEventBroadcaster:
     """
-    Singleton broadcaster for real-time activity events.
+    Broadcaster for real-time activity events.
 
     Manages WebSocket connections for the activity feed and broadcasts
     molecule/step/gate lifecycle events to all connected clients.
 
-    Events are stored in a ring buffer for clients that connect mid-stream.
+    Events are stored in a ring buffer (deque) for clients that connect mid-stream.
+
+    Note: Instantiated via get_activity_broadcaster() which uses the _systems
+    dict pattern consistent with other system components (COO, MoleculeEngine, etc.)
     """
-    _instance = None
-    _lock = asyncio.Lock() if asyncio.get_event_loop_policy() else None
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
+    def __init__(self, max_history: int = 50):
+        """
+        Initialize the broadcaster.
 
-    def __init__(self):
-        if self._initialized:
-            return
-        self._initialized = True
-
+        Args:
+            max_history: Number of events to retain for late joiners
+        """
         self._connections: List[WebSocket] = []
-        self._event_history: List[Dict[str, Any]] = []
-        self._max_history = 50  # Keep last 50 events for late joiners
-        self._event_queue: asyncio.Queue = None  # Lazy init in async context
-        self._broadcast_task: asyncio.Task = None
+        self._event_history: Deque[Dict[str, Any]] = deque(maxlen=max_history)
+        self._max_history = max_history
+        self._event_queue: Optional[asyncio.Queue] = None  # Lazy init in async context
         logger.info("ActivityEventBroadcaster initialized")
 
-    def _ensure_queue(self):
+    def _ensure_queue(self) -> None:
         """Lazily initialize the async queue in the right event loop context."""
         if self._event_queue is None:
             try:
@@ -136,7 +134,7 @@ class ActivityEventBroadcaster:
             try:
                 await websocket.send_json({
                     "type": "history",
-                    "events": self._event_history,
+                    "events": list(self._event_history),
                     "count": len(self._event_history)
                 })
             except Exception as e:
@@ -160,10 +158,8 @@ class ActivityEventBroadcaster:
         """
         event = self._create_event(event_type, data, molecule_id, step_id, gate_id)
 
-        # Add to history
+        # Add to history (deque handles max size automatically)
         self._event_history.append(event)
-        if len(self._event_history) > self._max_history:
-            self._event_history.pop(0)
 
         # Queue for async broadcast if we have connections
         if self._connections:
@@ -188,10 +184,8 @@ class ActivityEventBroadcaster:
         """
         event = self._create_event(event_type, data, molecule_id, step_id, gate_id)
 
-        # Add to history
+        # Add to history (deque handles max size automatically)
         self._event_history.append(event)
-        if len(self._event_history) > self._max_history:
-            self._event_history.pop(0)
 
         # Broadcast to all connected clients
         await self._send_to_all(event)
@@ -219,14 +213,27 @@ class ActivityEventBroadcaster:
         if not self._connections:
             return
 
-        # Create tasks for all sends
-        disconnected = []
-        for ws in self._connections:
+        # Iterate over a copy to safely handle disconnections
+        disconnected: List[WebSocket] = []
+
+        # Use asyncio.gather for parallel sends (more efficient)
+        async def send_to_one(ws: WebSocket) -> Optional[WebSocket]:
             try:
                 await ws.send_json(event)
+                return None
             except Exception as e:
                 logger.warning(f"Failed to send to client: {e}")
-                disconnected.append(ws)
+                return ws
+
+        results = await asyncio.gather(
+            *[send_to_one(ws) for ws in self._connections],
+            return_exceptions=True
+        )
+
+        # Collect disconnected clients
+        for result in results:
+            if isinstance(result, WebSocket):
+                disconnected.append(result)
 
         # Clean up disconnected clients
         for ws in disconnected:
@@ -253,9 +260,10 @@ class ActivityEventBroadcaster:
 
     def get_history(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Get recent event history."""
+        history = list(self._event_history)
         if limit:
-            return self._event_history[-limit:]
-        return self._event_history.copy()
+            return history[-limit:]
+        return history
 
     def get_connection_count(self) -> int:
         """Get number of connected clients."""
@@ -266,9 +274,12 @@ class ActivityEventBroadcaster:
         self._event_history.clear()
 
 
-# Singleton accessor
 def get_activity_broadcaster() -> ActivityEventBroadcaster:
-    """Get the singleton ActivityEventBroadcaster instance."""
+    """
+    Get the ActivityEventBroadcaster instance.
+
+    Uses the _systems dict pattern consistent with other system components.
+    """
     if 'activity_broadcaster' not in _systems:
         _systems['activity_broadcaster'] = ActivityEventBroadcaster()
     return _systems['activity_broadcaster']
@@ -278,7 +289,8 @@ def get_activity_broadcaster() -> ActivityEventBroadcaster:
 # Activity Event Emission Helpers
 # =============================================================================
 
-def emit_molecule_created(molecule) -> None:
+
+def emit_molecule_created(molecule: 'Molecule') -> None:
     """Emit event when a molecule is created."""
     broadcaster = get_activity_broadcaster()
     broadcaster.broadcast_sync(
@@ -294,7 +306,7 @@ def emit_molecule_created(molecule) -> None:
     )
 
 
-def emit_molecule_started(molecule) -> None:
+def emit_molecule_started(molecule: 'Molecule') -> None:
     """Emit event when a molecule starts execution."""
     broadcaster = get_activity_broadcaster()
     broadcaster.broadcast_sync(
@@ -308,7 +320,7 @@ def emit_molecule_started(molecule) -> None:
     )
 
 
-def emit_step_started(molecule, step) -> None:
+def emit_step_started(molecule: 'Molecule', step: 'MoleculeStep') -> None:
     """Emit event when a molecule step starts."""
     broadcaster = get_activity_broadcaster()
     broadcaster.broadcast_sync(
@@ -324,7 +336,8 @@ def emit_step_started(molecule, step) -> None:
     )
 
 
-def emit_step_completed(molecule, step, result: Optional[Dict] = None) -> None:
+def emit_step_completed(molecule: 'Molecule', step: 'MoleculeStep',
+                        result: Optional[Dict[str, Any]] = None) -> None:
     """Emit event when a molecule step completes."""
     broadcaster = get_activity_broadcaster()
     broadcaster.broadcast_sync(
@@ -342,7 +355,7 @@ def emit_step_completed(molecule, step, result: Optional[Dict] = None) -> None:
     )
 
 
-def emit_step_failed(molecule, step, error: str) -> None:
+def emit_step_failed(molecule: 'Molecule', step: 'MoleculeStep', error: str) -> None:
     """Emit event when a molecule step fails."""
     broadcaster = get_activity_broadcaster()
     broadcaster.broadcast_sync(
@@ -358,7 +371,7 @@ def emit_step_failed(molecule, step, error: str) -> None:
     )
 
 
-def emit_molecule_completed(molecule) -> None:
+def emit_molecule_completed(molecule: 'Molecule') -> None:
     """Emit event when a molecule completes."""
     broadcaster = get_activity_broadcaster()
     progress = molecule.get_progress()
@@ -374,7 +387,8 @@ def emit_molecule_completed(molecule) -> None:
     )
 
 
-def emit_gate_evaluation_started(gate_id: str, submission_id: str, gate_name: str = None) -> None:
+def emit_gate_evaluation_started(gate_id: str, submission_id: str,
+                                 gate_name: Optional[str] = None) -> None:
     """Emit event when gate evaluation begins."""
     broadcaster = get_activity_broadcaster()
     broadcaster.broadcast_sync(
@@ -387,8 +401,10 @@ def emit_gate_evaluation_started(gate_id: str, submission_id: str, gate_name: st
     )
 
 
-def emit_gate_approved(gate_id: str, submission_id: str, gate_name: str = None,
-                       reviewer: str = None, auto_approved: bool = False) -> None:
+def emit_gate_approved(gate_id: str, submission_id: str,
+                       gate_name: Optional[str] = None,
+                       reviewer: Optional[str] = None,
+                       auto_approved: bool = False) -> None:
     """Emit event when gate is approved."""
     broadcaster = get_activity_broadcaster()
     broadcaster.broadcast_sync(
@@ -403,8 +419,10 @@ def emit_gate_approved(gate_id: str, submission_id: str, gate_name: str = None,
     )
 
 
-def emit_gate_rejected(gate_id: str, submission_id: str, gate_name: str = None,
-                       reviewer: str = None, reasons: List[str] = None) -> None:
+def emit_gate_rejected(gate_id: str, submission_id: str,
+                       gate_name: Optional[str] = None,
+                       reviewer: Optional[str] = None,
+                       reasons: Optional[List[str]] = None) -> None:
     """Emit event when gate is rejected."""
     broadcaster = get_activity_broadcaster()
     broadcaster.broadcast_sync(
@@ -433,10 +451,31 @@ def emit_work_delegated(molecule_id: str, step_name: str, department: str,
         molecule_id=molecule_id
     )
 
+
 def get_coo() -> COOAgent:
     if 'coo' not in _systems:
         _systems['coo'] = COOAgent(get_corp_path())
     return _systems['coo']
+
+
+def _get_latest_completed_step(molecule: 'Molecule') -> Optional['MoleculeStep']:
+    """
+    Find the most recently completed step in a molecule.
+
+    Returns None if no steps are completed.
+    """
+    completed_steps = [s for s in molecule.steps if s.status.value == 'completed']
+    if not completed_steps:
+        return None
+    return max(completed_steps, key=lambda s: s.completed_at or '')
+
+
+def _emit_latest_step_completed(molecule: 'Molecule') -> None:
+    """Emit step_completed event for the most recently completed step."""
+    latest_step = _get_latest_completed_step(molecule)
+    if latest_step:
+        emit_step_completed(molecule, latest_step, latest_step.result)
+
 
 def get_molecule_engine() -> MoleculeEngine:
     if 'molecules' not in _systems:
@@ -468,11 +507,7 @@ def get_molecule_engine() -> MoleculeEngine:
 
         # Callback: Step completed - emit activity event + auto-advance
         def on_step_complete(molecule):
-            # Find the most recently completed step to emit event
-            completed_steps = [s for s in molecule.steps if s.status.value == 'completed']
-            if completed_steps:
-                latest_step = max(completed_steps, key=lambda s: s.completed_at or '')
-                emit_step_completed(molecule, latest_step, latest_step.result)
+            _emit_latest_step_completed(molecule)
 
             # Auto-advance: delegate next steps
             coo = get_coo()
@@ -485,10 +520,7 @@ def get_molecule_engine() -> MoleculeEngine:
         # Callback: Molecule completed - emit activity event + record outcome
         def on_molecule_complete(molecule):
             # Emit step_completed for the final step (on_step_complete doesn't fire for last step)
-            completed_steps = [s for s in molecule.steps if s.status.value == 'completed']
-            if completed_steps:
-                latest_step = max(completed_steps, key=lambda s: s.completed_at or '')
-                emit_step_completed(molecule, latest_step, latest_step.result)
+            _emit_latest_step_completed(molecule)
 
             emit_molecule_completed(molecule)
             try:
@@ -2479,7 +2511,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-@app.websocket("/ws/activity")
+@app.websocket("/api/ws/activity")
 async def activity_feed_websocket(websocket: WebSocket):
     """
     WebSocket endpoint for real-time activity feed.
