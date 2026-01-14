@@ -977,7 +977,8 @@ class AsyncGateEvaluator:
         working_directory: Optional[Path] = None,
         bead_ledger: Optional[Any] = None,
         channel_manager: Optional[Any] = None,
-        molecule_engine: Optional[Any] = None
+        molecule_engine: Optional[Any] = None,
+        on_molecule_advance: Optional[Callable[[Any], None]] = None
     ):
         self.gate_keeper = gate_keeper
         self.max_workers = max_workers
@@ -990,6 +991,7 @@ class AsyncGateEvaluator:
         self.bead_ledger = bead_ledger
         self.channel_manager = channel_manager
         self.molecule_engine = molecule_engine
+        self.on_molecule_advance = on_molecule_advance  # Callback after gate approval
 
     def evaluate_async(
         self,
@@ -1280,16 +1282,25 @@ class AsyncGateEvaluator:
         gate: Gate,
         submission: GateSubmission
     ) -> None:
-        """Update molecule status when gate auto-approves"""
+        """Update molecule status when gate auto-approves and advance to next steps"""
         if not self.molecule_engine:
             return
 
         try:
-            self.molecule_engine.approve_gate(
+            molecule = self.molecule_engine.approve_gate(
                 molecule_id=submission.molecule_id,
                 gate_id=gate.id,
                 approved_by="auto-approval-system"
             )
             logger.debug(f"Updated molecule {submission.molecule_id} on auto-approval")
+
+            # Call advance callback to delegate next steps
+            if self.on_molecule_advance and molecule:
+                try:
+                    self.on_molecule_advance(molecule)
+                    logger.debug(f"Advanced molecule {molecule.id} to next steps")
+                except Exception as e:
+                    logger.warning(f"Failed to advance molecule: {e}")
+
         except Exception as e:
             logger.warning(f"Failed to update molecule on auto-approval: {e}")
