@@ -705,8 +705,14 @@ class MoleculeEngine:
         self.completed_path = self.base_path / "molecules" / "completed"
         self.templates_path = self.base_path / "molecules" / "templates"
         self.learning_system = learning_system
+
+        # Lifecycle callbacks for event broadcasting and system integration
         self.on_step_complete: Optional[Callable[['Molecule'], None]] = None  # Callback for auto-advance
         self.on_molecule_complete: Optional[Callable[['Molecule'], None]] = None  # Callback for outcome recording
+        self.on_molecule_created: Optional[Callable[['Molecule'], None]] = None  # Callback when molecule is created
+        self.on_molecule_started: Optional[Callable[['Molecule'], None]] = None  # Callback when molecule starts
+        self.on_step_started: Optional[Callable[['Molecule', 'MoleculeStep'], None]] = None  # Callback when step starts
+        self.on_step_failed: Optional[Callable[['Molecule', 'MoleculeStep', str], None]] = None  # Callback when step fails
 
         # Ensure directories exist
         self.active_path.mkdir(parents=True, exist_ok=True)
@@ -770,6 +776,14 @@ class MoleculeEngine:
             composite_config=composite_config
         )
         self._save_molecule(molecule)
+
+        # Fire molecule created callback
+        if self.on_molecule_created:
+            try:
+                self.on_molecule_created(molecule)
+            except Exception as e:
+                logger.warning(f"Molecule created callback failed: {e}")
+
         return molecule
 
     def get_molecule(self, molecule_id: str) -> Optional[Molecule]:
@@ -832,6 +846,14 @@ class MoleculeEngine:
         molecule.started_at = datetime.utcnow().isoformat()
         molecule.updated_at = datetime.utcnow().isoformat()
         self._save_molecule(molecule)
+
+        # Fire molecule started callback
+        if self.on_molecule_started:
+            try:
+                self.on_molecule_started(molecule)
+            except Exception as e:
+                logger.warning(f"Molecule started callback failed: {e}")
+
         return molecule
 
     def _expand_swarm_steps(self, molecule: Molecule) -> None:
@@ -1173,6 +1195,14 @@ class MoleculeEngine:
             molecule.started_at = datetime.utcnow().isoformat()
 
         self._save_molecule(molecule)
+
+        # Fire step started callback
+        if self.on_step_started:
+            try:
+                self.on_step_started(molecule, step)
+            except Exception as e:
+                logger.warning(f"Step started callback failed: {e}")
+
         return step
 
     def checkpoint_step(
@@ -1340,6 +1370,13 @@ class MoleculeEngine:
             'context': context or {}
         }
         molecule.failure_history.append(failure_record)
+
+        # Fire step failed callback for activity broadcasting
+        if self.on_step_failed:
+            try:
+                self.on_step_failed(molecule, step, error)
+            except Exception as e:
+                logger.warning(f"Step failed callback failed: {e}")
 
         # Notify Learning System of failure
         if self.learning_system:
