@@ -1782,6 +1782,18 @@ class EvolutionDaemon:
             consolidated = self._consolidate_insights()
             result.insights_generated = consolidated
 
+            # 6. Synthesize lessons from OrganizationalMemory
+            # This analyzes outcomes and lessons to identify patterns
+            try:
+                from .memory import OrganizationalMemory
+                org_memory = OrganizationalMemory(self.base_path)
+                synthesized = self._synthesize_lessons_from_memory(org_memory)
+                result.insights_generated += synthesized
+                logger.info(f"Slow cycle: synthesized {synthesized} lesson insights")
+            except Exception as e:
+                result.errors.append(f"Lesson synthesis error: {e}")
+                logger.warning(f"Lesson synthesis failed in slow cycle: {e}")
+
             self.last_slow_run = started
 
         except Exception as e:
@@ -1857,6 +1869,129 @@ class EvolutionDaemon:
                 ))
 
         return suggestions
+
+    def _synthesize_lessons_from_memory(self, org_memory) -> int:
+        """
+        Synthesize patterns from OrganizationalMemory lessons and outcomes.
+
+        Aggregates lessons by category and identifies recurring patterns like:
+        - "Tasks involving X tend to have blocker Y"
+        - "Feature implementations in engineering succeed 80% of the time"
+
+        Args:
+            org_memory: OrganizationalMemory instance
+
+        Returns:
+            Number of synthesized insights created
+        """
+        insights_created = 0
+
+        try:
+            # Aggregate lessons by category
+            categories = org_memory.aggregate_lessons_by_category()
+
+            for category, items in categories.items():
+                if len(items) < 2:  # Need multiple items to identify patterns
+                    continue
+
+                # Count outcomes and blockers
+                outcomes = [i for i in items if i.get('source') == 'outcome']
+                lessons = [i for i in items if i.get('source') == 'lesson']
+
+                if not outcomes and not lessons:
+                    continue
+
+                # Analyze success/failure rates for this category
+                success_count = len([o for o in outcomes if o.get('outcome') == 'success'])
+                failure_count = len([o for o in outcomes if o.get('outcome') == 'failed'])
+                total_outcomes = success_count + failure_count
+
+                if total_outcomes >= 3:
+                    success_rate = success_count / total_outcomes
+                    confidence = min(0.5 + (total_outcomes / 20), 0.95)  # More data = higher confidence
+
+                    if success_rate >= 0.8:
+                        pattern = f"Tasks in '{category}' have high success rate ({success_rate:.0%})"
+                        recommendations = ["This category is performing well - continue current approach"]
+                    elif success_rate <= 0.5:
+                        pattern = f"Tasks in '{category}' have low success rate ({success_rate:.0%})"
+                        recommendations = ["Consider reviewing approach for this task type", "Check for common blockers"]
+                    else:
+                        pattern = f"Tasks in '{category}' have moderate success rate ({success_rate:.0%})"
+                        recommendations = ["Some improvement possible - review failed cases"]
+
+                    org_memory.store_synthesized_insight(
+                        insight_id=f"synth-{category}-success-{datetime.now().strftime('%Y%m%d')}",
+                        category=category,
+                        pattern=pattern,
+                        confidence=confidence,
+                        evidence_count=total_outcomes,
+                        recommendations=recommendations,
+                        source_cycle="evolution_daemon_slow"
+                    )
+                    insights_created += 1
+
+                # Identify common blockers
+                all_blockers = []
+                for o in outcomes:
+                    all_blockers.extend(o.get('blockers', []))
+
+                if all_blockers:
+                    # Count blocker frequency
+                    blocker_counts = {}
+                    for b in all_blockers:
+                        # Normalize blocker text
+                        b_key = b.lower()[:50]
+                        blocker_counts[b_key] = blocker_counts.get(b_key, 0) + 1
+
+                    # Find frequent blockers (appear in 30%+ of outcomes)
+                    for blocker, count in blocker_counts.items():
+                        if count >= max(2, len(outcomes) * 0.3):
+                            pattern = f"Tasks in '{category}' frequently encounter: {blocker}"
+                            confidence = min(count / len(outcomes), 0.9)
+
+                            org_memory.store_synthesized_insight(
+                                insight_id=f"synth-{category}-blocker-{datetime.now().strftime('%Y%m%d%H%M')}",
+                                category=category,
+                                pattern=pattern,
+                                confidence=confidence,
+                                evidence_count=count,
+                                recommendations=[
+                                    f"Plan for this blocker when starting '{category}' tasks",
+                                    "Consider mitigation strategies before delegation"
+                                ],
+                                source_cycle="evolution_daemon_slow"
+                            )
+                            insights_created += 1
+
+                # Extract learnings from lessons
+                all_learnings = []
+                for o in outcomes:
+                    all_learnings.extend(o.get('learnings', []))
+                for l in lessons:
+                    if l.get('lesson'):
+                        all_learnings.append(l['lesson'])
+
+                # If there are recurring themes in learnings, note them
+                if len(all_learnings) >= 3:
+                    # Simple pattern: if many learnings, create a summary insight
+                    pattern = f"Category '{category}' has {len(all_learnings)} documented learnings"
+                    org_memory.store_synthesized_insight(
+                        insight_id=f"synth-{category}-learnings-{datetime.now().strftime('%Y%m%d')}",
+                        category=category,
+                        pattern=pattern,
+                        confidence=0.7,
+                        evidence_count=len(all_learnings),
+                        recommendations=["Review accumulated learnings before starting similar work"],
+                        source_cycle="evolution_daemon_slow"
+                    )
+                    insights_created += 1
+
+        except Exception as e:
+            logger.warning(f"Lesson synthesis failed: {e}")
+
+        logger.info(f"Synthesized {insights_created} insights from lessons")
+        return insights_created
 
     def _analyze_outcomes(self, days: int) -> Dict[str, Any]:
         """Analyze outcomes for the specified period"""

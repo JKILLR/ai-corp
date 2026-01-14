@@ -93,8 +93,107 @@ def get_molecule_engine() -> MoleculeEngine:
                 if delegations:
                     logger.info(f"Auto-advanced molecule {molecule.id}: {len(delegations)} steps delegated")
         engine.on_step_complete = on_step_complete
+
+        # Wire up molecule completion callback for outcome-based learning
+        def on_molecule_complete(molecule):
+            try:
+                _record_molecule_outcome(molecule)
+            except Exception as e:
+                logger.warning(f"Failed to record molecule outcome: {e}")
+        engine.on_molecule_complete = on_molecule_complete
+
         _systems['molecules'] = engine
     return _systems['molecules']
+
+
+def _record_molecule_outcome(molecule) -> None:
+    """
+    Record the outcome of a completed molecule for learning.
+
+    Extracts relevant information and stores it in OrganizationalMemory
+    for future similar task recommendations.
+    """
+    coo = get_coo()
+
+    # Determine outcome based on molecule status
+    if molecule.status.value == 'completed':
+        outcome = 'success'
+    elif molecule.status.value == 'failed':
+        outcome = 'failed'
+    else:
+        outcome = 'partial'
+
+    # Extract task type from molecule context or infer from name
+    context = molecule.context or {}
+    task_type = context.get('task_type') or context.get('project_type') or 'general'
+
+    # Build approach description from steps
+    step_summaries = []
+    for step in molecule.steps:
+        if step.result:
+            step_summaries.append(f"{step.name}: {step.result.get('status', 'unknown')}")
+        else:
+            step_summaries.append(f"{step.name}: {step.status.value}")
+    approach = "; ".join(step_summaries) if step_summaries else "Standard workflow"
+
+    # Collect departments involved
+    departments = list(set(step.department for step in molecule.steps if step.department))
+
+    # Calculate duration if we have timestamps
+    duration_seconds = None
+    if molecule.created_at and molecule.completed_at:
+        try:
+            created = datetime.fromisoformat(molecule.created_at.replace('Z', '+00:00'))
+            completed = datetime.fromisoformat(molecule.completed_at.replace('Z', '+00:00'))
+            duration_seconds = int((completed - created).total_seconds())
+        except Exception:
+            pass
+
+    # Extract blockers from failure history
+    blockers = []
+    for failure in molecule.failure_history:
+        error = failure.get('error', '')
+        if error and error not in blockers:
+            blockers.append(error[:100])
+
+    # Get any conversation context from linked thread
+    conversation_context = None
+    thread_id = context.get('thread_id')
+    if thread_id:
+        try:
+            summarizer = get_conversation_summarizer()
+            thread = coo.get_thread(thread_id)
+            if thread:
+                messages = thread.get('messages', [])
+                if len(messages) > 10:
+                    # Summarize long conversations
+                    summary_result = summarizer.summarize_segment(messages[-20:])
+                    conversation_context = summary_result
+                elif messages:
+                    # Short conversation - include key messages
+                    conversation_context = "; ".join(
+                        f"{m.get('role', 'unknown')}: {m.get('content', '')[:100]}"
+                        for m in messages[-5:]
+                    )
+        except Exception as e:
+            logger.debug(f"Could not get conversation context: {e}")
+
+    # Record the outcome
+    coo.org_memory.record_molecule_outcome(
+        molecule_id=molecule.id,
+        title=molecule.name,
+        description=molecule.description,
+        outcome=outcome,
+        task_type=task_type,
+        approach=approach,
+        departments=departments,
+        duration_seconds=duration_seconds,
+        blockers=blockers if blockers else None,
+        conversation_context=conversation_context,
+        recorded_by="molecule_engine"
+    )
+
+    logger.info(f"Recorded outcome for molecule {molecule.id}: {outcome}")
 
 def get_gate_keeper() -> GateKeeper:
     if 'gates' not in _systems:
@@ -123,6 +222,36 @@ def get_conversation_summarizer() -> ConversationSummarizer:
         coo = get_coo()
         _systems['summarizer'] = ConversationSummarizer(llm_client=coo.llm)
     return _systems['summarizer']
+
+
+def get_relevant_lessons_for_task(task_description: str, max_results: int = 3) -> str:
+    """
+    Get relevant lessons and past work for a task description.
+
+    Proactively surfaces insights from similar past work to inform
+    the current task. Integrates with Phase 4's outcome-based learning.
+
+    Args:
+        task_description: Description of the new task
+        max_results: Maximum number of lessons to include
+
+    Returns:
+        Formatted string for context injection, or empty string if no relevant lessons
+    """
+    coo = get_coo()
+
+    # Find similar past work
+    similar_work = coo.org_memory.find_similar_past_work(
+        task_description,
+        max_results=max_results,
+        include_failed=True  # Include failed attempts to warn about blockers
+    )
+
+    if not similar_work:
+        return ""
+
+    # Format for context
+    return coo.org_memory.format_lessons_for_context(similar_work, max_items=max_results)
 
 
 def get_smart_thread_context(
@@ -374,6 +503,13 @@ async def send_coo_message(request: COOMessageRequest):
         combined_context = org_context
         if query_context_str:
             combined_context += f"\n\n{query_context_str}"
+
+        # === Outcome-Based Learning: Surface relevant past work ===
+        # Proactively find similar past work to inform this task
+        lessons_context = get_relevant_lessons_for_task(request.message, max_results=3)
+        if lessons_context:
+            combined_context += f"\n\n{lessons_context}"
+            logger.debug(f"Surfaced lessons for task: {len(lessons_context)} chars")
 
         system_prompt = f"""You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational.
 
@@ -1036,6 +1172,19 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str, molecule_d
                 break
 
     try:
+        # === Outcome-Based Learning: Get relevant past work for this task ===
+        lessons_context = get_relevant_lessons_for_task(description, max_results=3)
+        if lessons_context:
+            logger.debug(f"Including lessons in delegation context: {len(lessons_context)} chars")
+
+        # Build common context for molecule
+        base_context = {
+            'project_type': pending.get('project_type', 'research'),
+            'thread_id': thread_id,
+            'auto_delegated': True,
+            'relevant_lessons': lessons_context if lessons_context else None
+        }
+
         # Check if COO provided an explicit molecule definition
         if molecule_def and molecule_def.get('phases'):
             logger.info(f"[DEBUG] Using COO-defined molecule: {molecule_def.get('title', title)}")
@@ -1047,9 +1196,7 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str, molecule_d
                 phases=molecule_def['phases'],
                 priority="P2_MEDIUM",
                 context={
-                    'project_type': pending.get('project_type', 'research'),
-                    'thread_id': thread_id,
-                    'auto_delegated': True,
+                    **base_context,
                     'coo_defined': True  # Mark as COO-defined for tracking
                 }
             )
@@ -1060,11 +1207,7 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str, molecule_d
                 title=title,
                 description=description,
                 priority="P2_MEDIUM",
-                context={
-                    'project_type': pending.get('project_type', 'research'),
-                    'thread_id': thread_id,
-                    'auto_delegated': True
-                }
+                context=base_context
             )
 
         if molecule is None:

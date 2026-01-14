@@ -1084,6 +1084,9 @@ class OrganizationalMemory:
     # Words indicating negative polarity (don't do this)
     _NEGATIVE_POLARITY_WORDS = {'never', 'dont', "don't", 'avoid', 'stop', 'disable', 'exclude', 'remove', 'no'}
 
+    # Common stopwords for relevance scoring (used in find_similar_past_work)
+    _RELEVANCE_STOPWORDS = {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'to', 'for', 'and', 'or', 'of', 'in', 'on'}
+
     @property
     def preferences_file(self) -> Path:
         """Path to CEO preferences file"""
@@ -1523,6 +1526,443 @@ class OrganizationalMemory:
                 if p.get('context') and p.get('context') != "Extracted from conversation":
                     lines.append(f"  (Context: {p['context']})")
             lines.append("")
+
+        return "\n".join(lines)
+
+    # =========================================================================
+    # Outcome-Based Learning - Record outcomes and find similar past work
+    # =========================================================================
+
+    @property
+    def outcomes_file(self) -> Path:
+        """Path to molecule outcomes file"""
+        return self.memory_path / "molecule_outcomes.yaml"
+
+    @property
+    def synthesized_insights_file(self) -> Path:
+        """Path to synthesized insights from Evolution Daemon"""
+        return self.memory_path / "synthesized_insights.yaml"
+
+    def record_molecule_outcome(
+        self,
+        molecule_id: str,
+        title: str,
+        description: str,
+        outcome: str,  # 'success', 'partial', 'failed'
+        task_type: str,
+        approach: str,
+        departments: List[str],
+        duration_seconds: Optional[int] = None,
+        blockers: Optional[List[str]] = None,
+        key_learnings: Optional[List[str]] = None,
+        conversation_context: Optional[str] = None,
+        recorded_by: str = "system"
+    ) -> Dict[str, Any]:
+        """
+        Record the outcome of a completed molecule for learning.
+
+        This captures structured data about what was attempted, what approach
+        was used, and what the result was - enabling pattern detection and
+        lesson surfacing for similar future work.
+
+        Args:
+            molecule_id: ID of the completed molecule
+            title: Molecule title/name
+            description: What the molecule was trying to accomplish
+            outcome: 'success', 'partial', or 'failed'
+            task_type: Category of task (e.g., 'code_review', 'feature', 'research')
+            approach: The approach/strategy used
+            departments: Departments involved
+            duration_seconds: How long the work took
+            blockers: List of blockers encountered
+            key_learnings: Key lessons from this work
+            conversation_context: Relevant conversation context (summarized if long)
+            recorded_by: Who/what recorded this outcome
+
+        Returns:
+            The recorded outcome entry
+        """
+        outcome_entry = {
+            'id': f"outcome-{molecule_id}",
+            'molecule_id': molecule_id,
+            'title': title,
+            'description': description,
+            'outcome': outcome,
+            'task_type': task_type,
+            'approach': approach,
+            'departments': departments,
+            'duration_seconds': duration_seconds,
+            'blockers': blockers or [],
+            'key_learnings': key_learnings or [],
+            'conversation_context': conversation_context,
+            'recorded_by': recorded_by,
+            'recorded_at': datetime.utcnow().isoformat()
+        }
+
+        # Save to outcomes file
+        outcomes = self._load_file(self.outcomes_file)
+        outcomes.append(outcome_entry)
+        self._save_file(self.outcomes_file, outcomes)
+
+        # Also create a lesson from this outcome if there are learnings
+        if key_learnings:
+            self.record_lesson(
+                lesson_id=f"lesson-from-{molecule_id}",
+                title=f"Lessons from: {title}",
+                situation=description,
+                action_taken=approach,
+                outcome=outcome,
+                lesson="; ".join(key_learnings),
+                recommendations=key_learnings,
+                recorded_by=recorded_by,
+                severity="info" if outcome == "success" else "warning"
+            )
+
+        return outcome_entry
+
+    def find_similar_past_work(
+        self,
+        task_description: str,
+        max_results: int = 5,
+        include_failed: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Find similar past work to inform a new task.
+
+        Searches both completed molecule outcomes AND lessons_learned,
+        using relevance scoring aligned with Phase 1's approach.
+
+        Args:
+            task_description: Description of the new task
+            max_results: Maximum number of results to return
+            include_failed: Whether to include failed outcomes
+
+        Returns:
+            List of similar past work with relevance scores, approaches,
+            outcomes, and any blockers/learnings. Deduplicated to avoid
+            showing both an outcome and its auto-generated lesson.
+        """
+        results = []
+        seen_molecule_ids = set()  # Track outcomes to avoid showing their auto-generated lessons
+
+        # Tokenize and normalize task description for matching
+        task_words = set(re.findall(r'\b\w+\b', task_description.lower()))
+        task_words -= self._RELEVANCE_STOPWORDS
+
+        if not task_words:
+            return []
+
+        # Search molecule outcomes first (higher priority)
+        outcomes = self._load_file(self.outcomes_file)
+        for outcome in outcomes:
+            if not include_failed and outcome.get('outcome') == 'failed':
+                continue
+
+            # Compute relevance score
+            outcome_text = f"{outcome.get('title', '')} {outcome.get('description', '')} {outcome.get('approach', '')}"
+            outcome_words = set(re.findall(r'\b\w+\b', outcome_text.lower()))
+            outcome_words -= self._RELEVANCE_STOPWORDS
+
+            overlap = task_words & outcome_words
+            if not overlap:
+                continue
+
+            # Score based on overlap ratio and complexity alignment
+            relevance = len(overlap) / max(len(task_words), 1)
+
+            # Boost if task types match implied categories
+            task_type = outcome.get('task_type', '')
+            if task_type and task_type.lower() in task_description.lower():
+                relevance += 0.2
+
+            # Track this molecule_id to avoid duplicate lessons
+            molecule_id = outcome.get('molecule_id')
+            if molecule_id:
+                seen_molecule_ids.add(molecule_id)
+
+            results.append({
+                'source': 'outcome',
+                'id': outcome.get('id'),
+                'title': outcome.get('title'),
+                'description': outcome.get('description'),
+                'outcome': outcome.get('outcome'),
+                'approach': outcome.get('approach'),
+                'blockers': outcome.get('blockers', []),
+                'key_learnings': outcome.get('key_learnings', []),
+                'task_type': task_type,
+                'departments': outcome.get('departments', []),
+                'relevance_score': min(relevance, 1.0),
+                'overlap_words': list(overlap)
+            })
+
+        # Search lessons learned (skip auto-generated lessons from outcomes we already found)
+        lessons = self._load_file(self.lessons_file)
+        for lesson in lessons:
+            # Skip lessons auto-generated from outcomes we already included
+            lesson_id = lesson.get('id', '')
+            if lesson_id.startswith('lesson-from-'):
+                # Extract molecule ID from lesson ID
+                source_mol_id = lesson_id.replace('lesson-from-', '')
+                if source_mol_id in seen_molecule_ids:
+                    continue
+
+            lesson_text = f"{lesson.get('title', '')} {lesson.get('situation', '')} {lesson.get('lesson', '')}"
+            lesson_words = set(re.findall(r'\b\w+\b', lesson_text.lower()))
+            lesson_words -= self._RELEVANCE_STOPWORDS
+
+            overlap = task_words & lesson_words
+            if not overlap:
+                continue
+
+            relevance = len(overlap) / max(len(task_words), 1)
+
+            results.append({
+                'source': 'lesson',
+                'id': lesson.get('id'),
+                'title': lesson.get('title'),
+                'situation': lesson.get('situation'),
+                'outcome': lesson.get('outcome'),
+                'lesson': lesson.get('lesson'),
+                'recommendations': lesson.get('recommendations', []),
+                'severity': lesson.get('severity', 'info'),
+                'relevance_score': min(relevance, 1.0),
+                'overlap_words': list(overlap)
+            })
+
+        # Sort by relevance and return top results
+        results.sort(key=lambda x: x['relevance_score'], reverse=True)
+        return results[:max_results]
+
+    def get_lessons_for_task_type(
+        self,
+        task_type: str,
+        max_results: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Get lessons and outcomes filtered by task type.
+
+        Args:
+            task_type: The task type to filter by
+            max_results: Maximum results to return
+
+        Returns:
+            List of relevant outcomes and lessons
+        """
+        results = []
+        task_type_lower = task_type.lower()
+
+        # Search outcomes by task_type
+        outcomes = self._load_file(self.outcomes_file)
+        for outcome in outcomes:
+            if outcome.get('task_type', '').lower() == task_type_lower:
+                results.append({
+                    'source': 'outcome',
+                    **outcome
+                })
+
+        # Search lessons (by title/situation keyword match)
+        lessons = self._load_file(self.lessons_file)
+        for lesson in lessons:
+            lesson_text = f"{lesson.get('title', '')} {lesson.get('situation', '')}".lower()
+            if task_type_lower in lesson_text:
+                results.append({
+                    'source': 'lesson',
+                    **lesson
+                })
+
+        return results[:max_results]
+
+    def aggregate_lessons_by_category(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Aggregate lessons and outcomes by category/task_type.
+
+        Used by Evolution Daemon for synthesis cycles.
+
+        Returns:
+            Dictionary mapping categories to their lessons/outcomes
+        """
+        categories: Dict[str, List[Dict[str, Any]]] = {}
+
+        # Group outcomes by task_type
+        outcomes = self._load_file(self.outcomes_file)
+        for outcome in outcomes:
+            task_type = outcome.get('task_type', 'general')
+            if task_type not in categories:
+                categories[task_type] = []
+            categories[task_type].append({
+                'source': 'outcome',
+                'outcome': outcome.get('outcome'),
+                'blockers': outcome.get('blockers', []),
+                'learnings': outcome.get('key_learnings', []),
+                'recorded_at': outcome.get('recorded_at')
+            })
+
+        # Add lessons to categories (infer from title/situation)
+        lessons = self._load_file(self.lessons_file)
+        for lesson in lessons:
+            # Try to infer category from lesson content
+            lesson_text = f"{lesson.get('title', '')} {lesson.get('situation', '')}".lower()
+            matched = False
+            for category in categories:
+                if category.lower() in lesson_text:
+                    categories[category].append({
+                        'source': 'lesson',
+                        'lesson': lesson.get('lesson'),
+                        'recommendations': lesson.get('recommendations', []),
+                        'severity': lesson.get('severity'),
+                        'recorded_at': lesson.get('recorded_at')
+                    })
+                    matched = True
+                    break
+            if not matched:
+                if 'general' not in categories:
+                    categories['general'] = []
+                categories['general'].append({
+                    'source': 'lesson',
+                    'lesson': lesson.get('lesson'),
+                    'recommendations': lesson.get('recommendations', []),
+                    'severity': lesson.get('severity'),
+                    'recorded_at': lesson.get('recorded_at')
+                })
+
+        return categories
+
+    def store_synthesized_insight(
+        self,
+        insight_id: str,
+        category: str,
+        pattern: str,
+        confidence: float,
+        evidence_count: int,
+        recommendations: List[str],
+        source_cycle: str = "evolution_daemon"
+    ) -> Dict[str, Any]:
+        """
+        Store a synthesized insight from Evolution Daemon analysis.
+
+        These are higher-level patterns identified across multiple
+        outcomes and lessons. Uses upsert logic - updates existing
+        insight if ID matches, otherwise creates new.
+
+        Args:
+            insight_id: Unique identifier
+            category: Category/task_type this applies to
+            pattern: The identified pattern (e.g., "Tasks involving X tend to have blocker Y")
+            confidence: Confidence score (0.0-1.0)
+            evidence_count: Number of outcomes/lessons supporting this
+            recommendations: Recommended actions based on this pattern
+            source_cycle: Which cycle generated this insight
+
+        Returns:
+            The stored insight
+        """
+        insight = {
+            'id': insight_id,
+            'category': category,
+            'pattern': pattern,
+            'confidence': confidence,
+            'evidence_count': evidence_count,
+            'recommendations': recommendations,
+            'source_cycle': source_cycle,
+            'updated_at': datetime.utcnow().isoformat()
+        }
+
+        insights = self._load_file(self.synthesized_insights_file)
+
+        # Upsert: update existing or append new
+        existing_idx = None
+        for i, existing in enumerate(insights):
+            if existing.get('id') == insight_id:
+                existing_idx = i
+                break
+
+        if existing_idx is not None:
+            # Preserve original created_at, update the rest
+            insight['created_at'] = insights[existing_idx].get('created_at', insight['updated_at'])
+            insights[existing_idx] = insight
+        else:
+            insight['created_at'] = insight['updated_at']
+            insights.append(insight)
+
+        self._save_file(self.synthesized_insights_file, insights)
+
+        return insight
+
+    def get_synthesized_insights(
+        self,
+        category: Optional[str] = None,
+        min_confidence: float = 0.0
+    ) -> List[Dict[str, Any]]:
+        """
+        Get synthesized insights, optionally filtered.
+
+        Args:
+            category: Filter by category
+            min_confidence: Minimum confidence threshold
+
+        Returns:
+            List of synthesized insights
+        """
+        insights = self._load_file(self.synthesized_insights_file)
+
+        results = []
+        for insight in insights:
+            if category and insight.get('category') != category:
+                continue
+            if insight.get('confidence', 0) < min_confidence:
+                continue
+            results.append(insight)
+
+        return results
+
+    def format_lessons_for_context(
+        self,
+        similar_work: List[Dict[str, Any]],
+        max_items: int = 3
+    ) -> str:
+        """
+        Format similar past work for injection into LLM context.
+
+        Creates a readable summary of relevant past experiences.
+
+        Args:
+            similar_work: Results from find_similar_past_work()
+            max_items: Maximum items to include
+
+        Returns:
+            Formatted context string
+        """
+        if not similar_work:
+            return ""
+
+        lines = ["## Relevant Past Experience"]
+
+        for item in similar_work[:max_items]:
+            title = item.get('title', 'Unknown')
+            outcome = item.get('outcome', 'unknown')
+
+            if item.get('source') == 'outcome':
+                approach = item.get('approach', '')
+                blockers = item.get('blockers', [])
+                learnings = item.get('key_learnings', [])
+
+                outcome_label = "✓" if outcome == "success" else "⚠" if outcome == "partial" else "✗"
+                lines.append(f"\n**{title}** [{outcome_label} {outcome}]")
+                if approach:
+                    lines.append(f"  Approach: {approach}")
+                if blockers:
+                    lines.append(f"  Blockers: {', '.join(blockers)}")
+                if learnings:
+                    lines.append(f"  Key insight: {learnings[0]}")
+
+            elif item.get('source') == 'lesson':
+                lesson = item.get('lesson', '')
+                severity = item.get('severity', 'info')
+                severity_icon = "ℹ" if severity == "info" else "⚠" if severity == "warning" else "🔴"
+
+                lines.append(f"\n**{title}** [{severity_icon}]")
+                if lesson:
+                    lines.append(f"  Lesson: {lesson[:150]}...")
 
         return "\n".join(lines)
 
