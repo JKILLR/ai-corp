@@ -4,9 +4,12 @@ AI Corp API Server
 FastAPI server that connects the frontend to the backend systems.
 This is the bridge between the React UI and the Python agents/systems.
 
-Run with: uvicorn src.api.main:app --reload --reload-exclude 'corp/*' --reload-exclude 'foundation/*' --port 8000
+Run with: uvicorn src.api.main:app --reload --reload-dir src/ --port 8000
 
 Or simply: python -m src.api.main
+
+NOTE: Use --reload-dir to ONLY watch src/ for changes. This prevents restarts
+when corp/, foundation/, or tests/ files change during delegation.
 """
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -1549,5 +1552,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
-        reload_excludes=["corp/*", "foundation/*", "*.yaml", "*.json"]
+        reload_dirs=["src/"]  # ONLY watch src/ - ignore corp/, foundation/, tests/
     )
