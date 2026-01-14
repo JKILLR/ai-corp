@@ -5,6 +5,7 @@ Translates raw technical events into human-readable messages for the CEO.
 Includes event aggregation to reduce noise from parallel worker execution.
 """
 
+import re
 import time
 import threading
 from dataclasses import dataclass, field
@@ -14,6 +15,9 @@ from typing import Dict, List, Optional, Any, Callable
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Regex pattern for replacing template placeholders
+_PLACEHOLDER_PATTERN = re.compile(r'\{[^}]+\}')
 
 
 class EventSeverity(Enum):
@@ -172,7 +176,6 @@ class ActivityEventTranslator:
         self._pending_events: Dict[str, List[Dict[str, Any]]] = {}
         self._pending_timestamps: Dict[str, float] = {}
         self._lock = threading.Lock()
-        self._flush_callbacks: List[Callable[[TranslatedEvent], None]] = []
 
     def translate(self, raw_event: Dict[str, Any]) -> TranslatedEvent:
         """
@@ -226,24 +229,27 @@ class ActivityEventTranslator:
         Handles missing fields gracefully.
         """
         try:
-            # Capitalize department names for display
+            # Copy data if we need to modify it
+            needs_copy = False
             if "department" in data and data["department"]:
-                data = data.copy()
-                data["department"] = data["department"].capitalize()
+                needs_copy = True
+            if "error" in data and data["error"] and len(data["error"]) > 100:
+                needs_copy = True
 
-            # Truncate long error messages
-            if "error" in data and data["error"]:
+            if needs_copy:
                 data = data.copy()
-                error = data["error"]
-                if len(error) > 100:
-                    data["error"] = error[:100] + "..."
+                # Capitalize department names for display
+                if "department" in data and data["department"]:
+                    data["department"] = data["department"].capitalize()
+                # Truncate long error messages
+                if "error" in data and data["error"] and len(data["error"]) > 100:
+                    data["error"] = data["error"][:100] + "..."
 
             return template.format(**data)
         except KeyError as e:
             logger.warning(f"Missing field in event data: {e}")
             # Return template with placeholders replaced by "unknown"
-            import re
-            return re.sub(r'\{[^}]+\}', 'unknown', template)
+            return _PLACEHOLDER_PATTERN.sub('unknown', template)
 
     def translate_with_aggregation(
         self,
@@ -296,10 +302,6 @@ class ActivityEventTranslator:
                 # Start new aggregation
                 self._pending_events[agg_key] = [raw_event]
                 self._pending_timestamps[agg_key] = current_time
-
-                # Register flush callback if provided
-                if flush_callback and flush_callback not in self._flush_callbacks:
-                    self._flush_callbacks.append(flush_callback)
 
         return None  # Event is buffered
 

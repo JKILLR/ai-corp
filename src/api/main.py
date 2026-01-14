@@ -262,6 +262,21 @@ class ActivityEventBroadcaster:
         for ws in disconnected:
             self.unsubscribe(ws)
 
+    def _on_aggregated_event_ready(self, translated_event) -> None:
+        """
+        Callback when an aggregated event is ready to be sent.
+
+        Adds the event to history and queues it for broadcast.
+        """
+        translated_dict = translated_event.to_dict()
+        self._event_history.append(translated_dict)
+        self._ensure_queue()
+        if self._event_queue:
+            try:
+                self._event_queue.put_nowait(translated_dict)
+            except Exception as e:
+                logger.warning(f"Failed to queue aggregated event: {e}")
+
     async def process_queue(self) -> None:
         """
         Process queued events from sync broadcasts.
@@ -272,17 +287,7 @@ class ActivityEventBroadcaster:
         self._ensure_queue()
 
         # First, check for expired aggregations and flush them
-        def on_aggregated_flush(translated_event):
-            """Callback when aggregated events are flushed."""
-            translated_dict = translated_event.to_dict()
-            self._event_history.append(translated_dict)
-            if self._event_queue:
-                try:
-                    self._event_queue.put_nowait(translated_dict)
-                except Exception as e:
-                    logger.warning(f"Failed to queue aggregated event: {e}")
-
-        self.translator.check_and_flush_expired(callback=on_aggregated_flush)
+        self.translator.check_and_flush_expired(callback=self._on_aggregated_event_ready)
 
         # Now process the queue
         if not self._event_queue:
@@ -306,18 +311,12 @@ class ActivityEventBroadcaster:
 
         Returns list of flushed events.
         """
-        flushed = []
+        flushed: List[Dict[str, Any]] = []
 
         def on_flush(translated_event):
             translated_dict = translated_event.to_dict()
-            self._event_history.append(translated_dict)
             flushed.append(translated_dict)
-            self._ensure_queue()
-            if self._event_queue:
-                try:
-                    self._event_queue.put_nowait(translated_dict)
-                except Exception:
-                    pass
+            self._on_aggregated_event_ready(translated_event)
 
         self.translator.flush_all_pending(callback=on_flush)
         return flushed
@@ -583,6 +582,11 @@ def get_molecule_engine() -> MoleculeEngine:
 
         # Callback: Molecule completed - emit activity event + record outcome
         def on_molecule_complete(molecule):
+            # Flush any pending aggregated events for this molecule
+            # This ensures all events are sent before the completion event
+            broadcaster = get_activity_broadcaster()
+            broadcaster.flush_aggregations()
+
             # Emit step_completed for the final step (on_step_complete doesn't fire for last step)
             _emit_latest_step_completed(molecule)
 
