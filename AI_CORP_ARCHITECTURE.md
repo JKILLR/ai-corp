@@ -156,6 +156,38 @@ molecule:
 - `MoleculeStep` - Individual step with checkpoints
 - `Checkpoint` - Recovery point for crash resilience
 
+#### Auto-Advance Callbacks (✅ Complete)
+
+Molecules automatically advance to next steps when work completes via callback pattern:
+
+```python
+# MoleculeEngine.on_step_complete callback
+engine = MoleculeEngine(base_path)
+engine.on_step_complete = lambda molecule: coo.delegate_molecule(molecule)
+
+# When complete_step() is called:
+# 1. Step marked as COMPLETED (or FAILED if result['status'] == 'failed')
+# 2. If molecule still active, on_step_complete callback fires
+# 3. Callback delegates newly-unlocked steps to appropriate agents
+```
+
+**Flow:**
+```
+Step Completes → MoleculeEngine.complete_step() →
+  on_step_complete(molecule) → COO.delegate_molecule() →
+  Queue unlocked steps to VP hooks
+```
+
+**Failed Status Handling:**
+```python
+# If result indicates failure, step is marked FAILED, not COMPLETED
+result = {'status': 'failed', 'error': 'Build failed'}
+engine.complete_step(molecule_id, step_id, result)
+# Step.status = StepStatus.FAILED
+# Step.error = 'Build failed'
+# on_step_complete NOT called for failures
+```
+
 #### Economic Metadata (✅ Complete)
 
 Every molecule carries economic metadata for ROI reasoning:
@@ -538,6 +570,45 @@ Submit → [Async Evaluation] → Check Criteria → Calculate Confidence
                           └─────────────────────────┴───────────────────────────┘
                                                       │
                                           [Auto-approve if criteria met]
+                                                      │
+                                          [on_molecule_advance callback]
+```
+
+**Auto-Advance After Gate Approval (✅ Complete):**
+
+When a gate is approved (manually or auto-approved), the system automatically delegates next steps:
+
+```python
+# AsyncGateEvaluator.on_molecule_advance callback
+evaluator = AsyncGateEvaluator(
+    gate_keeper=gates,
+    molecule_engine=molecules,
+    on_molecule_advance=lambda molecule: coo.delegate_molecule(molecule)
+)
+
+# When gate auto-approves:
+# 1. Gate criteria validated
+# 2. Molecule step marked complete
+# 3. on_molecule_advance callback fires
+# 4. COO delegates newly-unlocked steps
+```
+
+**Flow:**
+```
+Gate Approved → MoleculeEngine.approve_gate() → on_molecule_advance(molecule) →
+  COO.delegate_molecule() → Queue unlocked steps to VP hooks
+```
+
+**Integration with Manual Approval:**
+```python
+# API endpoint also triggers delegation after manual approval
+@app.post("/api/gates/{gate_id}/approve")
+async def approve_gate(gate_id: str):
+    result = gates.approve(gate_id, submission_id, reviewer='ceo')
+    molecule = molecules.approve_gate(...)
+    if molecule:
+        coo.delegate_molecule(molecule)  # Auto-advance
+    return result
 ```
 
 ### 7. Worker Pools
@@ -1286,6 +1357,22 @@ Agents must use `self.hook` directly for work operations, not go through `self.h
 - `fail_work()` uses `self.current_work.fail()` directly
 
 This is because `_refresh_all_agent_hooks()` updates `agent.hook` to point to the executor's hook object, but each agent has its own `HookManager` with potentially stale cache. Going through `self.hook_manager.get_hook()` would return the stale cached hook without new work items.
+
+**Critical Fix: Hook Cache Synchronization (2026-01-14)**
+When refreshing hooks, BOTH `agent.hook` AND `agent.hook_manager._hooks[hook_id]` must be updated:
+
+```python
+# In _refresh_all_agent_hooks()
+if key in hook_lookup:
+    agent.hook = hook_lookup[key]
+    # ALSO update the hook_manager's internal cache
+    agent.hook_manager._hooks[hook_lookup[key].id] = hook_lookup[key]
+```
+
+Without this, work items can be "lost" because:
+1. `agent.hook` points to the executor's hook (has new work)
+2. `agent.hook_manager._hooks[hook_id]` still has the old cached hook (missing work)
+3. Some code paths might access the hook through `hook_manager` and see stale data
 
 ---
 

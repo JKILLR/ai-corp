@@ -1,6 +1,6 @@
 # AI Corp Roadmap
 
-> **Last Updated:** 2026-01-12 (API Layer Complete)
+> **Last Updated:** 2026-01-14 (Auto-Advance System Complete)
 > **Purpose:** Single source of truth for approved plans and priorities
 > **Update Rule:** Add new items when approved, move to "Completed" when done
 
@@ -31,10 +31,14 @@
 - ✅ All departments have workers (8 workers across 4 departments)
 - ✅ Research Director added (VP Research no longer handles directly)
 - ✅ API layer execution chain fixed (removed duplicate triggers)
+- ✅ Auto-advance after step completion (on_step_complete callback)
+- ✅ Auto-advance after gate approval (on_molecule_advance callback)
+- ✅ Hook cache synchronization fix (prevents lost work items)
+- ✅ Failed status handling (steps marked FAILED not COMPLETED)
 - 🔄 Continue real-world testing to validate end-to-end flow
 
 **Next priority:**
-1. **Continue Foundation Corp Dogfooding** - Run more complex tasks through the hierarchy
+1. **Continue Foundation Corp Dogfooding** - Verify auto-advance works with real Claude CLI
 2. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
 3. Or move to P3 features (Apex Corp Registry)
 
@@ -97,6 +101,8 @@
 
 | Feature | Completed | Notes |
 |---------|-----------|-------|
+| **Auto-Advance System** | **2026-01-14** | **Callbacks for automatic delegation after step completion and gate approval** |
+| **Hook Cache Fix** | **2026-01-14** | **Synchronize agent.hook AND hook_manager._hooks to prevent lost work** |
 | **Molecule Step Integration** | **2026-01-12** | **VP/Director/Worker now update step status; all departments staffed** |
 | **API Layer** | **2026-01-12** | **FastAPI server - COO chat, delegation, dashboard, gates, WebSocket** |
 | **Frontend Chat UI** | **2026-01-11** | **React web UI with chat interface, dashboard, image support** |
