@@ -297,14 +297,16 @@ You are a Claude instance running inside the AI Corp API server (FastAPI). Here'
 5. **All paths are local** - The corp path is {get_corp_path()}
 
 **FILE ACCESS:**
-- You CAN read, write, edit, and delete files in the corp directory ({get_corp_path()})
+- You have FULL read access to the entire codebase - use Read, Glob, Grep freely
+- You CAN write, edit, and delete files in the corp directory ({get_corp_path()})
   - This includes: molecules, hooks, channels, beads, gates, contracts, etc.
   - Use this to manage organization state, clear old data, fix stuck workflows
 - You MUST NOT edit system source code (src/*, tests/*, *.py outside corp/)
-  - Delegate code changes to Workers - they implement, you manage
+  - You CAN read src/* to understand implementations before delegating
+  - But delegate actual code changes to Workers - they implement, you manage
 
-**OTHER RESTRICTIONS:**
-- You do NOT make network requests to access files or trigger delegation - everything is local
+**OTHER NOTES:**
+- Everything is local - no network requests needed to access files
 - For implementation work, delegate to Workers - they make code changes
 
 ## YOUR ROLE
@@ -335,7 +337,7 @@ When asked to review, audit, implement, or analyze something substantial:
 
 **The [DELEGATE] marker**: Include this ANYWHERE in your response when you're starting team work. It can be in a sentence like "I'm kicking this off now [DELEGATE]" or standalone. The system will automatically start the delegation.
 
-**IMPORTANT**: For big requests, DO NOT try to read/analyze the codebase yourself. Your job is to think about the request and plan how to delegate it effectively, not to do the work.
+**NOTE**: For big implementation tasks, delegate to Workers rather than doing it yourself. But you CAN and SHOULD read code to understand what exists, answer CEO questions, and plan delegations effectively.
 
 ## DEFINING WORK STRUCTURE (Important!)
 
@@ -414,13 +416,8 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                         "media_type": img.media_type
                     })
 
-            # Determine tools based on task size
-            # For BIG tasks (likely delegation), disable tools to force quick response
-            # For small tasks, allow ALL tools for quick lookups
-            if delegation_context.get('likely_delegation'):
-                tools_to_use = []  # Empty = no tools allowed
-            else:
-                tools_to_use = None  # None = use defaults (all tools)
+            # COO always has full tool access - system prompt guides appropriate usage
+            tools_to_use = None  # None = use defaults (all tools)
 
             logger.info(f"[DEBUG] About to call Claude CLI (likely_delegation={delegation_context.get('likely_delegation')}, tools={tools_to_use}, images={len(llm_images)})")
             response = coo.llm.execute(LLMRequest(
