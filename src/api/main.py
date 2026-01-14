@@ -143,7 +143,6 @@ def _record_molecule_outcome(molecule) -> None:
     duration_seconds = None
     if molecule.created_at and molecule.completed_at:
         try:
-            from datetime import datetime
             created = datetime.fromisoformat(molecule.created_at.replace('Z', '+00:00'))
             completed = datetime.fromisoformat(molecule.completed_at.replace('Z', '+00:00'))
             duration_seconds = int((completed - created).total_seconds())

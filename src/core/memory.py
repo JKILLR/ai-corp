@@ -1084,6 +1084,9 @@ class OrganizationalMemory:
     # Words indicating negative polarity (don't do this)
     _NEGATIVE_POLARITY_WORDS = {'never', 'dont', "don't", 'avoid', 'stop', 'disable', 'exclude', 'remove', 'no'}
 
+    # Common stopwords for relevance scoring (used in find_similar_past_work)
+    _RELEVANCE_STOPWORDS = {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'to', 'for', 'and', 'or', 'of', 'in', 'on'}
+
     @property
     def preferences_file(self) -> Path:
         """Path to CEO preferences file"""
@@ -1636,18 +1639,20 @@ class OrganizationalMemory:
 
         Returns:
             List of similar past work with relevance scores, approaches,
-            outcomes, and any blockers/learnings.
+            outcomes, and any blockers/learnings. Deduplicated to avoid
+            showing both an outcome and its auto-generated lesson.
         """
         results = []
+        seen_molecule_ids = set()  # Track outcomes to avoid showing their auto-generated lessons
 
         # Tokenize and normalize task description for matching
         task_words = set(re.findall(r'\b\w+\b', task_description.lower()))
-        task_words -= {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'to', 'for', 'and', 'or', 'of', 'in', 'on'}
+        task_words -= self._RELEVANCE_STOPWORDS
 
         if not task_words:
             return []
 
-        # Search molecule outcomes
+        # Search molecule outcomes first (higher priority)
         outcomes = self._load_file(self.outcomes_file)
         for outcome in outcomes:
             if not include_failed and outcome.get('outcome') == 'failed':
@@ -1656,7 +1661,7 @@ class OrganizationalMemory:
             # Compute relevance score
             outcome_text = f"{outcome.get('title', '')} {outcome.get('description', '')} {outcome.get('approach', '')}"
             outcome_words = set(re.findall(r'\b\w+\b', outcome_text.lower()))
-            outcome_words -= {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'to', 'for', 'and', 'or', 'of', 'in', 'on'}
+            outcome_words -= self._RELEVANCE_STOPWORDS
 
             overlap = task_words & outcome_words
             if not overlap:
@@ -1669,6 +1674,11 @@ class OrganizationalMemory:
             task_type = outcome.get('task_type', '')
             if task_type and task_type.lower() in task_description.lower():
                 relevance += 0.2
+
+            # Track this molecule_id to avoid duplicate lessons
+            molecule_id = outcome.get('molecule_id')
+            if molecule_id:
+                seen_molecule_ids.add(molecule_id)
 
             results.append({
                 'source': 'outcome',
@@ -1685,12 +1695,20 @@ class OrganizationalMemory:
                 'overlap_words': list(overlap)
             })
 
-        # Search lessons learned
+        # Search lessons learned (skip auto-generated lessons from outcomes we already found)
         lessons = self._load_file(self.lessons_file)
         for lesson in lessons:
+            # Skip lessons auto-generated from outcomes we already included
+            lesson_id = lesson.get('id', '')
+            if lesson_id.startswith('lesson-from-'):
+                # Extract molecule ID from lesson ID
+                source_mol_id = lesson_id.replace('lesson-from-', '')
+                if source_mol_id in seen_molecule_ids:
+                    continue
+
             lesson_text = f"{lesson.get('title', '')} {lesson.get('situation', '')} {lesson.get('lesson', '')}"
             lesson_words = set(re.findall(r'\b\w+\b', lesson_text.lower()))
-            lesson_words -= {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'to', 'for', 'and', 'or', 'of', 'in', 'on'}
+            lesson_words -= self._RELEVANCE_STOPWORDS
 
             overlap = task_words & lesson_words
             if not overlap:
@@ -1823,7 +1841,8 @@ class OrganizationalMemory:
         Store a synthesized insight from Evolution Daemon analysis.
 
         These are higher-level patterns identified across multiple
-        outcomes and lessons.
+        outcomes and lessons. Uses upsert logic - updates existing
+        insight if ID matches, otherwise creates new.
 
         Args:
             insight_id: Unique identifier
@@ -1845,11 +1864,26 @@ class OrganizationalMemory:
             'evidence_count': evidence_count,
             'recommendations': recommendations,
             'source_cycle': source_cycle,
-            'created_at': datetime.utcnow().isoformat()
+            'updated_at': datetime.utcnow().isoformat()
         }
 
         insights = self._load_file(self.synthesized_insights_file)
-        insights.append(insight)
+
+        # Upsert: update existing or append new
+        existing_idx = None
+        for i, existing in enumerate(insights):
+            if existing.get('id') == insight_id:
+                existing_idx = i
+                break
+
+        if existing_idx is not None:
+            # Preserve original created_at, update the rest
+            insight['created_at'] = insights[existing_idx].get('created_at', insight['updated_at'])
+            insights[existing_idx] = insight
+        else:
+            insight['created_at'] = insight['updated_at']
+            insights.append(insight)
+
         self._save_file(self.synthesized_insights_file, insights)
 
         return insight
