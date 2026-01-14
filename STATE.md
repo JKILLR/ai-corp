@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-14
-> **Current Phase:** Auto-Advance System Complete - Ready for E2E Testing
-> **Status:** ✅ Full Stack Complete + Auto-Advance + Bug Fixes
-> **Next Action:** Test full delegation flow with real Claude CLI, verify auto-advance works
+> **Current Phase:** COO-Driven Molecule Definition Complete
+> **Status:** ✅ Full Stack Complete + Auto-Advance + COO Intelligence
+> **Next Action:** Test full delegation flow with [MOLECULE] blocks
 
 ---
 
@@ -70,6 +70,51 @@
 ---
 
 ## Recent Changes
+
+### 2026-01-14: COO-Driven Molecule Definition
+
+**Problem:** Previously, molecule creation used keyword detection on the CEO's raw message to infer departments and steps. This failed when the CEO's message was simple (e.g., "test handoffs between departments") but the COO had discussed a detailed plan. The COO's understanding of intent never made it into the molecule structure.
+
+**Solution:** The COO can now define the complete molecule structure using a `[MOLECULE]` block:
+
+```
+[MOLECULE]
+title: Test Department Handoffs
+description: Validate data flows correctly between departments
+
+phases:
+  - department: research
+    task: Analyze current handoff patterns
+    outputs: Handoff analysis report
+
+  - department: engineering
+    task: Review code based on research findings
+    outputs: Code review document
+
+  - department: quality
+    task: Validate handoffs work correctly
+    outputs: Test results
+[/MOLECULE]
+```
+
+**Key principle:** The COO is the intelligent translator. It understands CEO intent and explicitly defines what that means. The system just executes what the COO defines - no keyword inference, no guessing.
+
+**Implementation:**
+- `_parse_molecule_block()` - Parses `[MOLECULE]...[/MOLECULE]` from COO response
+- `create_molecule_from_phases()` - Creates molecule with exact phase structure
+- `delegate_molecule()` - Now includes phase context (inputs, outputs, handoffs)
+- COO system prompt updated with `[MOLECULE]` block format
+
+**Files Changed:**
+- `src/api/main.py` - Added `_parse_molecule_block()`, `_clean_molecule_block()`, updated `_execute_delegation()`
+- `src/agents/coo.py` - Added `create_molecule_from_phases()`, enhanced `delegate_molecule()` with phase context
+
+**What VPs/Directors now see:**
+- Phase number and total phases
+- Task description from COO
+- Expected outputs
+- Inputs from previous phase
+- What next phase expects
 
 ### 2026-01-14: Auto-Advance System + Critical Bug Fixes
 
