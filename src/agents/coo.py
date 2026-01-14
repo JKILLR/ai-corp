@@ -11,10 +11,13 @@ The COO is the primary orchestrator of AI Corp, responsible for:
 """
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, List, Dict, Any
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from .base import BaseAgent, AgentIdentity
 from ..core.molecule import Molecule, MoleculeStep, MoleculeStatus, StepStatus
@@ -2076,9 +2079,6 @@ IMPORTANT:
             Dict with: relevant_decisions, relevant_lessons, relevant_history,
                       query_analysis metadata
         """
-        import re
-        from datetime import datetime
-
         # === Step 1: Analyze query for keywords, entities, and complexity ===
         query_analysis = self._analyze_query_for_retrieval(query)
 
@@ -2136,8 +2136,6 @@ IMPORTANT:
         Returns:
             Dict with: keywords (list), entities (list), intent (str)
         """
-        import re
-
         query_lower = query.lower()
         words = query_lower.split()
 
@@ -2177,13 +2175,20 @@ IMPORTANT:
 
     def _classify_query_intent(self, query_lower: str) -> str:
         """Classify the intent of a query."""
-        if any(w in query_lower for w in ['what did we decide', 'decision about', 'chose', 'decided']):
+        # Decision lookup - check first with comprehensive patterns
+        decision_patterns = [
+            'what did we decide', 'decision about', 'chose', 'decided',
+            'what decision', 'which decision', 'decision did we',
+            'decision made', 'decisions have we'
+        ]
+        if any(p in query_lower for p in decision_patterns):
             return 'decision_lookup'
         elif any(w in query_lower for w in ['how did we', 'before', 'previously', 'last time', 'history']):
             return 'history_lookup'
         elif any(w in query_lower for w in ['lesson', 'learned', 'mistake', 'worked', 'failed']):
             return 'lesson_lookup'
-        elif any(w in query_lower for w in ['help', 'implement', 'build', 'create', 'make']):
+        # Action request - only for imperative patterns (exclude past tense questions)
+        elif any(w in query_lower for w in ['help me', 'implement', 'build', 'create', 'please make']):
             return 'action_request'
         elif any(w in query_lower for w in ['review', 'audit', 'analyze', 'check']):
             return 'analysis_request'
@@ -2206,21 +2211,24 @@ IMPORTANT:
         - Recency (0-0.3)
         - Outcome information (0-0.2 if has outcome data)
         """
-        from datetime import datetime
-
         all_decisions = []
+        seen_ids = set()  # Track by ID for reliable deduplication
 
         # Search with each keyword
         for keyword in keywords[:5]:  # Limit to top 5 keywords
             matches = self.org_memory.search_decisions(query=keyword)
             for match in matches:
-                if match not in all_decisions:
+                match_id = match.get('id', '')
+                if match_id and match_id not in seen_ids:
+                    seen_ids.add(match_id)
                     all_decisions.append(match)
 
         # Also do a full query search
         query_matches = self.org_memory.search_decisions(query=query[:100])
         for match in query_matches:
-            if match not in all_decisions:
+            match_id = match.get('id', '')
+            if match_id and match_id not in seen_ids:
+                seen_ids.add(match_id)
                 all_decisions.append(match)
 
         # Score each decision
@@ -2275,8 +2283,6 @@ IMPORTANT:
         - Recency (0-0.3)
         - Severity weight (0-0.2)
         """
-        from datetime import datetime
-
         # Get lessons from org_memory
         lessons = self.org_memory.get_relevant_lessons(query, max_results=max_results * 2)
 
@@ -2333,9 +2339,6 @@ IMPORTANT:
 
         Searches thread titles and messages for keyword matches.
         """
-        from datetime import datetime
-        import json
-
         relevant_threads = []
         query_words = set(query.lower().split())
 
@@ -2368,20 +2371,23 @@ IMPORTANT:
                 if title_overlap > 0:
                     score += min(title_overlap / max(len(query_words), 1), 1.0) * 0.3
 
-                # Message content matches
+                # Message content matches (cap contribution at 0.5 total)
                 matching_messages = []
+                message_score_total = 0.0
                 for msg in messages[-20:]:  # Only check last 20 messages
                     content = msg.get('content', '').lower()
                     content_words = set(content.split())
                     overlap = len(query_words & content_words)
                     if overlap > 0:
                         msg_score = min(overlap / max(len(query_words), 1), 1.0) * 0.1
-                        score += msg_score
+                        message_score_total += msg_score
                         matching_messages.append({
                             'role': msg.get('role', 'unknown'),
                             'content': msg.get('content', '')[:200],  # Truncate
                             'timestamp': msg.get('timestamp', '')
                         })
+                # Cap message contribution to prevent unbounded scores
+                score += min(message_score_total, 0.5)
 
                 # Recency bonus
                 updated_at = thread_data.get('updated_at', '')
@@ -2405,7 +2411,7 @@ IMPORTANT:
 
         except Exception as e:
             # Log but don't fail
-            print(f"[COO] Warning: Error searching conversation history: {e}")
+            logger.warning(f"Error searching conversation history: {e}")
             return []
 
         # Sort by score and return top N

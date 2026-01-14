@@ -271,11 +271,11 @@ async def send_coo_message(request: COOMessageRequest):
 
         # Log retrieval stats for debugging
         qa = query_relevant_context.get('query_analysis', {})
-        logger.info(f"[DEBUG] Query-aware retrieval: intent={qa.get('intent')}, "
-                   f"complexity={qa.get('complexity_score', 0):.2f}, "
-                   f"decisions={len(query_relevant_context.get('relevant_decisions', []))}, "
-                   f"lessons={len(query_relevant_context.get('relevant_lessons', []))}, "
-                   f"history={len(query_relevant_context.get('relevant_history', []))}")
+        logger.debug(f"Query-aware retrieval: intent={qa.get('intent')}, "
+                    f"complexity={qa.get('complexity_score', 0):.2f}, "
+                    f"decisions={len(query_relevant_context.get('relevant_decisions', []))}, "
+                    f"lessons={len(query_relevant_context.get('relevant_lessons', []))}, "
+                    f"history={len(query_relevant_context.get('relevant_history', []))}")
 
         # Combine static and query-relevant context
         combined_context = org_context
