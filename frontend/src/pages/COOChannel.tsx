@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, Bot, User, Sparkles, Clock, ChevronDown, Plus, Search, X, Image as ImageIcon, Terminal as TerminalIcon } from 'lucide-react';
+import { Send, Paperclip, Bot, User, Clock, ChevronDown, Plus, Search, X, Image as ImageIcon, Terminal as TerminalIcon } from 'lucide-react';
 import { GlassCard, Button, StatusOrb } from '../components/ui';
 import { api } from '../api/client';
 import type { ImageAttachment } from '../api/client';
@@ -67,7 +67,7 @@ export function COOChannel() {
   const [isTyping, setIsTyping] = useState(false);
   const [showThreads, setShowThreads] = useState(false);
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
