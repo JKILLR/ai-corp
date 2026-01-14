@@ -152,6 +152,126 @@ class COOAgent(BaseAgent):
 
         return molecule
 
+    def create_molecule_from_phases(
+        self,
+        title: str,
+        description: str,
+        phases: List[Dict[str, Any]],
+        priority: str = "P2_MEDIUM",
+        context: Optional[Dict[str, Any]] = None
+    ) -> Molecule:
+        """
+        Create a molecule with explicit phase definitions from COO.
+
+        This method creates molecules using exactly what the COO specifies,
+        without any keyword inference. The COO is the intelligent translator
+        that understands CEO intent and defines the execution structure.
+
+        Args:
+            title: Molecule title from COO
+            description: Molecule description from COO
+            phases: List of phase definitions, each with:
+                - department: Which department handles this phase
+                - task: What this phase should accomplish
+                - outputs: What this phase hands off to the next
+            priority: Priority level
+            context: Additional context
+
+        Returns:
+            Created molecule with steps chained in phase order
+        """
+        print(f"[COO] Creating molecule from explicit phases: {title}")
+        print(f"[COO] Phases defined: {len(phases)}")
+
+        # Create the molecule
+        molecule = self.molecule_engine.create_molecule(
+            name=title,
+            description=description,
+            created_by=self.identity.id,
+            priority=priority
+        )
+
+        # Extract departments for RACI
+        departments = [f"vp_{p['department']}" for p in phases]
+
+        # Set up RACI
+        molecule.raci = create_raci(
+            accountable=self.identity.role_id,
+            responsible=departments,
+            informed=['ceo']
+        )
+
+        # Create steps from phases, chaining dependencies
+        previous_step_id = None
+
+        for i, phase in enumerate(phases):
+            dept = phase['department']
+            task = phase.get('task', f'Execute {dept} phase')
+            outputs = phase.get('outputs', f'{dept} deliverables')
+
+            # Map department name to VP
+            vp_mapping = {
+                'research': 'vp_research',
+                'engineering': 'vp_engineering',
+                'product': 'vp_product',
+                'quality': 'vp_quality',
+                'operations': 'vp_operations'
+            }
+
+            # Create the work step
+            step = MoleculeStep.create(
+                name=f"Phase {i+1}: {dept.capitalize()}",
+                description=task,
+                department=dept,
+                required_capabilities=[dept],
+                depends_on=[previous_step_id] if previous_step_id else []
+            )
+
+            # Store phase context for VPs and Directors
+            # This is critical - they need to know what they're receiving and producing
+            step.phase_context = {
+                'phase_number': i + 1,
+                'total_phases': len(phases),
+                'department': dept,
+                'task': task,
+                'expected_outputs': outputs,
+                'previous_phase': phases[i-1] if i > 0 else None,
+                'next_phase': phases[i+1] if i < len(phases) - 1 else None
+            }
+
+            molecule.add_step(step)
+            previous_step_id = step.id
+
+            print(f"[COO]   Phase {i+1}: {dept} - {task[:50]}...")
+
+        # Store full molecule definition in molecule context
+        context = context or {}
+        context['coo_defined_phases'] = phases
+        context['handoff_chain'] = [
+            {'phase': i+1, 'department': p['department'], 'outputs': p.get('outputs', '')}
+            for i, p in enumerate(phases)
+        ]
+        molecule.context = context
+
+        # Save the molecule
+        self.molecule_engine._save_molecule(molecule)
+
+        # Record in bead
+        self.bead.create(
+            entity_type='molecule',
+            entity_id=molecule.id,
+            data={
+                **molecule.to_dict(),
+                'creation_type': 'coo_defined',
+                'phase_count': len(phases)
+            },
+            message=f"Created COO-defined molecule: {title} ({len(phases)} phases)"
+        )
+
+        print(f"[COO] Created molecule {molecule.id} with {len(molecule.steps)} COO-defined steps")
+
+        return molecule
+
     def _analyze_task_fast(
         self,
         title: str,
@@ -680,6 +800,42 @@ class COOAgent(BaseAgent):
                 owner_id=vp_id
             )
 
+            # Build context with phase information if available
+            work_context = {
+                'molecule_name': molecule.name,
+                'molecule_description': molecule.description,
+                'is_gate': step.is_gate,
+                'gate_id': step.gate_id
+            }
+
+            # Add COO-defined phase context if this is a COO-defined molecule
+            phase_ctx = getattr(step, 'phase_context', None)
+            if phase_ctx:
+                work_context['phase_context'] = phase_ctx
+                work_context['expected_outputs'] = phase_ctx.get('expected_outputs', '')
+
+                # Include handoff info from previous phase
+                if phase_ctx.get('previous_phase'):
+                    prev = phase_ctx['previous_phase']
+                    work_context['inputs_from_previous'] = {
+                        'department': prev.get('department'),
+                        'outputs': prev.get('outputs', ''),
+                        'task': prev.get('task', '')
+                    }
+
+                # Include what next phase expects
+                if phase_ctx.get('next_phase'):
+                    next_phase = phase_ctx['next_phase']
+                    work_context['handoff_to_next'] = {
+                        'department': next_phase.get('department'),
+                        'expects': next_phase.get('task', '')
+                    }
+
+            # Also add full handoff chain if available
+            mol_context = getattr(molecule, 'context', {}) or {}
+            if mol_context.get('handoff_chain'):
+                work_context['handoff_chain'] = mol_context['handoff_chain']
+
             work_item = self.hook_manager.add_work_to_hook(
                 hook_id=vp_hook.id,
                 title=step.name,
@@ -688,13 +844,59 @@ class COOAgent(BaseAgent):
                 step_id=step.id,
                 priority=WorkItemPriority[molecule.priority],
                 required_capabilities=step.required_capabilities,
-                context={
-                    'molecule_name': molecule.name,
-                    'molecule_description': molecule.description,
-                    'is_gate': step.is_gate,
-                    'gate_id': step.gate_id
-                }
+                context=work_context
             )
+
+            # Build delegation instructions with phase context if available
+            phase_ctx = getattr(step, 'phase_context', None)
+
+            instructions = f"""
+Please handle the following task:
+
+Molecule: {molecule.name}
+Step: {step.name}
+Description: {step.description}
+"""
+
+            # Add phase context for COO-defined molecules
+            if phase_ctx:
+                instructions += f"""
+PHASE CONTEXT (This is phase {phase_ctx.get('phase_number', '?')} of {phase_ctx.get('total_phases', '?')}):
+"""
+                if phase_ctx.get('previous_phase'):
+                    prev = phase_ctx['previous_phase']
+                    instructions += f"""
+INPUTS FROM PREVIOUS PHASE:
+- Department: {prev.get('department', 'N/A')}
+- Their work: {prev.get('task', 'N/A')}
+- Outputs you receive: {prev.get('outputs', 'N/A')}
+"""
+                else:
+                    instructions += "\nThis is the FIRST phase - no prior inputs.\n"
+
+                instructions += f"""
+YOUR DELIVERABLES:
+- Expected outputs: {phase_ctx.get('expected_outputs', 'Complete phase deliverables')}
+"""
+
+                if phase_ctx.get('next_phase'):
+                    next_p = phase_ctx['next_phase']
+                    instructions += f"""
+HANDOFF TO NEXT PHASE:
+- Next department: {next_p.get('department', 'N/A')}
+- They will: {next_p.get('task', 'N/A')}
+- They need from you: {phase_ctx.get('expected_outputs', 'Your deliverables')}
+"""
+                else:
+                    instructions += "\nThis is the FINAL phase - deliver to CEO.\n"
+
+            if step.is_gate:
+                instructions += "\nThis is a GATE step - approval required before proceeding.\n"
+
+            instructions += f"""
+Context:
+{molecule.description}
+"""
 
             # Send delegation message
             self.delegate_to(
@@ -702,18 +904,7 @@ class COOAgent(BaseAgent):
                 recipient_role=vp_id,
                 molecule_id=molecule.id,
                 step_id=step.id,
-                instructions=f"""
-Please handle the following task:
-
-Molecule: {molecule.name}
-Step: {step.name}
-Description: {step.description}
-
-{'This is a GATE step - approval required before proceeding.' if step.is_gate else ''}
-
-Context:
-{molecule.description}
-""",
+                instructions=instructions,
                 priority=MessagePriority.NORMAL
             )
 

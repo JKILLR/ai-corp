@@ -1262,6 +1262,74 @@ I'll have VP Engineering coordinate the research phase first."
 
 This is more natural than requiring specific confirmation phrases from the user - the COO understands conversational intent and decides when to delegate.
 
+**COO-Driven Molecule Definition: [MOLECULE] Block (✅ Complete)**
+
+The COO can explicitly define the molecule structure using a `[MOLECULE]` block, bypassing keyword inference:
+
+```
+[MOLECULE]
+title: Architecture Review
+description: Comprehensive review of system architecture
+
+phases:
+  - department: research
+    task: Analyze current architecture patterns
+    outputs: Architecture analysis document
+
+  - department: engineering
+    task: Review implementation based on research
+    outputs: Implementation review with recommendations
+
+  - department: quality
+    task: Validate architecture quality
+    outputs: Quality assessment report
+[/MOLECULE]
+```
+
+**Flow with [MOLECULE] block:**
+```
+CEO: "test handoffs between departments"
+     ↓
+COO: Discusses plan, includes [MOLECULE] block + [DELEGATE]
+     ↓
+API: _parse_molecule_block() extracts phases
+     ↓
+COO: create_molecule_from_phases() - exact structure, no inference
+     ↓
+Steps created with phase_context (inputs, outputs, handoffs)
+     ↓
+VPs/Directors see: previous phase outputs, expected outputs, next phase needs
+```
+
+**Why this matters:**
+- CEO can say simple things like "test with three phases"
+- COO translates intent into explicit structure during conversation
+- No keyword detection failure when CEO's message doesn't contain the right words
+- VPs and Directors know exactly what they receive and must hand off
+
+**Implementation:**
+```python
+# In src/api/main.py
+molecule_def = _parse_molecule_block(coo_response)
+if molecule_def:
+    molecule = coo.create_molecule_from_phases(
+        title=molecule_def['title'],
+        description=molecule_def['description'],
+        phases=molecule_def['phases'],
+        ...
+    )
+
+# In src/agents/coo.py - delegate_molecule includes phase context
+work_context['phase_context'] = {
+    'phase_number': 2,
+    'total_phases': 3,
+    'task': 'Review implementation based on research',
+    'expected_outputs': 'Implementation review with recommendations',
+    'previous_phase': {'department': 'research', 'outputs': 'Architecture analysis document'},
+    'next_phase': {'department': 'quality', 'expects': 'Validate architecture quality'}
+}
+```
+
 #### VPAgent (`src/agents/vp.py`)
 Department heads that:
 1. Receive delegations from COO

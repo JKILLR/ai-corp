@@ -319,6 +319,39 @@ When asked to review, audit, implement, or analyze something substantial:
 
 **IMPORTANT**: For big requests, DO NOT try to read/analyze the codebase yourself. Your job is to think about the request and plan how to delegate it effectively, not to do the work.
 
+## DEFINING WORK STRUCTURE (Important!)
+
+When you delegate, you can define EXACTLY what should happen by including a [MOLECULE] block in your response. This is how you translate the CEO's intent into a structured execution plan:
+
+```
+[MOLECULE]
+title: Clear title for this work
+description: What we're trying to accomplish
+
+phases:
+  - department: research
+    task: What Research should do (be specific)
+    outputs: What they hand off to the next phase
+
+  - department: engineering
+    task: What Engineering should do (reference research outputs)
+    outputs: What they hand off to the next phase
+
+  - department: quality
+    task: What Quality should validate
+    outputs: Final deliverables
+[/MOLECULE]
+```
+
+**Available departments:** research, engineering, product, quality
+
+**Why this matters:** Without a [MOLECULE] block, the system uses keyword detection on the CEO's message, which often misses the intent you discussed. With a [MOLECULE] block, you control exactly what happens.
+
+**Examples:**
+- CEO says "test handoffs between departments" → You define Research → Engineering → Quality phases with specific tasks
+- CEO says "do a three phase review" → You define exactly what each phase should do
+- CEO wants "codebase analysis" → You specify: Research analyzes structure, Engineering reviews implementation, Quality checks tests
+
 ## HOW TO RESPOND TO SMALL REQUESTS
 
 For quick questions or specific lookups (read one file, check one thing), you can use tools directly.
@@ -391,6 +424,13 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                 if should_delegate:
                     logger.info(f"[DEBUG] COO triggered delegation via [DELEGATE] marker")
 
+                    # Check for COO-defined molecule structure [MOLECULE]...[/MOLECULE]
+                    molecule_def = _parse_molecule_block(coo_response)
+                    if molecule_def:
+                        logger.info(f"[DEBUG] COO defined molecule structure: {molecule_def.get('title')} with {len(molecule_def.get('phases', []))} phases")
+                        # Also clean the molecule block from the response
+                        cleaned_response = _clean_molecule_block(cleaned_response)
+
                     # Build pending delegation context from conversation
                     pending = {
                         'proposed_at': datetime.utcnow().isoformat(),
@@ -399,8 +439,8 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
                         'context': delegation_context
                     }
 
-                    # Execute delegation
-                    result = _execute_delegation(coo, pending, thread_id)
+                    # Execute delegation with optional molecule definition
+                    result = _execute_delegation(coo, pending, thread_id, molecule_def=molecule_def)
                     logger.info(f"[DEBUG] Delegation result: {result.get('success')}")
 
                     if result.get('success'):
@@ -597,6 +637,96 @@ def _check_for_delegation_marker(coo_response: str) -> tuple[bool, str]:
     return False, coo_response
 
 
+def _parse_molecule_block(coo_response: str) -> Optional[Dict[str, Any]]:
+    """
+    Parse a [MOLECULE]...[/MOLECULE] block from COO's response.
+
+    The COO can include an explicit molecule definition:
+
+    [MOLECULE]
+    title: Clear title describing the work
+    description: Detailed description of goals
+    phases:
+      - department: research
+        task: What research should do
+        outputs: What they hand off
+      - department: engineering
+        task: What engineering should do
+        outputs: What they hand off
+    [/MOLECULE]
+
+    Returns:
+        Parsed molecule definition dict, or None if no block found
+    """
+    # Look for [MOLECULE]...[/MOLECULE] block (case insensitive, multiline)
+    pattern = r'\[MOLECULE\](.*?)\[/MOLECULE\]'
+    match = re.search(pattern, coo_response, re.IGNORECASE | re.DOTALL)
+
+    if not match:
+        return None
+
+    block_content = match.group(1).strip()
+
+    try:
+        # Parse the YAML-like content
+        molecule_def = {
+            'title': '',
+            'description': '',
+            'phases': []
+        }
+
+        current_phase = None
+        in_phases = False
+
+        for line in block_content.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            # Check for top-level fields
+            if line.startswith('title:'):
+                molecule_def['title'] = line.split(':', 1)[1].strip()
+            elif line.startswith('description:'):
+                molecule_def['description'] = line.split(':', 1)[1].strip()
+            elif line.startswith('phases:'):
+                in_phases = True
+            elif in_phases:
+                # Parse phase entries
+                if line.startswith('- department:') or line.startswith('-department:'):
+                    # New phase
+                    if current_phase:
+                        molecule_def['phases'].append(current_phase)
+                    dept = line.split(':', 1)[1].strip()
+                    current_phase = {'department': dept, 'task': '', 'outputs': ''}
+                elif current_phase:
+                    if line.startswith('task:'):
+                        current_phase['task'] = line.split(':', 1)[1].strip()
+                    elif line.startswith('outputs:'):
+                        current_phase['outputs'] = line.split(':', 1)[1].strip()
+
+        # Don't forget the last phase
+        if current_phase:
+            molecule_def['phases'].append(current_phase)
+
+        # Validate we have at least one phase
+        if not molecule_def['phases']:
+            logger.warning("Parsed [MOLECULE] block but found no phases")
+            return None
+
+        logger.info(f"Parsed [MOLECULE] block: {molecule_def['title']} with {len(molecule_def['phases'])} phases")
+        return molecule_def
+
+    except Exception as e:
+        logger.warning(f"Failed to parse [MOLECULE] block: {e}")
+        return None
+
+
+def _clean_molecule_block(response: str) -> str:
+    """Remove [MOLECULE]...[/MOLECULE] block from response."""
+    pattern = r'\[MOLECULE\].*?\[/MOLECULE\]'
+    return re.sub(pattern, '', response, flags=re.IGNORECASE | re.DOTALL).strip()
+
+
 # Track corporation cycle state with timestamp for timeout recovery
 _corporation_cycle_started_at: Optional[float] = None
 _corporation_cycle_molecule_id: Optional[str] = None
@@ -723,12 +853,18 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
         _corporation_cycle_molecule_id = None
 
 
-def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[str, Any]:
+def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str, molecule_def: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Execute delegation FAST - create molecule, queue work, return immediately.
 
     The COO does NOT wait for VPs/Directors/Workers to process.
     Work is queued in hooks and processed by background executor.
+
+    Args:
+        coo: The COO agent instance
+        pending: Pending delegation context
+        thread_id: Conversation thread ID
+        molecule_def: Optional COO-defined molecule structure from [MOLECULE] block
     """
     # Get recent conversation to extract title/description
     thread = coo.get_thread(thread_id)
@@ -751,21 +887,39 @@ def _execute_delegation(coo, pending: Dict[str, Any], thread_id: str) -> Dict[st
                 break
 
     try:
-        # Create molecule through COO - uses fast keyword analysis, not LLM
-        logger.info(f"[DEBUG] Creating molecule with title='{title}'")
-        molecule = coo.receive_ceo_task_fast(
-            title=title,
-            description=description,
-            priority="P2_MEDIUM",
-            context={
-                'project_type': pending.get('project_type', 'research'),
-                'thread_id': thread_id,
-                'auto_delegated': True
-            }
-        )
+        # Check if COO provided an explicit molecule definition
+        if molecule_def and molecule_def.get('phases'):
+            logger.info(f"[DEBUG] Using COO-defined molecule: {molecule_def.get('title', title)}")
+
+            # Use COO's explicit structure - no keyword inference
+            molecule = coo.create_molecule_from_phases(
+                title=molecule_def.get('title') or title,
+                description=molecule_def.get('description') or description,
+                phases=molecule_def['phases'],
+                priority="P2_MEDIUM",
+                context={
+                    'project_type': pending.get('project_type', 'research'),
+                    'thread_id': thread_id,
+                    'auto_delegated': True,
+                    'coo_defined': True  # Mark as COO-defined for tracking
+                }
+            )
+        else:
+            # Fall back to keyword-based analysis
+            logger.info(f"[DEBUG] Creating molecule with title='{title}' (keyword analysis)")
+            molecule = coo.receive_ceo_task_fast(
+                title=title,
+                description=description,
+                priority="P2_MEDIUM",
+                context={
+                    'project_type': pending.get('project_type', 'research'),
+                    'thread_id': thread_id,
+                    'auto_delegated': True
+                }
+            )
 
         if molecule is None:
-            logger.error("[DEBUG] receive_ceo_task_fast returned None!")
+            logger.error("[DEBUG] Molecule creation returned None!")
             return {'success': False, 'error': 'Failed to create molecule (returned None)'}
 
         logger.info(f"[DEBUG] Molecule created: {molecule.id}")
