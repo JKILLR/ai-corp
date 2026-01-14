@@ -101,6 +101,7 @@
 
 | Feature | Completed | Notes |
 |---------|-----------|-------|
+| **Memory Intelligence Layer** | **2026-01-14** | **Phases 1-4: Preference learning, decision tracking, conversation summarization, outcome-based learning** |
 | **Auto-Advance System** | **2026-01-14** | **Callbacks for automatic delegation after step completion and gate approval** |
 | **Hook Cache Fix** | **2026-01-14** | **Synchronize agent.hook AND hook_manager._hooks to prevent lost work** |
 | **Molecule Step Integration** | **2026-01-12** | **VP/Director/Worker now update step status; all departments staffed** |

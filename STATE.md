@@ -1,9 +1,9 @@
 # AI Corp Project State
 
 > **Last Updated:** 2026-01-14
-> **Current Phase:** COO-Driven Molecule Definition Complete
-> **Status:** ✅ Full Stack Complete + Auto-Advance + COO Intelligence
-> **Next Action:** Test full delegation flow with [MOLECULE] blocks
+> **Current Phase:** Memory Intelligence Layer Complete
+> **Status:** ✅ Full Stack Complete + Memory Intelligence Layer (Phases 1-4)
+> **Next Action:** Continue Foundation Corp Dogfooding with intelligent memory
 
 ---
 
@@ -38,7 +38,7 @@
 | **Molecule Step Integration** | ✅ Complete | VP/Director/Worker update step status; all depts have workers |
 | **API Layer** | ✅ Complete | FastAPI server with COO chat, delegation, dashboard, gates, WebSocket |
 | Core Infrastructure | ✅ Complete | Molecules, hooks, beads, channels, gates, pools |
-| Memory System | ✅ Complete | RLM-inspired context + SimpleMem adaptive retrieval |
+| Memory System | ✅ Complete | RLM-inspired context + SimpleMem adaptive retrieval + Memory Intelligence Layer (Phases 1-4) |
 | Agent Hierarchy | ✅ Complete | COO, VP, Director, Worker agents |
 | LLM Integration | ✅ Complete | Swappable backends (ClaudeCode, API, Mock) |
 | Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
@@ -70,6 +70,60 @@
 ---
 
 ## Recent Changes
+
+### 2026-01-14: Memory Intelligence Layer Complete (Phases 1-4)
+
+**Goal:** Build a unified memory system that enables AI Corp to learn from experience and surface relevant context proactively.
+
+**Phase 1: Preference Learning**
+- `OrganizationalMemory.record_preference()` - Store user preferences with context and source
+- `OrganizationalMemory.get_preferences_for_context()` - Relevance-scored preference retrieval
+- Integrated into COO chat flow for personalized responses
+- Preferences include: context, value, reason, timestamp, source
+
+**Phase 2: Decision Tracking & Recall**
+- `OrganizationalMemory.record_decision()` - Store decisions with full context and outcomes
+- `OrganizationalMemory.find_related_decisions()` - Find relevant past decisions
+- `OrganizationalMemory.record_decision_outcome()` - Link outcomes to decisions for learning
+- Proactive surfacing of related decisions in chat flow
+
+**Phase 3: Conversation Summarization**
+- `ConversationSummarizer` - Intelligent multi-tier conversation compression
+- `_extract_key_points()` - Extract decisions, questions, action items, context
+- `_generate_summary()` - Tier-based summaries (brief/standard/detailed/comprehensive)
+- Automatic tier selection based on message count
+- Integration with chat flow for context-aware responses
+
+**Phase 4: Outcome-Based Learning**
+- `OrganizationalMemory.record_molecule_outcome()` - Record structured outcomes when molecules complete
+- `OrganizationalMemory.find_similar_past_work()` - Pattern matching with relevance scoring and deduplication
+- `OrganizationalMemory.get_lessons_for_task_type()` - Retrieve lessons by category
+- `OrganizationalMemory.aggregate_lessons_by_category()` - Aggregate success rates and blockers
+- `OrganizationalMemory.store_synthesized_insight()` - Upsert logic for Evolution Daemon insights
+- `MoleculeEngine.on_molecule_complete` - Callback for outcome recording
+- Integration with chat flow and delegation for proactive lesson surfacing
+- `EvolutionDaemon._synthesize_lessons_from_memory()` - Slow cycle synthesis
+
+**Key Integration Points:**
+```
+Molecule Completes → on_molecule_complete callback → record_molecule_outcome()
+                                                           ↓
+Chat/Delegation → find_similar_past_work() → format_lessons_for_context() → LLM
+                                                           ↓
+Evolution Daemon slow cycle → aggregate_lessons_by_category() → store_synthesized_insight()
+```
+
+**Code Cleanup Applied:**
+- Extracted `_RELEVANCE_STOPWORDS` as class constant (was duplicated 3x)
+- Added `seen_molecule_ids` deduplication in `find_similar_past_work()`
+- Implemented upsert logic in `store_synthesized_insight()` (was creating duplicates)
+- Removed redundant datetime import in `_record_molecule_outcome()`
+
+**Files Changed:**
+- `src/core/memory.py` - OrganizationalMemory with all 4 phases + ConversationSummarizer
+- `src/core/molecule.py` - on_molecule_complete callback
+- `src/core/learning.py` - _synthesize_lessons_from_memory in EvolutionDaemon
+- `src/api/main.py` - Integration with chat flow and delegation
 
 ### 2026-01-14: COO-Driven Molecule Definition
 
