@@ -21,6 +21,8 @@ from src.core.preset import init_from_preset
 from src.core.molecule import MoleculeEngine, MoleculeStatus, StepStatus
 from src.core.hook import HookManager
 from src.core.bead import BeadLedger
+from src.core.llm import MockBackend, LLMResponse, AgentLLMInterface
+import json
 from src.agents.coo import COOAgent
 from src.agents.executor import CorporationExecutor
 
@@ -54,6 +56,7 @@ def show_molecule(engine: MoleculeEngine, mol_id: str):
     status_icons = {
         "pending": "○",
         "in_progress": "◐",
+        "delegated": "◇",  # Delegated to subordinates
         "completed": "●",
         "failed": "✗",
         "blocked": "⊘"
@@ -108,8 +111,53 @@ def main():
         # Step 2: Create agents via CorporationExecutor
         print_step(2, "Create agent hierarchy")
 
-        corp_executor = CorporationExecutor(corp_path)
+        # Use MockBackend for testing without real LLM calls
+        def mock_response_generator(request):
+            """Generate appropriate mock responses based on request context."""
+            prompt = request.prompt.lower()
+
+            # VP delegation decision - delegate to director
+            if 'delegate' in prompt and ('vp' in prompt or 'director' in prompt):
+                content = json.dumps({
+                    "decision": "delegate_next",
+                    "reasoning": "Delegating implementation work to directors",
+                    "target": "director_engineering"
+                })
+                return LLMResponse(content=content, success=True, metadata={'mock': True})
+
+            # Director delegation decision - delegate to worker
+            if 'delegate' in prompt and ('director' in prompt or 'worker' in prompt):
+                content = json.dumps({
+                    "decision": "delegate_next",
+                    "reasoning": "Delegating to available worker",
+                    "target": "worker_backend_01"
+                })
+                return LLMResponse(content=content, success=True, metadata={'mock': True})
+
+            # Worker execution - return mock success
+            if 'execute' in prompt or 'implement' in prompt or 'worker' in prompt:
+                content = json.dumps({
+                    "success": True,
+                    "output": "def test_user_auth():\n    assert login('user', 'pass') == True",
+                    "files_created": ["tests/test_auth.py"]
+                })
+                return LLMResponse(content=content, success=True, metadata={'mock': True})
+
+            # Default response
+            content = json.dumps({"success": True, "message": "Mock response"})
+            return LLMResponse(content=content, success=True, metadata={'mock': True})
+
+        mock_backend = MockBackend()
+        mock_backend.set_response_generator(mock_response_generator)
+
+        corp_executor = CorporationExecutor(corp_path, llm_backend=mock_backend)
         corp_executor.initialize(departments=['engineering', 'research', 'quality', 'product'])
+
+        # CRITICAL: Inject mock backend into ALL agents (factory functions don't pass it)
+        mock_llm_interface = AgentLLMInterface(mock_backend)
+        for agent in corp_executor.agents.values():
+            agent.llm = mock_llm_interface
+        print("  ✓ Injected MockBackend into all agents")
 
         coo = corp_executor.coo
         print(f"  ✓ COO: {coo.identity.role_name}")
@@ -152,10 +200,10 @@ def main():
         # Run the delegation chain
         results = corp_executor.run_cycle()
 
-        print(f"  COO result: {results.get('coo', {}).get('processed', 0)} processed")
-        print(f"  VP result: {results.get('vps', {}).get('processed', 0)} processed")
-        print(f"  Director result: {results.get('directors', {}).get('processed', 0)} processed")
-        print(f"  Worker result: {results.get('workers', {}).get('processed', 0)} processed")
+        # ExecutionResult has: total_agents, completed, failed, stopped, duration_seconds, agent_results
+        for tier, result in results.items():
+            completed = result.completed if hasattr(result, 'completed') else 0
+            print(f"  {tier}: {completed} completed")
 
         # Step 6: Check final state
         print_step(6, "Final molecule state")
@@ -181,11 +229,12 @@ def main():
         if total_work == 0:
             issues.append("No work items in any hook")
 
-        # Check if steps progressed
+        # Check if steps progressed (moved from PENDING to IN_PROGRESS, DELEGATED, or COMPLETED)
         if final_mol:
             in_progress_count = sum(1 for s in final_mol.steps if s.status == StepStatus.IN_PROGRESS)
+            delegated_count = sum(1 for s in final_mol.steps if s.status == StepStatus.DELEGATED)
             completed_count = sum(1 for s in final_mol.steps if s.status == StepStatus.COMPLETED)
-            if in_progress_count == 0 and completed_count == 0:
+            if in_progress_count == 0 and delegated_count == 0 and completed_count == 0:
                 issues.append("No steps moved from PENDING")
 
         if issues:
