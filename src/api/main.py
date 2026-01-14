@@ -2584,10 +2584,11 @@ async def activity_feed_websocket(websocket: WebSocket):
     """
     WebSocket endpoint for real-time activity feed.
 
-    Streams molecule/step/gate lifecycle events to connected clients.
+    Streams translated molecule/step/gate lifecycle events to connected clients.
+    Events are human-readable with icons, severity, and phase information.
     On connect, sends recent event history for context.
 
-    Event types:
+    Event types (raw_type field):
     - molecule.created: New molecule/project created
     - molecule.started: Molecule execution began
     - molecule.step.started: Step transitioned to in_progress
@@ -2600,9 +2601,25 @@ async def activity_feed_websocket(websocket: WebSocket):
     - work.delegated: Work assigned to agent
 
     Protocol:
-    - Server sends: {"event_id": "...", "timestamp": "...", "event_type": "...", "data": {...}}
-    - Client can send: {"type": "ping"} for keepalive
-    - On connect: {"type": "history", "events": [...]} with recent events
+    - Server sends translated events:
+      {
+        "event_id": "uuid",
+        "timestamp": "ISO8601",
+        "raw_type": "molecule.created",
+        "molecule_id": "uuid",
+        "display": {
+          "message": "Human readable message",
+          "icon": "emoji",
+          "severity": "info|success|warning|error",
+          "phase": "Starting|In Progress|Complete|Error"
+        },
+        "aggregated_count": 3,  // optional, for batched events
+        "aggregated_events": ["id1", "id2", "id3"]  // optional
+      }
+    - Client can send: {"type": "ping"} for keepalive (server responds with {"type": "pong"})
+    - Client can send: {"type": "get_history", "limit": 50} to request history
+    - Client can send: {"type": "get_stats"} to get connection/history stats
+    - On connect: {"type": "history", "events": [...], "count": N} with recent events
     """
     broadcaster = get_activity_broadcaster()
     await broadcaster.subscribe(websocket)
