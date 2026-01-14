@@ -1070,14 +1070,18 @@ class OrganizationalMemory:
     # CEO Preferences - High-priority rules that persist across sessions
     # =========================================================================
 
-    # Keywords that indicate opposite/conflicting intent
-    _CONFLICT_PAIRS = [
-        ({'always', 'must', 'require', 'need'}, {'never', 'dont', "don't", 'avoid', 'stop', 'no'}),
-        ({'enable', 'allow', 'permit', 'use'}, {'disable', 'disallow', 'forbid', 'block'}),
-        ({'include', 'add', 'keep'}, {'exclude', 'remove', 'delete'}),
-        ({'before', 'first'}, {'after', 'last'}),
-        ({'more', 'increase'}, {'less', 'decrease', 'reduce'}),
-    ]
+    # Common stopwords to filter out when extracting action words from preferences
+    _PREFERENCE_STOPWORDS = {
+        'always', 'never', 'dont', "don't", 'do', 'not', 'please',
+        'make', 'sure', 'to', 'the', 'a', 'an', 'i', 'want', 'you',
+        'must', 'should', 'need', 'avoid', 'stop', 'use', 'keep'
+    }
+
+    # Words indicating positive polarity (do this)
+    _POSITIVE_POLARITY_WORDS = {'always', 'must', 'use', 'enable', 'include', 'keep', 'add'}
+
+    # Words indicating negative polarity (don't do this)
+    _NEGATIVE_POLARITY_WORDS = {'never', 'dont', "don't", 'avoid', 'stop', 'disable', 'exclude', 'remove', 'no'}
 
     @property
     def preferences_file(self) -> Path:
@@ -1204,17 +1208,12 @@ class OrganizationalMemory:
         new_rule_lower = new_rule.lower()
         new_words = set(re.findall(r'\b\w+\b', new_rule_lower))
 
-        # Extract the "action" part - what the preference is about
-        # Remove common prefixes to get the core action
-        action_words = new_words - {
-            'always', 'never', 'dont', "don't", 'do', 'not', 'please',
-            'make', 'sure', 'to', 'the', 'a', 'an', 'i', 'want', 'you',
-            'must', 'should', 'need', 'avoid', 'stop', 'use', 'keep'
-        }
+        # Extract the "action" part - filter out stopwords to get core action
+        new_action_words = new_words - self._PREFERENCE_STOPWORDS
 
         # Determine the "polarity" of the new preference
-        new_positive = any(w in new_words for w in {'always', 'must', 'use', 'enable', 'include', 'keep', 'add'})
-        new_negative = any(w in new_words for w in {'never', 'dont', "don't", 'avoid', 'stop', 'disable', 'exclude', 'remove', 'no'})
+        new_positive = bool(new_words & self._POSITIVE_POLARITY_WORDS)
+        new_negative = bool(new_words & self._NEGATIVE_POLARITY_WORDS)
 
         preferences = self._load_file(self.preferences_file)
 
@@ -1225,20 +1224,16 @@ class OrganizationalMemory:
 
             existing_rule_lower = pref.get('rule', '').lower()
             existing_words = set(re.findall(r'\b\w+\b', existing_rule_lower))
-            existing_action_words = existing_words - {
-                'always', 'never', 'dont', "don't", 'do', 'not', 'please',
-                'make', 'sure', 'to', 'the', 'a', 'an', 'i', 'want', 'you',
-                'must', 'should', 'need', 'avoid', 'stop', 'use', 'keep'
-            }
+            existing_action_words = existing_words - self._PREFERENCE_STOPWORDS
 
             # Check for significant action word overlap
-            overlap = action_words & existing_action_words
+            overlap = new_action_words & existing_action_words
             if len(overlap) < 2:  # Need at least 2 common action words
                 continue
 
             # Determine polarity of existing preference
-            existing_positive = any(w in existing_words for w in {'always', 'must', 'use', 'enable', 'include', 'keep', 'add'})
-            existing_negative = any(w in existing_words for w in {'never', 'dont', "don't", 'avoid', 'stop', 'disable', 'exclude', 'remove', 'no'})
+            existing_positive = bool(existing_words & self._POSITIVE_POLARITY_WORDS)
+            existing_negative = bool(existing_words & self._NEGATIVE_POLARITY_WORDS)
 
             # Conflict: same topic, opposite polarity
             if (new_positive and existing_negative) or (new_negative and existing_positive):
@@ -1358,7 +1353,8 @@ class OrganizationalMemory:
         Follows supersedes/superseded_by links to build the evolution timeline.
         """
         preferences = self._load_file(self.preferences_file)
-        pref_map = {p['id']: p for p in preferences}
+        # Build map safely, skipping any malformed preferences without 'id'
+        pref_map = {p['id']: p for p in preferences if p.get('id')}
 
         # Find the starting preference
         current = pref_map.get(preference_id)
