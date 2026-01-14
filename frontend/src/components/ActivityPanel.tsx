@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, X, Minimize2, Maximize2, ChevronRight, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { Activity, X, Minimize2, Maximize2, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { GlassCard } from './ui';
 import { StatusOrb } from './ui/StatusOrb';
 
@@ -51,6 +51,14 @@ const severityToStatus: Record<string, 'ok' | 'processing' | 'warning' | 'waitin
   info: 'processing',
   warning: 'warning',
   error: 'warning',
+};
+
+// Connection status config (defined outside component to avoid recreation on each render)
+const CONNECTION_STATUS_CONFIG: Record<ConnectionStatus, { text: string; color: string }> = {
+  connecting: { text: 'Connecting...', color: 'text-[var(--color-wait)]' },
+  connected: { text: 'Live', color: 'text-[var(--color-ok)]' },
+  disconnected: { text: 'Disconnected', color: 'text-[var(--color-muted)]' },
+  error: { text: 'Error', color: 'text-[var(--color-warn)]' },
 };
 
 // =============================================================================
@@ -109,11 +117,10 @@ export function ActivityPanel({
     eventsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  // Handle incoming WebSocket messages
-  // Note: Uses refs to avoid stale closure issues and prevent reconnection loops
-  const handleMessage = useCallback((data: ActivityEvent) => {
+  // Handle a single activity event
+  const handleActivityEvent = useCallback((event: ActivityEvent) => {
     setEvents((prev) => {
-      const newEvents = [...prev, data];
+      const newEvents = [...prev, event];
       // Keep only the last MAX_EVENTS
       return newEvents.slice(-MAX_EVENTS);
     });
@@ -126,11 +133,11 @@ export function ActivityPanel({
         setPanelState('open');
       }
       // Auto-open on errors
-      else if (data.display.severity === 'error') {
+      else if (event.display.severity === 'error') {
         setPanelState('open');
       }
       // Auto-open on new molecule started
-      else if (data.raw_type === 'molecule.created' || data.raw_type === 'molecule.started') {
+      else if (event.raw_type === 'molecule.created' || event.raw_type === 'molecule.started') {
         setPanelState('open');
       }
     }
@@ -140,6 +147,39 @@ export function ActivityPanel({
       setUnreadCount((prev) => prev + 1);
     }
   }, [autoOpen]);
+
+  // Handle incoming WebSocket messages (supports different message types)
+  const handleMessage = useCallback((rawData: unknown) => {
+    // Type guard for message structure
+    if (!rawData || typeof rawData !== 'object') return;
+
+    const data = rawData as Record<string, unknown>;
+
+    // Handle history message (sent on connection)
+    if (data.type === 'history' && Array.isArray(data.events)) {
+      const historyEvents = data.events as ActivityEvent[];
+      if (historyEvents.length > 0) {
+        setEvents(historyEvents.slice(-MAX_EVENTS));
+        hasReceivedFirstEvent.current = true;
+      }
+      return;
+    }
+
+    // Handle pong (keepalive response) - no action needed
+    if (data.type === 'pong') {
+      return;
+    }
+
+    // Handle stats response - no action needed for now
+    if (data.type === 'stats') {
+      return;
+    }
+
+    // Handle individual activity event (has event_id and display)
+    if (data.event_id && data.display) {
+      handleActivityEvent(data as unknown as ActivityEvent);
+    }
+  }, [handleActivityEvent]);
 
   // Connect to WebSocket
   const connect = useCallback(() => {
@@ -161,7 +201,7 @@ export function ActivityPanel({
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data) as ActivityEvent;
+          const data = JSON.parse(event.data);
           handleMessage(data);
         } catch (err) {
           console.error('Failed to parse activity event:', err);
@@ -230,33 +270,20 @@ export function ActivityPanel({
 
   // Render connection indicator
   const renderConnectionStatus = () => {
-    const statusConfig: Record<ConnectionStatus, { icon: ReactNode; text: string; color: string }> = {
-      connecting: {
-        icon: <Wifi className="w-3 h-3 animate-pulse" />,
-        text: 'Connecting...',
-        color: 'text-[var(--color-wait)]',
-      },
-      connected: {
-        icon: <Wifi className="w-3 h-3" />,
-        text: 'Live',
-        color: 'text-[var(--color-ok)]',
-      },
-      disconnected: {
-        icon: <WifiOff className="w-3 h-3" />,
-        text: 'Disconnected',
-        color: 'text-[var(--color-muted)]',
-      },
-      error: {
-        icon: <AlertCircle className="w-3 h-3" />,
-        text: 'Error',
-        color: 'text-[var(--color-warn)]',
-      },
-    };
+    const config = CONNECTION_STATUS_CONFIG[connectionStatus];
+    const icon = connectionStatus === 'connecting' ? (
+      <Wifi className="w-3 h-3 animate-pulse" />
+    ) : connectionStatus === 'connected' ? (
+      <Wifi className="w-3 h-3" />
+    ) : connectionStatus === 'error' ? (
+      <AlertCircle className="w-3 h-3" />
+    ) : (
+      <WifiOff className="w-3 h-3" />
+    );
 
-    const config = statusConfig[connectionStatus];
     return (
       <span className={`flex items-center gap-1 text-xs ${config.color}`}>
-        {config.icon}
+        {icon}
         {config.text}
       </span>
     );
@@ -432,38 +459,8 @@ function ActivityEventItem({ event, isLast }: ActivityEventItemProps) {
             )}
           </div>
         </div>
-
-        {/* Chevron for detail expansion (future feature) */}
-        <ChevronRight className="w-4 h-4 text-[var(--color-muted)] opacity-50 flex-shrink-0 mt-1" />
       </div>
     </motion.div>
   );
 }
 
-// =============================================================================
-// TRIGGER BUTTON (for external use)
-// =============================================================================
-
-interface ActivityTriggerProps {
-  onClick: () => void;
-  unreadCount?: number;
-}
-
-export function ActivityTrigger({ onClick, unreadCount = 0 }: ActivityTriggerProps) {
-  return (
-    <motion.button
-      onClick={onClick}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      className="relative p-2 hover:bg-[var(--glass-bg)] rounded-lg transition-colors"
-      title="Activity Feed"
-    >
-      <Activity className="w-5 h-5 text-[var(--color-muted)]" />
-      {unreadCount > 0 && (
-        <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 bg-[var(--color-neural)] rounded-full flex items-center justify-center text-[9px] text-white font-bold">
-          {unreadCount > 99 ? '99+' : unreadCount}
-        </span>
-      )}
-    </motion.button>
-  );
-}
