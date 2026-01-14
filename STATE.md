@@ -1,9 +1,9 @@
 # AI Corp Project State
 
-> **Last Updated:** 2026-01-12
-> **Current Phase:** Molecule Step Integration Fixed - Testing Dogfooding
-> **Status:** ✅ Full Stack Complete + Orchestration Fixes
-> **Next Action:** Continue Foundation Corp Dogfooding - molecule tracking now working
+> **Last Updated:** 2026-01-14
+> **Current Phase:** Auto-Advance System Complete - Ready for E2E Testing
+> **Status:** ✅ Full Stack Complete + Auto-Advance + Bug Fixes
+> **Next Action:** Test full delegation flow with real Claude CLI, verify auto-advance works
 
 ---
 
@@ -70,6 +70,78 @@
 ---
 
 ## Recent Changes
+
+### 2026-01-14: Auto-Advance System + Critical Bug Fixes
+
+**5 Major Fixes from COO Delegation Testing:**
+
+**1. Hook Cache Mismatch Fix (`src/agents/executor.py`)**
+
+When `_refresh_all_agent_hooks()` was called, it updated `agent.hook` but not the cached reference in `agent.hook_manager._hooks[hook_id]`. This caused work items to be "lost" because the hook manager was using stale cached hooks.
+
+**Fix:** Update both `agent.hook` AND `agent.hook_manager._hooks[hook_id]` when refreshing:
+```python
+if key in hook_lookup:
+    self.coo.hook = hook_lookup[key]
+    self.coo.hook_manager._hooks[hook_lookup[key].id] = hook_lookup[key]
+```
+
+**2. Uvicorn Reload Fix (`src/api/main.py`)**
+
+Uvicorn was restarting on every data file change (corp/, foundation/, tests/). First tried `--reload-exclude` but it didn't work reliably.
+
+**Fix:** Use allowlist approach with `--reload-dir` to ONLY watch source files:
+```python
+uvicorn.run(..., reload_dirs=["src/"])  # Ignore corp/, foundation/, tests/
+```
+
+**3. Auto-Advance After Gate Approval (`src/core/gate.py`, `src/api/main.py`)**
+
+When a gate was approved (manually or auto), the system didn't delegate the next steps. Work would stall waiting for manual intervention.
+
+**Fix:**
+- Added `on_molecule_advance` callback to `AsyncGateEvaluator`
+- Wired callback in API to call `coo.delegate_molecule()` after approval
+- Gate approval now triggers delegation of unlocked steps
+
+**4. Auto-Advance After Step Completion (`src/core/molecule.py`, `src/api/main.py`)**
+
+Regular step completion (not just gates) didn't trigger delegation of next steps. The molecule would complete a step but not automatically move forward.
+
+**Fix:**
+- Added `on_step_complete` callback to `MoleculeEngine`
+- Wired callback in API to call `coo.delegate_molecule()` after step completion
+- Any step completion now checks for and delegates newly-unlocked steps
+
+**5. Failed Status Handling (`src/core/molecule.py`)**
+
+`complete_step()` was marking steps as COMPLETED even when the result indicated failure (`result.get('status') == 'failed'`).
+
+**Fix:** Check result status before marking complete:
+```python
+if result.get('status') == 'failed':
+    step.status = StepStatus.FAILED
+    step.error = result.get('error', 'Step failed')
+    self._save_molecule(molecule)
+    return step
+```
+
+**Code Review Bug Fixes:**
+
+- **API Method Names:** `gates.approve_gate()` → `gates.approve()`, `gates.reject_gate()` → `gates.reject()`
+- **Logging Import:** Moved inline `import logging` to top of `molecule.py`
+
+**Callback Architecture:**
+```
+Step Completion → MoleculeEngine.on_step_complete → COO.delegate_molecule()
+Gate Approval   → AsyncGateEvaluator.on_molecule_advance → COO.delegate_molecule()
+```
+
+**Files Changed:**
+- `src/agents/executor.py` - Hook cache synchronization
+- `src/api/main.py` - Uvicorn config, gate method names, auto-advance callbacks
+- `src/core/molecule.py` - on_step_complete callback, failed status handling
+- `src/core/gate.py` - on_molecule_advance callback
 
 ### 2026-01-12: COO Delegation Marker System + VP Processing Fix
 

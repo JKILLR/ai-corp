@@ -1319,7 +1319,7 @@ async def approve_gate(gate_id: str, submission_id: str):
     coo = get_coo()
 
     try:
-        result = gates.approve_gate(gate_id, submission_id, approved_by='ceo')
+        result = gates.approve(gate_id, submission_id, reviewer='ceo')
 
         # Auto-advance: delegate next available steps
         # Find the molecule associated with this gate submission
@@ -1352,7 +1352,7 @@ async def reject_gate(gate_id: str, submission_id: str, reason: str = ""):
     gates = get_gate_keeper()
 
     try:
-        result = gates.reject_gate(gate_id, submission_id, rejected_by='ceo', reason=reason)
+        result = gates.reject(gate_id, submission_id, reviewer='ceo', reasons=[reason] if reason else ['Rejected'])
         return {'status': 'rejected', 'result': result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
