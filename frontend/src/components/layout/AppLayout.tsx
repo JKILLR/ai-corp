@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MessageSquare } from 'lucide-react';
@@ -14,6 +15,26 @@ export function AppLayout({ title }: AppLayoutProps) {
   const navigate = useNavigate();
   const isOnCOOPage = location.pathname === '/coo';
 
+  // Handle molecule completion - navigate to COO and optionally request summary
+  const handleMoleculeComplete = useCallback((moleculeId: string, context?: string) => {
+    // If user clicks "Get Summary", navigate to COO page
+    if (context === 'summary') {
+      navigate('/coo', {
+        state: {
+          requestSummary: true,
+          moleculeId,
+        },
+      });
+    }
+    // Otherwise just log completion (summary button shows in panel)
+    console.log(`Molecule ${moleculeId} completed`);
+  }, [navigate]);
+
+  // Handle errors - could show a toast or navigate to details
+  const handleError = useCallback((error: { event_id: string; molecule_id?: string }) => {
+    console.error('Activity error:', error.event_id, error.molecule_id);
+  }, []);
+
   return (
     <div className="flex h-screen">
       <Sidebar />
@@ -25,7 +46,12 @@ export function AppLayout({ title }: AppLayoutProps) {
       </div>
 
       {/* Activity Feed Panel - Real-time work updates */}
-      <ActivityPanel initialState="hidden" autoOpen={true} />
+      <ActivityPanel
+        initialState="hidden"
+        autoOpen={true}
+        onMoleculeComplete={handleMoleculeComplete}
+        onError={handleError}
+      />
 
       {/* Quick access to COO Channel when not on that page */}
       {!isOnCOOPage && (
