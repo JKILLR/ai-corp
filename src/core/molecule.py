@@ -1199,7 +1199,7 @@ class MoleculeEngine:
         step_id: str,
         result: Optional[Dict[str, Any]] = None
     ) -> MoleculeStep:
-        """Mark a step as completed and trigger auto-advance to next steps"""
+        """Mark a step as completed (or failed) and trigger auto-advance to next steps"""
         molecule = self.get_molecule(molecule_id)
         if not molecule:
             raise ValueError(f"Molecule {molecule_id} not found")
@@ -1208,10 +1208,20 @@ class MoleculeEngine:
         if not step:
             raise ValueError(f"Step {step_id} not found")
 
-        step.status = StepStatus.COMPLETED
+        result = result or {}
+        step.result = result
         step.completed_at = datetime.utcnow().isoformat()
-        step.result = result or {}
         molecule.updated_at = datetime.utcnow().isoformat()
+
+        # Check if result indicates failure
+        if result.get('status') == 'failed':
+            step.status = StepStatus.FAILED
+            step.error = result.get('error', 'Step failed')
+            self._save_molecule(molecule)
+            return step
+
+        # Mark as completed
+        step.status = StepStatus.COMPLETED
 
         # Check if molecule is complete
         if molecule.is_complete():
