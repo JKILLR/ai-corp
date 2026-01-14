@@ -2155,10 +2155,11 @@ async def get_metrics():
 
 
 # =============================================================================
-# Projects Endpoints
+# Projects/Molecules Endpoints
 # =============================================================================
 
 @app.get("/api/projects")
+@app.get("/api/molecules")  # Alias for frontend compatibility
 async def list_projects(status: Optional[str] = None):
     """List all projects/molecules."""
     molecules = get_molecule_engine()
@@ -2548,6 +2549,7 @@ async def clear_activity_history():
 # =============================================================================
 
 @app.get("/api/health")
+@app.get("/health")  # Root health endpoint for load balancers/infrastructure
 async def health_check():
     """API health check."""
     return {
