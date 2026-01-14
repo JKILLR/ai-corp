@@ -11,10 +11,13 @@ The COO is the primary orchestrator of AI Corp, responsible for:
 """
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, List, Dict, Any
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from .base import BaseAgent, AgentIdentity
 from ..core.molecule import Molecule, MoleculeStep, MoleculeStatus, StepStatus
@@ -28,6 +31,10 @@ from ..core.skills import SkillRegistry
 from ..core.forge import (
     TheForge, Intention, IntentionType, IntentionStatus,
     ForgeSession, ForgeSynthesis, IncubationPhase
+)
+from ..core.memory import (
+    score_query_complexity, calculate_adaptive_depth,
+    DEFAULT_BASE_K, COMPLEXITY_SENSITIVITY
 )
 
 
@@ -2041,6 +2048,432 @@ IMPORTANT:
         summary_parts.append("=== END CONTEXT ===")
 
         return "\n".join(summary_parts)
+
+    # =========================================================================
+    # Query-Aware Memory Retrieval
+    # =========================================================================
+
+    def get_relevant_context_for_query(
+        self,
+        query: str,
+        max_results_per_category: int = 5,
+        token_budget: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Retrieve relevant context from organizational memory based on the query.
+
+        This method analyzes the query and searches for relevant:
+        - Past decisions (from OrganizationalMemory.search_decisions)
+        - Lessons learned (from OrganizationalMemory.get_relevant_lessons)
+        - Conversation history (keyword search in stored threads)
+
+        Uses SimpleMem-inspired adaptive depth calculation to determine
+        how deep to search based on query complexity.
+
+        Args:
+            query: The user's query/message
+            max_results_per_category: Maximum results per category (default 5)
+            token_budget: Optional token budget to constrain retrieval
+
+        Returns:
+            Dict with: relevant_decisions, relevant_lessons, relevant_history,
+                      query_analysis metadata
+        """
+        # === Step 1: Analyze query for keywords, entities, and complexity ===
+        query_analysis = self._analyze_query_for_retrieval(query)
+
+        # === Step 2: Calculate adaptive retrieval depth ===
+        complexity = score_query_complexity(query)
+        retrieval_depth = calculate_adaptive_depth(
+            query=query,
+            base_k=DEFAULT_BASE_K,
+            sensitivity=COMPLEXITY_SENSITIVITY,
+            token_budget=token_budget
+        )
+
+        # Adjust max results based on complexity
+        effective_max = min(max_results_per_category, retrieval_depth)
+
+        # === Step 3: Search organizational memory ===
+
+        # 3a. Search past decisions
+        relevant_decisions = self._search_decisions_with_scoring(
+            keywords=query_analysis['keywords'],
+            query=query,
+            max_results=effective_max
+        )
+
+        # 3b. Get relevant lessons
+        relevant_lessons = self._get_lessons_with_scoring(
+            query=query,
+            max_results=effective_max
+        )
+
+        # 3c. Search conversation history
+        relevant_history = self._search_conversation_history(
+            keywords=query_analysis['keywords'],
+            query=query,
+            max_results=effective_max
+        )
+
+        return {
+            'relevant_decisions': relevant_decisions,
+            'relevant_lessons': relevant_lessons,
+            'relevant_history': relevant_history,
+            'query_analysis': {
+                'keywords': query_analysis['keywords'],
+                'entities': query_analysis['entities'],
+                'intent': query_analysis['intent'],
+                'complexity_score': complexity,
+                'retrieval_depth': retrieval_depth
+            }
+        }
+
+    def _analyze_query_for_retrieval(self, query: str) -> Dict[str, Any]:
+        """
+        Analyze a query to extract keywords, entities, and intent.
+
+        Returns:
+            Dict with: keywords (list), entities (list), intent (str)
+        """
+        query_lower = query.lower()
+        words = query_lower.split()
+
+        # Extract keywords (filter stopwords)
+        stopwords = {
+            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+            'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
+            'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+            'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that',
+            'these', 'those', 'it', 'its', 'what', 'which', 'who', 'whom', 'how',
+            'when', 'where', 'why', 'i', 'me', 'my', 'we', 'our', 'you', 'your',
+            'they', 'them', 'their', 'he', 'she', 'him', 'her', 'about', 'just'
+        }
+        keywords = [w for w in words if w not in stopwords and len(w) > 2]
+
+        # Extract potential entities (capitalized words, excluding first word)
+        original_words = query.split()
+        entities = []
+        for i, word in enumerate(original_words):
+            # Skip first word (often capitalized in sentences)
+            if i == 0:
+                continue
+            # Look for capitalized words or camelCase/PascalCase patterns
+            if word and (word[0].isupper() or re.match(r'^[a-z]+[A-Z]', word)):
+                clean_word = re.sub(r'[^\w]', '', word)
+                if clean_word and len(clean_word) > 1:
+                    entities.append(clean_word)
+
+        # Determine intent
+        intent = self._classify_query_intent(query_lower)
+
+        return {
+            'keywords': keywords[:20],  # Limit to 20 keywords
+            'entities': entities[:10],  # Limit to 10 entities
+            'intent': intent
+        }
+
+    def _classify_query_intent(self, query_lower: str) -> str:
+        """Classify the intent of a query."""
+        # Decision lookup - check first with comprehensive patterns
+        decision_patterns = [
+            'what did we decide', 'decision about', 'chose', 'decided',
+            'what decision', 'which decision', 'decision did we',
+            'decision made', 'decisions have we'
+        ]
+        if any(p in query_lower for p in decision_patterns):
+            return 'decision_lookup'
+        elif any(w in query_lower for w in ['how did we', 'before', 'previously', 'last time', 'history']):
+            return 'history_lookup'
+        elif any(w in query_lower for w in ['lesson', 'learned', 'mistake', 'worked', 'failed']):
+            return 'lesson_lookup'
+        # Action request - only for imperative patterns (exclude past tense questions)
+        elif any(w in query_lower for w in ['help me', 'implement', 'build', 'create', 'please make']):
+            return 'action_request'
+        elif any(w in query_lower for w in ['review', 'audit', 'analyze', 'check']):
+            return 'analysis_request'
+        elif any(w in query_lower for w in ['?', 'what', 'how', 'why', 'when', 'where', 'who']):
+            return 'question'
+        else:
+            return 'general'
+
+    def _search_decisions_with_scoring(
+        self,
+        keywords: List[str],
+        query: str,
+        max_results: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Search past decisions and score by relevance.
+
+        Scoring factors:
+        - Keyword overlap (0-1)
+        - Recency (0-0.3)
+        - Outcome information (0-0.2 if has outcome data)
+        """
+        all_decisions = []
+        seen_ids = set()  # Track by ID for reliable deduplication
+
+        # Search with each keyword
+        for keyword in keywords[:5]:  # Limit to top 5 keywords
+            matches = self.org_memory.search_decisions(query=keyword)
+            for match in matches:
+                match_id = match.get('id', '')
+                if match_id and match_id not in seen_ids:
+                    seen_ids.add(match_id)
+                    all_decisions.append(match)
+
+        # Also do a full query search
+        query_matches = self.org_memory.search_decisions(query=query[:100])
+        for match in query_matches:
+            match_id = match.get('id', '')
+            if match_id and match_id not in seen_ids:
+                seen_ids.add(match_id)
+                all_decisions.append(match)
+
+        # Score each decision
+        scored_decisions = []
+        query_words = set(query.lower().split())
+        now = datetime.utcnow()
+
+        for decision in all_decisions:
+            score = 0.0
+
+            # Keyword overlap score (0-0.5)
+            decision_text = f"{decision.get('title', '')} {decision.get('context', '')} {decision.get('rationale', '')}"
+            decision_words = set(decision_text.lower().split())
+            overlap = len(query_words & decision_words)
+            keyword_score = min(overlap / max(len(query_words), 1), 1.0) * 0.5
+            score += keyword_score
+
+            # Recency score (0-0.3) - newer is better
+            recorded_at = decision.get('recorded_at', '')
+            if recorded_at:
+                try:
+                    recorded_time = datetime.fromisoformat(recorded_at.replace('Z', '+00:00'))
+                    days_old = (now - recorded_time.replace(tzinfo=None)).days
+                    recency_score = max(0, 0.3 - (days_old / 365) * 0.3)  # Decay over a year
+                    score += recency_score
+                except (ValueError, TypeError):
+                    pass
+
+            # Outcome/success information (0-0.2)
+            if decision.get('chosen_option') and decision.get('rationale'):
+                score += 0.2
+
+            scored_decisions.append({
+                'decision': decision,
+                'relevance_score': round(score, 3)
+            })
+
+        # Sort by score and return top N
+        scored_decisions.sort(key=lambda x: x['relevance_score'], reverse=True)
+        return scored_decisions[:max_results]
+
+    def _get_lessons_with_scoring(
+        self,
+        query: str,
+        max_results: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Get relevant lessons and score by relevance.
+
+        Scoring factors:
+        - Keyword overlap (0-0.5)
+        - Recency (0-0.3)
+        - Severity weight (0-0.2)
+        """
+        # Get lessons from org_memory
+        lessons = self.org_memory.get_relevant_lessons(query, max_results=max_results * 2)
+
+        # Score each lesson
+        scored_lessons = []
+        query_words = set(query.lower().split())
+        now = datetime.utcnow()
+
+        # Severity weights
+        severity_weights = {'critical': 0.2, 'warning': 0.1, 'info': 0.05}
+
+        for lesson in lessons:
+            score = 0.0
+
+            # Keyword overlap score (0-0.5)
+            lesson_text = f"{lesson.get('title', '')} {lesson.get('situation', '')} {lesson.get('lesson', '')}"
+            lesson_words = set(lesson_text.lower().split())
+            overlap = len(query_words & lesson_words)
+            keyword_score = min(overlap / max(len(query_words), 1), 1.0) * 0.5
+            score += keyword_score
+
+            # Recency score (0-0.3)
+            recorded_at = lesson.get('recorded_at', '')
+            if recorded_at:
+                try:
+                    recorded_time = datetime.fromisoformat(recorded_at.replace('Z', '+00:00'))
+                    days_old = (now - recorded_time.replace(tzinfo=None)).days
+                    recency_score = max(0, 0.3 - (days_old / 365) * 0.3)
+                    score += recency_score
+                except (ValueError, TypeError):
+                    pass
+
+            # Severity weight (0-0.2)
+            severity = lesson.get('severity', 'info')
+            score += severity_weights.get(severity, 0.05)
+
+            scored_lessons.append({
+                'lesson': lesson,
+                'relevance_score': round(score, 3)
+            })
+
+        # Sort by score and return top N
+        scored_lessons.sort(key=lambda x: x['relevance_score'], reverse=True)
+        return scored_lessons[:max_results]
+
+    def _search_conversation_history(
+        self,
+        keywords: List[str],
+        query: str,
+        max_results: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Search conversation threads for relevant history.
+
+        Searches thread titles and messages for keyword matches.
+        """
+        relevant_threads = []
+        query_words = set(query.lower().split())
+
+        # Get conversation store path using existing method
+        store_path = self.get_conversation_store_path()
+
+        try:
+            # Iterate through thread files (stored as JSON)
+            for thread_file in store_path.glob("thread-*.json"):
+                try:
+                    thread_data = json.loads(thread_file.read_text())
+                except (json.JSONDecodeError, Exception):
+                    continue
+
+                if not thread_data:
+                    continue
+
+                thread_id = thread_data.get('id', '')
+
+                # Search title and messages
+                title = thread_data.get('title', '').lower()
+                messages = thread_data.get('messages', [])
+
+                # Calculate relevance score
+                score = 0.0
+
+                # Title keyword match
+                title_words = set(title.split())
+                title_overlap = len(query_words & title_words)
+                if title_overlap > 0:
+                    score += min(title_overlap / max(len(query_words), 1), 1.0) * 0.3
+
+                # Message content matches (cap contribution at 0.5 total)
+                matching_messages = []
+                message_score_total = 0.0
+                for msg in messages[-20:]:  # Only check last 20 messages
+                    content = msg.get('content', '').lower()
+                    content_words = set(content.split())
+                    overlap = len(query_words & content_words)
+                    if overlap > 0:
+                        msg_score = min(overlap / max(len(query_words), 1), 1.0) * 0.1
+                        message_score_total += msg_score
+                        matching_messages.append({
+                            'role': msg.get('role', 'unknown'),
+                            'content': msg.get('content', '')[:200],  # Truncate
+                            'timestamp': msg.get('timestamp', '')
+                        })
+                # Cap message contribution to prevent unbounded scores
+                score += min(message_score_total, 0.5)
+
+                # Recency bonus
+                updated_at = thread_data.get('updated_at', '')
+                if updated_at:
+                    try:
+                        updated_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                        days_old = (datetime.utcnow() - updated_time.replace(tzinfo=None)).days
+                        recency_score = max(0, 0.2 - (days_old / 30) * 0.2)  # Decay over a month
+                        score += recency_score
+                    except (ValueError, TypeError):
+                        pass
+
+                if score > 0.1:  # Only include if meaningful match
+                    relevant_threads.append({
+                        'thread_id': thread_id,
+                        'title': thread_data.get('title', ''),
+                        'message_count': len(messages),
+                        'matching_messages': matching_messages[:3],  # Top 3 matching
+                        'relevance_score': round(score, 3)
+                    })
+
+        except Exception as e:
+            # Log but don't fail
+            logger.warning(f"Error searching conversation history: {e}")
+            return []
+
+        # Sort by score and return top N
+        relevant_threads.sort(key=lambda x: x['relevance_score'], reverse=True)
+        return relevant_threads[:max_results]
+
+    def format_relevant_context_for_prompt(self, context: Dict[str, Any]) -> str:
+        """
+        Format query-relevant context for LLM prompt injection.
+
+        Args:
+            context: Result from get_relevant_context_for_query()
+
+        Returns:
+            Formatted string suitable for prompt injection
+        """
+        sections = []
+
+        # Query analysis summary
+        qa = context.get('query_analysis', {})
+        if qa:
+            sections.append(f"[Query Analysis: intent={qa.get('intent', 'general')}, "
+                          f"complexity={qa.get('complexity_score', 0):.2f}]")
+
+        # Relevant decisions
+        decisions = context.get('relevant_decisions', [])
+        if decisions:
+            sections.append("\n=== RELEVANT PAST DECISIONS ===")
+            for item in decisions:
+                d = item.get('decision', {})
+                sections.append(f"• {d.get('title', 'Unknown')} (score: {item.get('relevance_score', 0):.2f})")
+                sections.append(f"  Decision: {d.get('chosen_option', 'N/A')}")
+                if d.get('rationale'):
+                    sections.append(f"  Rationale: {d.get('rationale', '')[:150]}")
+
+        # Relevant lessons
+        lessons = context.get('relevant_lessons', [])
+        if lessons:
+            sections.append("\n=== RELEVANT LESSONS LEARNED ===")
+            for item in lessons:
+                l = item.get('lesson', {})
+                sections.append(f"• {l.get('title', 'Unknown')} (score: {item.get('relevance_score', 0):.2f})")
+                sections.append(f"  Lesson: {l.get('lesson', '')[:150]}")
+                if l.get('recommendations'):
+                    sections.append(f"  Recommendation: {l.get('recommendations', [''])[0][:100]}")
+
+        # Relevant conversation history
+        history = context.get('relevant_history', [])
+        if history:
+            sections.append("\n=== RELEVANT CONVERSATION HISTORY ===")
+            for item in history:
+                sections.append(f"• Thread: {item.get('title', 'Unknown')} "
+                              f"({item.get('message_count', 0)} msgs, score: {item.get('relevance_score', 0):.2f})")
+                for msg in item.get('matching_messages', [])[:2]:
+                    role = msg.get('role', 'unknown')
+                    content = msg.get('content', '')[:100]
+                    sections.append(f"  [{role}]: {content}...")
+
+        if not (decisions or lessons or history):
+            return ""  # No relevant context found
+
+        return "\n".join(sections)
 
     # =========================================================================
     # The Forge - Intention Incubation Integration
