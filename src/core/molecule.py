@@ -13,6 +13,7 @@ Key concepts:
 """
 
 import json
+import logging
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -20,6 +21,8 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field, asdict
 import yaml
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .learning import LearningSystem, RalphConfig
@@ -1236,8 +1239,7 @@ class MoleculeEngine:
                     self.on_step_complete(molecule)
                 except Exception as e:
                     # Log but don't fail the step completion
-                    import logging
-                    logging.getLogger(__name__).warning(f"Auto-advance failed: {e}")
+                    logger.warning(f"Auto-advance failed: {e}")
 
         return step
 
