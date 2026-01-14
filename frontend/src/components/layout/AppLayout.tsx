@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { MessageSquare } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { ActivityPanel } from '../ActivityPanel';
 
 interface AppLayoutProps {
   title?: string;
@@ -22,6 +23,9 @@ export function AppLayout({ title }: AppLayoutProps) {
           <Outlet />
         </main>
       </div>
+
+      {/* Activity Feed Panel - Real-time work updates */}
+      <ActivityPanel initialState="hidden" autoOpen={true} />
 
       {/* Quick access to COO Channel when not on that page */}
       {!isOnCOOPage && (
