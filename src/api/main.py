@@ -569,7 +569,10 @@ def _extract_ceo_preferences(message: str, thread_id: str) -> List[Dict[str, Any
     - "remember that..."
     - "important: ..."
 
-    Returns list of extracted preferences.
+    Includes conflict detection - if a new preference contradicts an existing one,
+    the old preference is superseded (new overrides old) with full history tracking.
+
+    Returns list of extracted preferences (including updates to existing ones).
     """
     message_lower = message.lower()
 
@@ -611,23 +614,61 @@ def _extract_ceo_preferences(message: str, thread_id: str) -> List[Dict[str, Any
                 continue
             seen_rules.add(rule_normalized)
 
-            # Generate a unique ID
-            pref_id = f"pref_{uuid.uuid4().hex[:8]}"
+            rule_capitalized = rule.capitalize()
 
-            # Store the preference
             try:
-                pref = coo.org_memory.store_preference(
-                    preference_id=pref_id,
-                    rule=rule.capitalize(),
-                    source="conversation",
-                    priority=priority,
-                    context="Extracted from conversation",
-                    conversation_id=thread_id
-                )
-                extracted.append(pref)
-                logger.info(f"Extracted CEO preference: {rule[:50]}...")
+                # === Conflict Detection ===
+                # Check if this preference conflicts with an existing one
+                conflict = coo.org_memory.detect_preference_conflict(rule_capitalized)
+
+                if conflict:
+                    # Found a conflicting preference - supersede it with the new one
+                    old_pref = conflict['conflicting_preference']
+                    conflict_type = conflict.get('conflict_type', 'unknown')
+                    overlap_words = conflict.get('overlap_words', [])
+
+                    logger.info(
+                        f"Preference conflict detected: '{rule_capitalized[:40]}...' "
+                        f"conflicts with '{old_pref.get('rule', '')[:40]}...' "
+                        f"(type: {conflict_type}, overlap: {overlap_words[:3]})"
+                    )
+
+                    # Update preference: supersede old with new
+                    pref = coo.org_memory.update_preference(
+                        old_id=old_pref['id'],
+                        new_rule=rule_capitalized,
+                        reason=f"CEO updated preference ({conflict_type})",
+                        new_priority=priority,
+                        new_context=f"Updated from: {old_pref.get('rule', 'unknown')}",
+                        conversation_id=thread_id
+                    )
+
+                    if pref:
+                        pref['_action'] = 'updated'
+                        pref['_superseded'] = old_pref.get('rule')
+                        extracted.append(pref)
+                        logger.info(
+                            f"Preference updated: '{old_pref.get('rule', '')[:30]}...' "
+                            f"→ '{rule_capitalized[:30]}...'"
+                        )
+                else:
+                    # No conflict - store as new preference
+                    pref_id = f"pref_{uuid.uuid4().hex[:8]}"
+                    pref = coo.org_memory.store_preference(
+                        preference_id=pref_id,
+                        rule=rule_capitalized,
+                        source="conversation",
+                        priority=priority,
+                        context="Extracted from conversation",
+                        conversation_id=thread_id,
+                        confidence=0.9  # Slightly lower since auto-extracted
+                    )
+                    pref['_action'] = 'added'
+                    extracted.append(pref)
+                    logger.info(f"New CEO preference: {rule[:50]}...")
+
             except Exception as e:
-                logger.warning(f"Failed to store preference: {e}")
+                logger.warning(f"Failed to process preference: {e}")
 
     return extracted
 
@@ -1525,6 +1566,171 @@ async def reject_gate(gate_id: str, submission_id: str, reason: str = ""):
         return {'status': 'rejected', 'result': result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# =============================================================================
+# Preference Management Endpoints
+# =============================================================================
+
+@app.get("/api/preferences")
+async def get_preferences(active_only: bool = True, topic: Optional[str] = None):
+    """
+    Get CEO preferences.
+
+    Args:
+        active_only: Only return active (non-superseded) preferences
+        topic: Filter by topic/category (e.g., 'code_style', 'workflow')
+    """
+    coo = get_coo()
+
+    if topic:
+        preferences = coo.org_memory.get_preferences_by_topic(topic, active_only=active_only)
+    else:
+        preferences = coo.org_memory.get_all_preferences(active_only=active_only)
+
+    # Group by topic for organization
+    by_topic: Dict[str, List] = {}
+    for p in preferences:
+        t = p.get('topic', 'general')
+        if t not in by_topic:
+            by_topic[t] = []
+        by_topic[t].append(p)
+
+    return {
+        'preferences': preferences,
+        'by_topic': by_topic,
+        'total': len(preferences),
+        'active_only': active_only
+    }
+
+
+@app.get("/api/preferences/needs-confirmation")
+async def get_preferences_needing_confirmation(
+    max_age_days: int = 30,
+    min_confidence: float = 0.8
+):
+    """
+    Get preferences that should be surfaced for CEO confirmation.
+
+    Returns preferences that:
+    - Haven't been confirmed recently (older than max_age_days)
+    - Have lower confidence (below min_confidence)
+    - Were inferred rather than explicitly stated
+
+    The CEO can review these and confirm or update them.
+    """
+    coo = get_coo()
+    needs_confirmation = coo.org_memory.get_preferences_for_confirmation(
+        max_age_days=max_age_days,
+        min_confidence=min_confidence
+    )
+
+    return {
+        'needs_confirmation': needs_confirmation,
+        'count': len(needs_confirmation),
+        'criteria': {
+            'max_age_days': max_age_days,
+            'min_confidence': min_confidence
+        }
+    }
+
+
+@app.post("/api/preferences/{preference_id}/confirm")
+async def confirm_preference(preference_id: str):
+    """
+    Confirm a preference is still accurate.
+
+    Updates last_confirmed timestamp and sets confidence to 1.0.
+    """
+    coo = get_coo()
+    success = coo.org_memory.confirm_preference(preference_id)
+
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Preference {preference_id} not found")
+
+    return {
+        'status': 'confirmed',
+        'preference_id': preference_id,
+        'confirmed_at': datetime.utcnow().isoformat()
+    }
+
+
+@app.post("/api/preferences/{preference_id}/deactivate")
+async def deactivate_preference(preference_id: str, reason: str = "manually deactivated"):
+    """
+    Deactivate a preference (soft delete).
+
+    The preference is kept for history but marked as inactive.
+    """
+    coo = get_coo()
+    success = coo.org_memory.deactivate_preference(preference_id, reason=reason)
+
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Preference {preference_id} not found")
+
+    return {
+        'status': 'deactivated',
+        'preference_id': preference_id,
+        'reason': reason
+    }
+
+
+class PreferenceUpdateRequest(BaseModel):
+    """Request to update a preference."""
+    new_rule: str
+    reason: str
+    priority: Optional[str] = None
+    context: Optional[str] = None
+
+
+@app.post("/api/preferences/{preference_id}/update")
+async def update_preference(preference_id: str, request: PreferenceUpdateRequest):
+    """
+    Update a preference by superseding it with a new one.
+
+    Creates a new preference linked to the old one, maintaining history.
+    The old preference is marked as inactive with reference to the new one.
+    """
+    coo = get_coo()
+
+    new_pref = coo.org_memory.update_preference(
+        old_id=preference_id,
+        new_rule=request.new_rule,
+        reason=request.reason,
+        new_priority=request.priority,
+        new_context=request.context
+    )
+
+    if not new_pref:
+        raise HTTPException(status_code=404, detail=f"Preference {preference_id} not found")
+
+    return {
+        'status': 'updated',
+        'old_preference_id': preference_id,
+        'new_preference': new_pref
+    }
+
+
+@app.get("/api/preferences/{preference_id}/history")
+async def get_preference_history(preference_id: str):
+    """
+    Get the full evolution history of a preference.
+
+    Follows the supersedes/superseded_by chain to show how
+    a preference has changed over time.
+    """
+    coo = get_coo()
+    history = coo.org_memory.get_preference_history(preference_id)
+
+    if not history:
+        raise HTTPException(status_code=404, detail=f"Preference {preference_id} not found")
+
+    return {
+        'preference_id': preference_id,
+        'history': history,
+        'evolution_count': len(history),
+        'current': history[-1] if history else None
+    }
 
 
 # =============================================================================
