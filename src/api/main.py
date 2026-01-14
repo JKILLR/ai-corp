@@ -45,6 +45,7 @@ from src.core.forge import TheForge
 from src.core.contract import ContractManager
 from src.core.llm import LLMRequest, LLMBackendFactory
 from src.core.memory import ConversationSummarizer
+from src.api.activity import ActivityEventTranslator, get_activity_translator
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -91,7 +92,10 @@ class ActivityEventBroadcaster:
     Manages WebSocket connections for the activity feed and broadcasts
     molecule/step/gate lifecycle events to all connected clients.
 
-    Events are stored in a ring buffer (deque) for clients that connect mid-stream.
+    Features:
+    - Translates raw technical events to human-readable messages
+    - Aggregates rapid sequential events to reduce noise
+    - Stores translated events in a ring buffer for late joiners
 
     Note: Instantiated via get_activity_broadcaster() which uses the _systems
     dict pattern consistent with other system components (COO, MoleculeEngine, etc.)
@@ -108,7 +112,15 @@ class ActivityEventBroadcaster:
         self._event_history: Deque[Dict[str, Any]] = deque(maxlen=max_history)
         self._max_history = max_history
         self._event_queue: Optional[asyncio.Queue] = None  # Lazy init in async context
+        self._translator: Optional[ActivityEventTranslator] = None
         logger.info("ActivityEventBroadcaster initialized")
+
+    @property
+    def translator(self) -> ActivityEventTranslator:
+        """Get or create the event translator."""
+        if self._translator is None:
+            self._translator = get_activity_translator()
+        return self._translator
 
     def _ensure_queue(self) -> None:
         """Lazily initialize the async queue in the right event loop context."""
@@ -129,7 +141,7 @@ class ActivityEventBroadcaster:
         self._connections.append(websocket)
         logger.info(f"Activity feed: client connected ({len(self._connections)} total)")
 
-        # Send recent history so client has context
+        # Send recent history so client has context (already translated)
         if self._event_history:
             try:
                 await websocket.send_json({
@@ -154,24 +166,30 @@ class ActivityEventBroadcaster:
         Synchronous broadcast method - queues event for async delivery.
 
         Safe to call from sync code (callbacks, lifecycle hooks).
+        Events are translated to human-readable format and may be aggregated.
         Returns the event_id for tracking.
         """
-        event = self._create_event(event_type, data, molecule_id, step_id, gate_id)
+        raw_event = self._create_raw_event(event_type, data, molecule_id, step_id, gate_id)
 
-        # Add to history (deque handles max size automatically)
-        self._event_history.append(event)
+        # Use translator with aggregation - event may be buffered
+        translated = self.translator.translate_with_aggregation(raw_event)
 
-        # Queue for async broadcast if we have connections
-        if self._connections:
-            self._ensure_queue()
-            if self._event_queue:
-                try:
-                    self._event_queue.put_nowait(event)
-                except Exception as e:
-                    logger.warning(f"Failed to queue event: {e}")
+        if translated:
+            # Non-aggregatable event - add to history and queue immediately
+            translated_dict = translated.to_dict()
+            self._event_history.append(translated_dict)
+
+            if self._connections:
+                self._ensure_queue()
+                if self._event_queue:
+                    try:
+                        self._event_queue.put_nowait(translated_dict)
+                    except Exception as e:
+                        logger.warning(f"Failed to queue event: {e}")
+        # else: event is buffered for aggregation, will be flushed later
 
         logger.debug(f"Activity event queued: {event_type} (molecule={molecule_id})")
-        return event['event_id']
+        return raw_event['event_id']
 
     async def broadcast(self, event_type: str, data: Dict[str, Any],
                         molecule_id: Optional[str] = None,
@@ -180,24 +198,29 @@ class ActivityEventBroadcaster:
         """
         Async broadcast method - sends event immediately to all clients.
 
+        Events are translated to human-readable format.
         Returns the event_id for tracking.
         """
-        event = self._create_event(event_type, data, molecule_id, step_id, gate_id)
+        raw_event = self._create_raw_event(event_type, data, molecule_id, step_id, gate_id)
+
+        # Translate event (no aggregation for async broadcast)
+        translated = self.translator.translate(raw_event)
+        translated_dict = translated.to_dict()
 
         # Add to history (deque handles max size automatically)
-        self._event_history.append(event)
+        self._event_history.append(translated_dict)
 
         # Broadcast to all connected clients
-        await self._send_to_all(event)
+        await self._send_to_all(translated_dict)
 
         logger.debug(f"Activity event broadcast: {event_type} (molecule={molecule_id})")
-        return event['event_id']
+        return raw_event['event_id']
 
-    def _create_event(self, event_type: str, data: Dict[str, Any],
-                      molecule_id: Optional[str] = None,
-                      step_id: Optional[str] = None,
-                      gate_id: Optional[str] = None) -> Dict[str, Any]:
-        """Create a standardized event object."""
+    def _create_raw_event(self, event_type: str, data: Dict[str, Any],
+                          molecule_id: Optional[str] = None,
+                          step_id: Optional[str] = None,
+                          gate_id: Optional[str] = None) -> Dict[str, Any]:
+        """Create a raw event object (before translation)."""
         return {
             "event_id": str(uuid.uuid4()),
             "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -243,9 +266,25 @@ class ActivityEventBroadcaster:
         """
         Process queued events from sync broadcasts.
 
+        Also flushes any expired aggregated events from the translator.
         This should be called periodically or run as a background task.
         """
         self._ensure_queue()
+
+        # First, check for expired aggregations and flush them
+        def on_aggregated_flush(translated_event):
+            """Callback when aggregated events are flushed."""
+            translated_dict = translated_event.to_dict()
+            self._event_history.append(translated_dict)
+            if self._event_queue:
+                try:
+                    self._event_queue.put_nowait(translated_dict)
+                except Exception as e:
+                    logger.warning(f"Failed to queue aggregated event: {e}")
+
+        self.translator.check_and_flush_expired(callback=on_aggregated_flush)
+
+        # Now process the queue
         if not self._event_queue:
             return
 
@@ -258,8 +297,33 @@ class ActivityEventBroadcaster:
             except Exception as e:
                 logger.warning(f"Error processing event queue: {e}")
 
+    def flush_aggregations(self) -> List[Dict[str, Any]]:
+        """
+        Force flush all pending aggregated events.
+
+        Call this when you need all events to be sent immediately,
+        e.g., when a molecule completes.
+
+        Returns list of flushed events.
+        """
+        flushed = []
+
+        def on_flush(translated_event):
+            translated_dict = translated_event.to_dict()
+            self._event_history.append(translated_dict)
+            flushed.append(translated_dict)
+            self._ensure_queue()
+            if self._event_queue:
+                try:
+                    self._event_queue.put_nowait(translated_dict)
+                except Exception:
+                    pass
+
+        self.translator.flush_all_pending(callback=on_flush)
+        return flushed
+
     def get_history(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Get recent event history."""
+        """Get recent event history (translated events)."""
         history = list(self._event_history)
         if limit:
             return history[-limit:]
