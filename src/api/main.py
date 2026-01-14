@@ -264,9 +264,27 @@ async def send_coo_message(request: COOMessageRequest):
         # Load organizational context including CEO preferences
         org_context = coo.get_context_summary_for_llm()
 
+        # === Query-Aware Memory Retrieval ===
+        # Search for relevant context based on what the user is actually asking about
+        query_relevant_context = coo.get_relevant_context_for_query(request.message)
+        query_context_str = coo.format_relevant_context_for_prompt(query_relevant_context)
+
+        # Log retrieval stats for debugging
+        qa = query_relevant_context.get('query_analysis', {})
+        logger.info(f"[DEBUG] Query-aware retrieval: intent={qa.get('intent')}, "
+                   f"complexity={qa.get('complexity_score', 0):.2f}, "
+                   f"decisions={len(query_relevant_context.get('relevant_decisions', []))}, "
+                   f"lessons={len(query_relevant_context.get('relevant_lessons', []))}, "
+                   f"history={len(query_relevant_context.get('relevant_history', []))}")
+
+        # Combine static and query-relevant context
+        combined_context = org_context
+        if query_context_str:
+            combined_context += f"\n\n{query_context_str}"
+
         system_prompt = f"""You are the COO of AI Corp, a strategic partner to the CEO. Be natural and conversational.
 
-{org_context}
+{combined_context}
 
 ## HOW YOU WORK (Architecture)
 
