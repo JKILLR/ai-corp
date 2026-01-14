@@ -503,7 +503,11 @@ Always maintain professional communication and follow the organizational hierarc
         self.hook_manager._save_hook(self.hook)
 
         # Complete molecule step if applicable
-        if self.current_molecule and self.current_step:
+        # BUT: Skip if work was delegated (step already marked as DELEGATED by delegate_step())
+        # Check for various delegation status values: 'delegated', 'delegated_to_worker', etc.
+        status = result.get('status', '')
+        is_delegated = status.startswith('delegated') if status else False
+        if self.current_molecule and self.current_step and not is_delegated:
             self.molecule_engine.complete_step(
                 molecule_id=self.current_molecule.id,
                 step_id=self.current_step.id,
