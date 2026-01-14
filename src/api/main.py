@@ -1304,11 +1304,34 @@ async def get_pending_gates():
 
 @app.post("/api/gates/{gate_id}/approve")
 async def approve_gate(gate_id: str, submission_id: str):
-    """Approve a gate submission."""
+    """Approve a gate submission and auto-advance to next steps."""
     gates = get_gate_keeper()
+    molecules = get_molecule_engine()
+    coo = get_coo()
 
     try:
         result = gates.approve_gate(gate_id, submission_id, approved_by='ceo')
+
+        # Auto-advance: delegate next available steps
+        # Find the molecule associated with this gate submission
+        gate = gates.get_gate(gate_id)
+        if gate:
+            # Get pending submissions to find molecule_id
+            for submission in gate.submissions:
+                if submission.id == submission_id:
+                    molecule = molecules.get_molecule(submission.molecule_id)
+                    if molecule and molecule.status.value == 'active':
+                        # Delegate next available steps to VPs
+                        delegations = coo.delegate_molecule(molecule)
+                        logger.info(f"Auto-advanced molecule {molecule.id}: {len(delegations)} steps delegated")
+                        return {
+                            'status': 'approved',
+                            'result': result,
+                            'auto_advanced': True,
+                            'delegations': len(delegations)
+                        }
+                    break
+
         return {'status': 'approved', 'result': result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
