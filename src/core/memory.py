@@ -17,6 +17,7 @@ References:
 - https://alexzhang13.github.io/blog/2025/rlm/
 """
 
+import logging
 import re
 import json
 import uuid
@@ -1762,21 +1763,8 @@ def get_entity_context_for_message(
 # Reference: Rolling summarization for long conversations
 # =============================================================================
 
-# Patterns that indicate important moments to preserve
-_DECISION_PATTERNS = [
-    r"(?:let'?s|we(?:'ll)?|i(?:'ll)?) (?:go with|do|use|implement|choose|pick)",
-    r"(?:decided|decision|agree|agreed|approved|confirmed)",
-    r"(?:sounds good|that works|yes,? (?:do|let'?s|please))",
-    r"(?:start|begin|kick off|proceed)",
-]
-
-_PREFERENCE_PATTERNS = [
-    r"(?:don'?t|do not|never|avoid|stop)",
-    r"(?:always|must|should|need to|make sure)",
-    r"(?:i (?:want|need|prefer|expect))",
-    r"(?:remember|important|note|rule|preference)",
-    r"(?:from now on)",
-]
+# Module-level logger for ConversationSummarizer
+_summarizer_logger = logging.getLogger(__name__ + '.summarizer')
 
 
 class ConversationSummarizer:
@@ -1809,6 +1797,25 @@ class ConversationSummarizer:
     DEFAULT_MESSAGE_THRESHOLD = 20  # When to trigger summarization
     DEFAULT_RECENT_MESSAGES = 10    # Recent messages to keep in full
     DEFAULT_SUMMARY_MAX_TOKENS = 500  # Target summary length
+
+    # Patterns for detecting important messages
+    # Decision patterns - indicates a choice was made or action approved
+    DECISION_PATTERNS = [
+        r"(?:let'?s|we(?:'ll)?|i(?:'ll)?) (?:go with|do|use|implement|choose|pick)",
+        r"(?:decided|decision|agree|agreed|approved|confirmed)",
+        r"(?:sounds good|that works|yes,? (?:do|let'?s|please))",
+        r"(?:start|begin|kick off|proceed)",
+    ]
+
+    # Preference patterns - aligned with OrganizationalMemory._PREFERENCE_STOPWORDS usage
+    # These match patterns that indicate rules/preferences the CEO states
+    PREFERENCE_PATTERNS = [
+        r"(?:don'?t|do not|never|avoid|stop)",
+        r"(?:always|must|should|need to|make sure)",
+        r"(?:i (?:want|need|prefer|expect))",
+        r"(?:remember|important|note|rule|preference)",
+        r"(?:from now on)",
+    ]
 
     def __init__(self, llm_client=None):
         """
@@ -1865,20 +1872,20 @@ class ConversationSummarizer:
             return result
 
         # Check for decision patterns
-        for pattern in _DECISION_PATTERNS:
+        for pattern in self.DECISION_PATTERNS:
             if re.search(pattern, content, re.IGNORECASE):
                 result['is_important'] = True
                 result['importance_type'] = 'decision'
-                result['reasons'].append(f'matches decision pattern')
+                result['reasons'].append('matches decision pattern')
                 break
 
         # Check for preference patterns
-        for pattern in _PREFERENCE_PATTERNS:
+        for pattern in self.PREFERENCE_PATTERNS:
             if re.search(pattern, content, re.IGNORECASE):
                 result['is_important'] = True
                 if result['importance_type'] != 'decision':
                     result['importance_type'] = 'preference'
-                result['reasons'].append(f'matches preference pattern')
+                result['reasons'].append('matches preference pattern')
                 break
 
         return result
@@ -1998,8 +2005,7 @@ Summary:"""
 
         except Exception as e:
             # Log error and fall back
-            import logging
-            logging.getLogger(__name__).warning(f"LLM summarization failed: {e}")
+            _summarizer_logger.warning(f"LLM summarization failed: {e}")
             return self._fallback_summarize(messages, important_msgs)
 
     def _fallback_summarize(

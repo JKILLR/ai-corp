@@ -155,58 +155,50 @@ def get_smart_thread_context(
 
     messages = thread.get('messages', [])
     existing_summary = thread.get('summary', '')
-
-    # If not many messages, use simple context
-    if len(messages) <= summarization_threshold:
-        # Still use summarizer for consistent formatting
-        summarizer = get_conversation_summarizer()
-        return summarizer.get_conversation_context(
-            messages=messages,
-            existing_summary=existing_summary if existing_summary else None,
-            max_recent=max_messages
-        )
-
-    # Long conversation - use rolling summarization
     summarizer = get_conversation_summarizer()
-    result = summarizer.create_rolling_summary(
-        messages=messages,
-        existing_summary=existing_summary if existing_summary else None,
-        threshold=summarization_threshold,
-        keep_recent=max_messages
-    )
 
-    # If summary was updated, persist it to the thread
-    if result['needs_update'] and result['summary']:
-        try:
-            coo.update_thread_summary(thread_id, result['summary'])
-            logger.debug(f"Updated thread summary for {thread_id}: "
-                        f"{result['summarized_count']} messages summarized, "
-                        f"{result['important_preserved']} important moments preserved")
-        except Exception as e:
-            logger.warning(f"Failed to persist thread summary: {e}")
-
-    # Build context header
+    # Build consistent header for all conversations
     context_parts = [
         f"Conversation Thread: {thread.get('title', 'Untitled')}",
         f"Created: {thread.get('created_at', 'unknown')}",
         "-" * 40
     ]
 
-    # Add the smart context
+    # Determine if we need rolling summarization
+    if len(messages) > summarization_threshold:
+        # Long conversation - create/update rolling summary
+        result = summarizer.create_rolling_summary(
+            messages=messages,
+            existing_summary=existing_summary if existing_summary else None,
+            threshold=summarization_threshold,
+            keep_recent=max_messages
+        )
+
+        # Persist updated summary to thread storage
+        if result['needs_update'] and result['summary']:
+            try:
+                coo.update_thread_summary(thread_id, result['summary'])
+                logger.debug(f"Updated thread summary for {thread_id}: "
+                            f"{result['summarized_count']} messages summarized, "
+                            f"{result.get('important_preserved', 0)} important moments preserved")
+            except Exception as e:
+                logger.warning(f"Failed to persist thread summary: {e}")
+
+        summary_to_use = result['summary']
+    else:
+        # Short conversation - use existing summary if any
+        summary_to_use = existing_summary if existing_summary else None
+
+    # Get formatted context (summary + important moments + recent messages)
+    # Note: include_important=True extracts decisions/preferences from older messages,
+    # which supersedes the separate key_decisions tracking
     smart_context = summarizer.get_conversation_context(
         messages=messages,
-        existing_summary=result['summary'],
+        existing_summary=summary_to_use,
         max_recent=max_messages,
         include_important=True
     )
     context_parts.append(smart_context)
-
-    # Add key decisions if present
-    if thread.get('key_decisions'):
-        context_parts.append("-" * 40)
-        context_parts.append("Key Decisions Made:")
-        for decision in thread['key_decisions'][-5:]:
-            context_parts.append(f"  • {decision['summary']}")
 
     return "\n".join(context_parts)
 
