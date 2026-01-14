@@ -672,28 +672,33 @@ class CorporationExecutor:
         }
 
         # Update COO hook
+        # FIX: Also update hook_manager cache to avoid object mismatch
         if self.coo:
             key = ('role', self.coo.identity.role_id)
             if key in hook_lookup:
                 self.coo.hook = hook_lookup[key]
+                self.coo.hook_manager._hooks[hook_lookup[key].id] = hook_lookup[key]
 
         # Update VP hooks
         for vp in self.vps.values():
             key = ('role', vp.identity.role_id)
             if key in hook_lookup:
                 vp.hook = hook_lookup[key]
+                vp.hook_manager._hooks[hook_lookup[key].id] = hook_lookup[key]
 
         # Update Director hooks (and their workers)
         for director in self.directors.values():
             key = ('role', director.identity.role_id)
             if key in hook_lookup:
                 director.hook = hook_lookup[key]
+                director.hook_manager._hooks[hook_lookup[key].id] = hook_lookup[key]
                 # Workers use their Director's hook (shared pool queue)
                 worker_ids = self._director_workers.get(director.identity.role_id, [])
                 for worker_id in worker_ids:
                     worker = self.workers.get(worker_id)
                     if worker:
                         worker.hook = director.hook
+                        worker.hook_manager._hooks[director.hook.id] = director.hook
 
     def run_continuous(
         self,
