@@ -204,19 +204,17 @@ class COOAgent(BaseAgent):
         # Create steps from phases, chaining dependencies
         previous_step_id = None
 
+        # Valid departments for validation
+        valid_departments = {'research', 'engineering', 'product', 'quality', 'operations'}
+
         for i, phase in enumerate(phases):
             dept = phase['department']
             task = phase.get('task', f'Execute {dept} phase')
             outputs = phase.get('outputs', f'{dept} deliverables')
 
-            # Map department name to VP
-            vp_mapping = {
-                'research': 'vp_research',
-                'engineering': 'vp_engineering',
-                'product': 'vp_product',
-                'quality': 'vp_quality',
-                'operations': 'vp_operations'
-            }
+            # Validate department name
+            if dept not in valid_departments:
+                print(f"[COO] Warning: Unknown department '{dept}' - may not have a VP to handle it")
 
             # Create the work step
             step = MoleculeStep.create(
@@ -244,14 +242,18 @@ class COOAgent(BaseAgent):
 
             print(f"[COO]   Phase {i+1}: {dept} - {task[:50]}...")
 
-        # Store full molecule definition in molecule context
-        context = context or {}
-        context['coo_defined_phases'] = phases
-        context['handoff_chain'] = [
+        # Store full molecule definition in molecule metadata (persists with molecule)
+        # Note: Using metadata instead of a custom 'context' attribute to ensure persistence
+        molecule.metadata['coo_defined'] = True
+        molecule.metadata['coo_defined_phases'] = phases
+        molecule.metadata['handoff_chain'] = [
             {'phase': i+1, 'department': p['department'], 'outputs': p.get('outputs', '')}
             for i, p in enumerate(phases)
         ]
-        molecule.context = context
+
+        # Also store in the context dict passed in (for backward compatibility)
+        context = context or {}
+        context['coo_defined'] = True
 
         # Save the molecule
         self.molecule_engine._save_molecule(molecule)
@@ -809,7 +811,27 @@ class COOAgent(BaseAgent):
             }
 
             # Add COO-defined phase context if this is a COO-defined molecule
+            # First try step's phase_context (for freshly created steps)
+            # Then fall back to molecule.metadata (for reloaded molecules)
             phase_ctx = getattr(step, 'phase_context', None)
+
+            if not phase_ctx and molecule.metadata.get('coo_defined'):
+                # Reconstruct phase_context from molecule.metadata for this step
+                phases = molecule.metadata.get('coo_defined_phases', [])
+                # Find which phase this step belongs to by matching department
+                for i, phase in enumerate(phases):
+                    if phase.get('department') == step.department:
+                        phase_ctx = {
+                            'phase_number': i + 1,
+                            'total_phases': len(phases),
+                            'department': phase.get('department'),
+                            'task': phase.get('task', ''),
+                            'expected_outputs': phase.get('outputs', ''),
+                            'previous_phase': phases[i-1] if i > 0 else None,
+                            'next_phase': phases[i+1] if i < len(phases) - 1 else None
+                        }
+                        break
+
             if phase_ctx:
                 work_context['phase_context'] = phase_ctx
                 work_context['expected_outputs'] = phase_ctx.get('expected_outputs', '')
@@ -831,10 +853,9 @@ class COOAgent(BaseAgent):
                         'expects': next_phase.get('task', '')
                     }
 
-            # Also add full handoff chain if available
-            mol_context = getattr(molecule, 'context', {}) or {}
-            if mol_context.get('handoff_chain'):
-                work_context['handoff_chain'] = mol_context['handoff_chain']
+            # Also add full handoff chain if available (from molecule.metadata)
+            if molecule.metadata.get('handoff_chain'):
+                work_context['handoff_chain'] = molecule.metadata['handoff_chain']
 
             work_item = self.hook_manager.add_work_to_hook(
                 hook_id=vp_hook.id,
@@ -848,7 +869,7 @@ class COOAgent(BaseAgent):
             )
 
             # Build delegation instructions with phase context if available
-            phase_ctx = getattr(step, 'phase_context', None)
+            # (phase_ctx already computed above for work_context)
 
             instructions = f"""
 Please handle the following task:
