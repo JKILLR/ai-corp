@@ -83,7 +83,16 @@ def get_coo() -> COOAgent:
 
 def get_molecule_engine() -> MoleculeEngine:
     if 'molecules' not in _systems:
-        _systems['molecules'] = MoleculeEngine(get_corp_path())
+        engine = MoleculeEngine(get_corp_path())
+        # Wire up auto-advance callback to delegate next steps after any step completes
+        def on_step_complete(molecule):
+            coo = get_coo()
+            if molecule.status.value == 'active':
+                delegations = coo.delegate_molecule(molecule)
+                if delegations:
+                    logger.info(f"Auto-advanced molecule {molecule.id}: {len(delegations)} steps delegated")
+        engine.on_step_complete = on_step_complete
+        _systems['molecules'] = engine
     return _systems['molecules']
 
 def get_gate_keeper() -> GateKeeper:
