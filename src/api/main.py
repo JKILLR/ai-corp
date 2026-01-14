@@ -43,6 +43,7 @@ from src.core.monitor import SystemMonitor
 from src.core.forge import TheForge
 from src.core.contract import ContractManager
 from src.core.llm import LLMRequest, LLMBackendFactory
+from src.core.memory import ConversationSummarizer
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -114,6 +115,100 @@ def get_forge() -> TheForge:
     if 'forge' not in _systems:
         _systems['forge'] = TheForge(get_corp_path())
     return _systems['forge']
+
+
+def get_conversation_summarizer() -> ConversationSummarizer:
+    """Get the conversation summarizer (uses COO's LLM client)."""
+    if 'summarizer' not in _systems:
+        coo = get_coo()
+        _systems['summarizer'] = ConversationSummarizer(llm_client=coo.llm)
+    return _systems['summarizer']
+
+
+def get_smart_thread_context(
+    coo,
+    thread_id: str,
+    max_messages: int = 10,
+    summarization_threshold: int = 20
+) -> str:
+    """
+    Get intelligent conversation context using the ConversationSummarizer.
+
+    This method:
+    1. Retrieves the thread and its messages
+    2. Uses rolling summarization for long conversations
+    3. Preserves important moments (decisions, preferences)
+    4. Returns optimized context for LLM
+
+    Args:
+        coo: COO agent instance
+        thread_id: ID of the conversation thread
+        max_messages: Number of recent messages to keep in full
+        summarization_threshold: Message count that triggers summarization
+
+    Returns:
+        Formatted context string
+    """
+    thread = coo.get_thread(thread_id)
+    if not thread:
+        return ""
+
+    messages = thread.get('messages', [])
+    existing_summary = thread.get('summary', '')
+
+    # If not many messages, use simple context
+    if len(messages) <= summarization_threshold:
+        # Still use summarizer for consistent formatting
+        summarizer = get_conversation_summarizer()
+        return summarizer.get_conversation_context(
+            messages=messages,
+            existing_summary=existing_summary if existing_summary else None,
+            max_recent=max_messages
+        )
+
+    # Long conversation - use rolling summarization
+    summarizer = get_conversation_summarizer()
+    result = summarizer.create_rolling_summary(
+        messages=messages,
+        existing_summary=existing_summary if existing_summary else None,
+        threshold=summarization_threshold,
+        keep_recent=max_messages
+    )
+
+    # If summary was updated, persist it to the thread
+    if result['needs_update'] and result['summary']:
+        try:
+            coo.update_thread_summary(thread_id, result['summary'])
+            logger.debug(f"Updated thread summary for {thread_id}: "
+                        f"{result['summarized_count']} messages summarized, "
+                        f"{result['important_preserved']} important moments preserved")
+        except Exception as e:
+            logger.warning(f"Failed to persist thread summary: {e}")
+
+    # Build context header
+    context_parts = [
+        f"Conversation Thread: {thread.get('title', 'Untitled')}",
+        f"Created: {thread.get('created_at', 'unknown')}",
+        "-" * 40
+    ]
+
+    # Add the smart context
+    smart_context = summarizer.get_conversation_context(
+        messages=messages,
+        existing_summary=result['summary'],
+        max_recent=max_messages,
+        include_important=True
+    )
+    context_parts.append(smart_context)
+
+    # Add key decisions if present
+    if thread.get('key_decisions'):
+        context_parts.append("-" * 40)
+        context_parts.append("Key Decisions Made:")
+        for decision in thread['key_decisions'][-5:]:
+            context_parts.append(f"  • {decision['summary']}")
+
+    return "\n".join(context_parts)
 
 
 # =============================================================================
@@ -253,7 +348,13 @@ async def send_coo_message(request: COOMessageRequest):
     try:
 
         # Build context from thread and system state
-        thread_context = coo.get_thread_context(thread_id, max_messages=10)
+        # Use smart context with rolling summarization for long conversations
+        thread_context = get_smart_thread_context(
+            coo=coo,
+            thread_id=thread_id,
+            max_messages=10,
+            summarization_threshold=20
+        )
 
         # Get system status for context
         monitor = get_monitor()

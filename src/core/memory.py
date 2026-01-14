@@ -1757,6 +1757,409 @@ def get_entity_context_for_message(
     )
 
 
+# =============================================================================
+# Conversation Summarization
+# Reference: Rolling summarization for long conversations
+# =============================================================================
+
+# Patterns that indicate important moments to preserve
+_DECISION_PATTERNS = [
+    r"(?:let'?s|we(?:'ll)?|i(?:'ll)?) (?:go with|do|use|implement|choose|pick)",
+    r"(?:decided|decision|agree|agreed|approved|confirmed)",
+    r"(?:sounds good|that works|yes,? (?:do|let'?s|please))",
+    r"(?:start|begin|kick off|proceed)",
+]
+
+_PREFERENCE_PATTERNS = [
+    r"(?:don'?t|do not|never|avoid|stop)",
+    r"(?:always|must|should|need to|make sure)",
+    r"(?:i (?:want|need|prefer|expect))",
+    r"(?:remember|important|note|rule|preference)",
+    r"(?:from now on)",
+]
+
+
+class ConversationSummarizer:
+    """
+    Intelligent conversation summarization with rolling summaries.
+
+    Maintains context across long conversations by:
+    - Creating rolling summaries when conversations exceed thresholds
+    - Preserving important moments (decisions, preferences) in full
+    - Combining summaries with recent messages for optimal context
+
+    Usage:
+        # Dependency injection for LLM client
+        summarizer = ConversationSummarizer(llm_client=coo.llm)
+
+        # Check if summarization needed
+        if summarizer.needs_summarization(messages, threshold=20):
+            summary = summarizer.summarize_segment(messages[:15])
+            # Store summary, keep recent messages
+
+        # Get combined context for LLM
+        context = summarizer.get_conversation_context(
+            messages=messages,
+            existing_summary="Previous context...",
+            max_recent=10
+        )
+    """
+
+    # Default thresholds
+    DEFAULT_MESSAGE_THRESHOLD = 20  # When to trigger summarization
+    DEFAULT_RECENT_MESSAGES = 10    # Recent messages to keep in full
+    DEFAULT_SUMMARY_MAX_TOKENS = 500  # Target summary length
+
+    def __init__(self, llm_client=None):
+        """
+        Initialize the summarizer.
+
+        Args:
+            llm_client: LLM client for generating summaries.
+                       Should have execute(LLMRequest) method.
+                       If None, summarization will use a fallback method.
+        """
+        self.llm = llm_client
+
+    def needs_summarization(
+        self,
+        messages: List[Dict[str, Any]],
+        threshold: int = DEFAULT_MESSAGE_THRESHOLD
+    ) -> bool:
+        """
+        Check if a conversation needs summarization.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            threshold: Message count that triggers summarization
+
+        Returns:
+            True if message count exceeds threshold
+        """
+        return len(messages) > threshold
+
+    def detect_important_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Detect if a message contains important content that should be preserved.
+
+        Args:
+            message: Message dict with 'role', 'content', and optionally 'type'
+
+        Returns:
+            Dict with 'is_important', 'importance_type', 'reasons'
+        """
+        content = message.get('content', '').lower()
+        msg_type = message.get('type', 'message')
+
+        result = {
+            'is_important': False,
+            'importance_type': None,
+            'reasons': []
+        }
+
+        # Explicit decision messages are always important
+        if msg_type == 'decision':
+            result['is_important'] = True
+            result['importance_type'] = 'decision'
+            result['reasons'].append('marked as decision')
+            return result
+
+        # Check for decision patterns
+        for pattern in _DECISION_PATTERNS:
+            if re.search(pattern, content, re.IGNORECASE):
+                result['is_important'] = True
+                result['importance_type'] = 'decision'
+                result['reasons'].append(f'matches decision pattern')
+                break
+
+        # Check for preference patterns
+        for pattern in _PREFERENCE_PATTERNS:
+            if re.search(pattern, content, re.IGNORECASE):
+                result['is_important'] = True
+                if result['importance_type'] != 'decision':
+                    result['importance_type'] = 'preference'
+                result['reasons'].append(f'matches preference pattern')
+                break
+
+        return result
+
+    def extract_important_messages(
+        self,
+        messages: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract messages that should be preserved in full.
+
+        Args:
+            messages: List of message dicts
+
+        Returns:
+            List of important messages with their importance metadata
+        """
+        important = []
+
+        for i, msg in enumerate(messages):
+            detection = self.detect_important_message(msg)
+            if detection['is_important']:
+                important.append({
+                    **msg,
+                    '_importance': detection,
+                    '_index': i
+                })
+
+        return important
+
+    def summarize_segment(
+        self,
+        messages: List[Dict[str, Any]],
+        max_tokens: int = DEFAULT_SUMMARY_MAX_TOKENS,
+        context: Optional[str] = None
+    ) -> str:
+        """
+        Summarize a segment of conversation messages.
+
+        Uses LLM if available, otherwise falls back to extractive summary.
+
+        Args:
+            messages: List of message dicts to summarize
+            max_tokens: Target maximum tokens for summary
+            context: Optional context about the conversation
+
+        Returns:
+            Summary string
+        """
+        if not messages:
+            return ""
+
+        # Extract important messages to preserve
+        important_msgs = self.extract_important_messages(messages)
+
+        # If LLM available, use it for smart summarization
+        if self.llm:
+            return self._llm_summarize(messages, important_msgs, max_tokens, context)
+        else:
+            return self._fallback_summarize(messages, important_msgs)
+
+    def _llm_summarize(
+        self,
+        messages: List[Dict[str, Any]],
+        important_msgs: List[Dict[str, Any]],
+        max_tokens: int,
+        context: Optional[str]
+    ) -> str:
+        """Generate summary using LLM."""
+        from .llm import LLMRequest
+
+        # Format messages for the prompt
+        formatted_msgs = []
+        for msg in messages:
+            role = msg.get('role', 'unknown').upper()
+            content = msg.get('content', '')
+            formatted_msgs.append(f"{role}: {content}")
+
+        # Format important messages to highlight
+        important_content = ""
+        if important_msgs:
+            important_items = []
+            for imp in important_msgs:
+                imp_type = imp.get('_importance', {}).get('importance_type', 'key point')
+                content = imp.get('content', '')[:200]
+                important_items.append(f"- [{imp_type.upper()}] {content}")
+            important_content = "\n".join(important_items)
+
+        prompt = f"""Summarize this conversation segment concisely while preserving key information.
+
+CONVERSATION:
+{chr(10).join(formatted_msgs)}
+
+{'IMPORTANT MOMENTS TO PRESERVE:' + chr(10) + important_content if important_content else ''}
+
+{'CONTEXT: ' + context if context else ''}
+
+Create a summary that:
+1. Captures the main topics and flow of discussion
+2. Preserves all decisions made and preferences stated
+3. Notes any action items or commitments
+4. Is concise (target ~{max_tokens} tokens)
+
+Summary:"""
+
+        try:
+            response = self.llm.execute(LLMRequest(
+                prompt=prompt,
+                system_prompt="You are a conversation summarizer. Create clear, factual summaries that preserve important details especially decisions and preferences.",
+            ))
+
+            if response.success:
+                return response.content.strip()
+            else:
+                # Fall back to extractive if LLM fails
+                return self._fallback_summarize(messages, important_msgs)
+
+        except Exception as e:
+            # Log error and fall back
+            import logging
+            logging.getLogger(__name__).warning(f"LLM summarization failed: {e}")
+            return self._fallback_summarize(messages, important_msgs)
+
+    def _fallback_summarize(
+        self,
+        messages: List[Dict[str, Any]],
+        important_msgs: List[Dict[str, Any]]
+    ) -> str:
+        """
+        Generate summary without LLM (extractive approach).
+
+        Extracts key information from messages rather than generating new text.
+        """
+        parts = []
+
+        # Count messages by role
+        role_counts = {}
+        for msg in messages:
+            role = msg.get('role', 'unknown')
+            role_counts[role] = role_counts.get(role, 0) + 1
+
+        parts.append(f"[{len(messages)} messages: " +
+                    ", ".join(f"{count} {role}" for role, count in role_counts.items()) + "]")
+
+        # Extract topics from first few messages
+        if messages:
+            first_user = next((m for m in messages if m.get('role') in ('user', 'ceo')), None)
+            if first_user:
+                content = first_user.get('content', '')[:150]
+                parts.append(f"Started with: {content}...")
+
+        # Include important messages
+        if important_msgs:
+            parts.append("Key points:")
+            for imp in important_msgs[:5]:  # Limit to 5 most important
+                imp_type = imp.get('_importance', {}).get('importance_type', 'note')
+                content = imp.get('content', '')[:100]
+                role = imp.get('role', 'unknown').upper()
+                parts.append(f"  • [{imp_type}] {role}: {content}...")
+
+        return "\n".join(parts)
+
+    def get_conversation_context(
+        self,
+        messages: List[Dict[str, Any]],
+        existing_summary: Optional[str] = None,
+        max_recent: int = DEFAULT_RECENT_MESSAGES,
+        include_important: bool = True
+    ) -> str:
+        """
+        Get combined context for LLM from summary and recent messages.
+
+        This is the main method for getting conversation context.
+        Combines:
+        - Existing summary of older messages
+        - Important messages from the summarized portion (if include_important)
+        - Recent messages in full
+
+        Args:
+            messages: All messages in the conversation
+            existing_summary: Summary of older messages (if any)
+            max_recent: Number of recent messages to include in full
+            include_important: Whether to include important messages from summarized portion
+
+        Returns:
+            Formatted context string for LLM injection
+        """
+        parts = []
+
+        # Add existing summary if present
+        if existing_summary:
+            parts.append("## Earlier in Conversation")
+            parts.append(existing_summary)
+            parts.append("")
+
+        # Split messages into summarized and recent
+        recent_messages = messages[-max_recent:] if len(messages) > max_recent else messages
+        older_messages = messages[:-max_recent] if len(messages) > max_recent else []
+
+        # Include important messages from older portion
+        if include_important and older_messages:
+            important = self.extract_important_messages(older_messages)
+            if important:
+                parts.append("## Key Moments from Earlier")
+                for imp in important:
+                    imp_type = imp.get('_importance', {}).get('importance_type', 'note')
+                    role = imp.get('role', 'unknown').upper()
+                    content = imp.get('content', '')
+                    parts.append(f"[{imp_type.upper()}] {role}: {content}")
+                parts.append("")
+
+        # Add recent messages
+        if recent_messages:
+            parts.append("## Recent Messages")
+            for msg in recent_messages:
+                role = msg.get('role', 'unknown').upper()
+                content = msg.get('content', '')
+                parts.append(f"{role}: {content}")
+
+        return "\n".join(parts)
+
+    def create_rolling_summary(
+        self,
+        messages: List[Dict[str, Any]],
+        existing_summary: Optional[str] = None,
+        threshold: int = DEFAULT_MESSAGE_THRESHOLD,
+        keep_recent: int = DEFAULT_RECENT_MESSAGES
+    ) -> Dict[str, Any]:
+        """
+        Create or update a rolling summary for a conversation.
+
+        This is the main entry point for maintaining conversation context
+        across long conversations.
+
+        Args:
+            messages: All messages in the conversation
+            existing_summary: Previous summary (if any)
+            threshold: Message count that triggers summarization
+            keep_recent: Number of recent messages to keep unsummarized
+
+        Returns:
+            Dict with:
+            - 'summary': Updated summary string
+            - 'summarized_count': Number of messages included in summary
+            - 'recent_messages': Messages kept in full
+            - 'needs_update': Whether summary was updated
+        """
+        total = len(messages)
+
+        # If below threshold, no summarization needed
+        if total <= threshold:
+            return {
+                'summary': existing_summary or '',
+                'summarized_count': 0,
+                'recent_messages': messages,
+                'needs_update': False
+            }
+
+        # Calculate split point
+        summarize_up_to = total - keep_recent
+        to_summarize = messages[:summarize_up_to]
+        recent = messages[summarize_up_to:]
+
+        # Create summary of older messages
+        if existing_summary:
+            # Combine old summary with newly old messages
+            context = f"Previous summary: {existing_summary}"
+        else:
+            context = None
+
+        new_summary = self.summarize_segment(to_summarize, context=context)
+
+        return {
+            'summary': new_summary,
+            'summarized_count': summarize_up_to,
+            'recent_messages': recent,
+            'needs_update': True,
+            'important_preserved': len(self.extract_important_messages(to_summarize))
+        }
+
+
 class EntityAwareMemory:
     """
     Memory system that integrates entity context automatically.
