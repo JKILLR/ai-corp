@@ -4,7 +4,9 @@ AI Corp API Server
 FastAPI server that connects the frontend to the backend systems.
 This is the bridge between the React UI and the Python agents/systems.
 
-Run with: uvicorn src.api.main:app --reload --port 8000
+Run with: uvicorn src.api.main:app --reload --reload-exclude 'corp/*' --reload-exclude 'foundation/*' --port 8000
+
+Or simply: python -m src.api.main
 """
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -1542,4 +1544,10 @@ Execute this task using your available tools. Read files, run commands, make cha
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        "src.api.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        reload_excludes=["corp/*", "foundation/*", "*.yaml", "*.json"]
+    )
