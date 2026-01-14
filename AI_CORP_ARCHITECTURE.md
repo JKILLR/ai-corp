@@ -1090,6 +1090,105 @@ A two-phase system that extracts insights from completed work and continuously i
 - Evolution Daemon runs on three time scales (hourly/daily/weekly)
 - Context Synthesizer produces LLM-ready prompts with recommendations
 
+### 14. Memory Intelligence Layer (✅ Complete)
+
+A unified system enabling AI Corp to learn from experience and surface relevant context proactively.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                MEMORY INTELLIGENCE LAYER                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Phase 1: Preference Learning                               │
+│  └── record_preference() / get_preferences_for_context()   │
+│      • User preferences with context and relevance scoring  │
+│      • Proactive surfacing in chat flow                     │
+│                                                             │
+│  Phase 2: Decision Tracking                                 │
+│  └── record_decision() / find_related_decisions()          │
+│      • Full decision context with outcomes                  │
+│      • record_decision_outcome() for learning               │
+│                                                             │
+│  Phase 3: Conversation Summarization                        │
+│  └── ConversationSummarizer                                 │
+│      • Multi-tier summaries (brief → comprehensive)         │
+│      • Key point extraction (decisions, questions, actions) │
+│      • Automatic tier selection by message count            │
+│                                                             │
+│  Phase 4: Outcome-Based Learning                            │
+│  └── record_molecule_outcome() / find_similar_past_work()  │
+│      • Pattern matching with relevance scoring              │
+│      • Proactive lesson surfacing in chat & delegation      │
+│      • Evolution Daemon synthesis integration               │
+│                                                             │
+│  Integration Flow:                                          │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Molecule Complete → on_molecule_complete callback    │  │
+│  │         ↓                                            │  │
+│  │ record_molecule_outcome() → Store with metadata      │  │
+│  │         ↓                                            │  │
+│  │ Chat/Delegation → find_similar_past_work()          │  │
+│  │         ↓                                            │  │
+│  │ format_lessons_for_context() → Inject into LLM      │  │
+│  │         ↓                                            │  │
+│  │ Evolution Daemon → aggregate_lessons_by_category()  │  │
+│  │         ↓                                            │  │
+│  │ store_synthesized_insight() → Upsert patterns       │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:** `src/core/memory.py`
+
+**OrganizationalMemory Extensions:**
+- `record_preference(context, value, reason, source)` - Store user preferences
+- `get_preferences_for_context(context, max_results)` - Relevance-scored retrieval
+- `record_decision(title, context, decision, reasoning, alternatives)` - Full decision tracking
+- `find_related_decisions(context, max_results)` - Pattern matching for related decisions
+- `record_decision_outcome(decision_id, outcome, notes)` - Link outcomes for learning
+- `record_molecule_outcome(molecule_id, title, outcome, task_type, approach, ...)` - Structured completion data
+- `find_similar_past_work(task_description, max_results, include_failed)` - Pattern matching with deduplication
+- `get_lessons_for_task_type(task_type)` - Category-based lesson retrieval
+- `aggregate_lessons_by_category()` - Success rates, common blockers by category
+- `store_synthesized_insight(insight_id, category, synthesis, evidence_count)` - Upsert for daemon insights
+- `format_lessons_for_context(lessons, max_items)` - LLM-ready context formatting
+
+**ConversationSummarizer Class:**
+```python
+class ConversationSummarizer:
+    """Multi-tier conversation compression for context management"""
+
+    def summarize(self, messages, tier='auto') -> Dict
+        # tier: 'brief' | 'standard' | 'detailed' | 'comprehensive' | 'auto'
+
+    def _extract_key_points(self, messages) -> Dict
+        # Returns: decisions, questions, action_items, context_items
+
+    def _generate_summary(self, key_points, tier) -> str
+        # Tier-specific summary generation
+```
+
+**Tier Selection (auto mode):**
+| Message Count | Tier | Description |
+|---------------|------|-------------|
+| ≤5 | brief | Quick summary, main topic only |
+| 6-15 | standard | Key decisions and action items |
+| 16-30 | detailed | Full context with all key points |
+| >30 | comprehensive | Complete summary with timestamps |
+
+**Key Design Decisions:**
+- `_RELEVANCE_STOPWORDS` class constant avoids duplication
+- `seen_molecule_ids` set prevents duplicate results in `find_similar_past_work()`
+- Upsert logic in `store_synthesized_insight()` prevents Evolution Daemon duplicates
+- Word overlap relevance scoring (consistent with Phase 1 approach)
+
+**Integration Points:**
+- `MoleculeEngine.on_molecule_complete` → `_record_molecule_outcome()`
+- Chat flow → `get_relevant_lessons_for_task()` → LLM context
+- Delegation flow → `relevant_lessons` in base_context
+- Evolution Daemon slow cycle → `_synthesize_lessons_from_memory()`
+
 #### Failure Taxonomy (✅ Complete)
 
 Structured classification of failures for better pattern extraction:
