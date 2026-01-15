@@ -629,6 +629,10 @@ class CorporationExecutor:
         1. VPs (process delegations from external COO)
         2. Directors (process delegations, assign to workers)
         3. Workers (execute tasks)
+
+        Logging:
+        - Logs before each agent.run() with agent_id and hook state
+        - Logs work items claimed/skipped with molecule IDs
         """
         results = {}
 
@@ -636,22 +640,62 @@ class CorporationExecutor:
         logger.info("Refreshing hooks to pick up delegated work...")
         self._refresh_all_agent_hooks()
 
+        # Log pending work before VP tier
+        self._log_pending_work("Before VPs")
+
         logger.info("=== Running VPs ===")
+        for vp_id, vp in self.vps.items():
+            hook_stats = vp.hook.get_stats() if vp.hook else {'queued': 0}
+            logger.info(f"  Running VP {vp_id}: hook has {hook_stats.get('queued', 0)} queued items")
         results['vps'] = self.vp_executor.run_once()
+        self._log_tier_result("VPs", results['vps'])
 
         logger.info("Refreshing hooks before Director tier...")
         self._refresh_all_agent_hooks()
+        self._log_pending_work("Before Directors")
 
         logger.info("=== Running Directors ===")
+        for dir_id, director in self.directors.items():
+            hook_stats = director.hook.get_stats() if director.hook else {'queued': 0}
+            logger.info(f"  Running Director {dir_id}: hook has {hook_stats.get('queued', 0)} queued items")
         results['directors'] = self.director_executor.run_once()
+        self._log_tier_result("Directors", results['directors'])
 
         logger.info("Refreshing hooks before Worker tier...")
         self._refresh_all_agent_hooks()
+        self._log_pending_work("Before Workers")
 
         logger.info("=== Running Workers ===")
+        for worker_id, worker in self.workers.items():
+            hook_stats = worker.hook.get_stats() if worker.hook else {'queued': 0}
+            logger.info(f"  Running Worker {worker_id}: hook has {hook_stats.get('queued', 0)} queued items")
         results['workers'] = self.worker_executor.run_once()
+        self._log_tier_result("Workers", results['workers'])
 
         return results
+
+    def _log_pending_work(self, phase: str) -> None:
+        """Log summary of pending work items across all hooks."""
+        try:
+            all_queued = self.hook_manager.get_all_queued_work()
+            if all_queued:
+                logger.info(f"  [{phase}] {len(all_queued)} total queued work items:")
+                for item in all_queued[:5]:  # Show first 5
+                    logger.info(f"    - {item.title} (molecule={item.molecule_id}, caps={item.required_capabilities})")
+                if len(all_queued) > 5:
+                    logger.info(f"    ... and {len(all_queued) - 5} more")
+            else:
+                logger.info(f"  [{phase}] No queued work items")
+        except Exception as e:
+            logger.warning(f"  [{phase}] Could not log pending work: {e}")
+
+    def _log_tier_result(self, tier_name: str, result: ExecutionResult) -> None:
+        """Log the result of running a tier."""
+        logger.info(
+            f"  {tier_name} result: {result.completed} completed, "
+            f"{result.failed} failed, {result.stopped} stopped "
+            f"(duration={result.duration_seconds:.2f}s)"
+        )
 
     def _refresh_all_agent_hooks(self) -> None:
         """
