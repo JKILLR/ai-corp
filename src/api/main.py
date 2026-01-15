@@ -123,24 +123,113 @@ class ActivityEventBroadcaster:
     - Translates raw technical events to human-readable messages
     - Aggregates rapid sequential events to reduce noise
     - Stores translated events in a ring buffer for late joiners
+    - Writes events to a log file for COO visibility (auto-truncating)
 
     Note: Instantiated via get_activity_broadcaster() which uses the _systems
     dict pattern consistent with other system components (COO, MoleculeEngine, etc.)
     """
 
-    def __init__(self, max_history: int = 50):
+    def __init__(self, max_history: int = 50, max_log_lines: int = 100):
         """
         Initialize the broadcaster.
 
         Args:
             max_history: Number of events to retain for late joiners
+            max_log_lines: Max lines to keep in the activity log file
         """
         self._connections: List[WebSocket] = []
         self._event_history: Deque[Dict[str, Any]] = deque(maxlen=max_history)
         self._max_history = max_history
+        self._max_log_lines = max_log_lines
         self._event_queue: Optional[asyncio.Queue] = None  # Lazy init in async context
         self._translator: Optional[ActivityEventTranslator] = None
+
+        # Activity log file for COO visibility
+        self._log_file: Optional[Path] = None
+        self._log_line_count: int = 0
+        self._init_activity_log()
+
         logger.info("ActivityEventBroadcaster initialized")
+
+    def _init_activity_log(self) -> None:
+        """Initialize the activity log file."""
+        try:
+            corp_path = get_corp_path()
+            live_dir = corp_path / "live"
+            live_dir.mkdir(parents=True, exist_ok=True)
+            self._log_file = live_dir / "activity.log"
+
+            # Count existing lines if file exists
+            if self._log_file.exists():
+                self._log_line_count = sum(1 for _ in open(self._log_file))
+            else:
+                # Create with header
+                with open(self._log_file, 'w') as f:
+                    f.write("# AI Corp Activity Log (auto-truncating, last ~100 events)\n")
+                    f.write(f"# Started: {datetime.utcnow().isoformat()}Z\n")
+                    f.write("# Format: [TIMESTAMP] EVENT_TYPE | message\n")
+                    f.write("#" + "=" * 70 + "\n")
+                self._log_line_count = 4
+
+            logger.info(f"Activity log initialized: {self._log_file}")
+        except Exception as e:
+            logger.warning(f"Could not initialize activity log: {e}")
+            self._log_file = None
+
+    def _write_to_log(self, translated_event: Dict[str, Any]) -> None:
+        """Write a translated event to the activity log file."""
+        if not self._log_file:
+            return
+
+        try:
+            # Format: [TIMESTAMP] EVENT_TYPE | human_message
+            timestamp = translated_event.get('timestamp', '')[:19]  # Trim to seconds
+            event_type = translated_event.get('event_type', 'unknown')
+            message = translated_event.get('human_message', translated_event.get('message', ''))
+            molecule_id = translated_event.get('molecule_id', '')
+
+            # Build log line
+            mol_prefix = f"[{molecule_id}] " if molecule_id else ""
+            log_line = f"[{timestamp}] {event_type:20} | {mol_prefix}{message}\n"
+
+            # Append to file
+            with open(self._log_file, 'a') as f:
+                f.write(log_line)
+            self._log_line_count += 1
+
+            # Truncate if needed (keep last max_log_lines/2 when we exceed max)
+            if self._log_line_count > self._max_log_lines:
+                self._truncate_log()
+
+        except Exception as e:
+            logger.warning(f"Could not write to activity log: {e}")
+
+    def _truncate_log(self) -> None:
+        """Truncate log file to keep only recent events."""
+        if not self._log_file or not self._log_file.exists():
+            return
+
+        try:
+            # Read all lines
+            with open(self._log_file, 'r') as f:
+                lines = f.readlines()
+
+            # Keep header (first 4 lines) + last N lines
+            keep_count = self._max_log_lines // 2
+            header_lines = [l for l in lines[:4] if l.startswith('#')]
+            event_lines = [l for l in lines if not l.startswith('#')]
+
+            # Write truncated file
+            with open(self._log_file, 'w') as f:
+                f.writelines(header_lines)
+                f.write(f"# ... truncated at {datetime.utcnow().isoformat()}Z ...\n")
+                f.writelines(event_lines[-keep_count:])
+
+            self._log_line_count = len(header_lines) + 1 + keep_count
+            logger.debug(f"Activity log truncated to {self._log_line_count} lines")
+
+        except Exception as e:
+            logger.warning(f"Could not truncate activity log: {e}")
 
     @property
     def translator(self) -> ActivityEventTranslator:
@@ -206,6 +295,9 @@ class ActivityEventBroadcaster:
             translated_dict = translated.to_dict()
             self._event_history.append(translated_dict)
 
+            # Write to activity log file for COO visibility
+            self._write_to_log(translated_dict)
+
             if self._connections:
                 self._ensure_queue()
                 if self._event_queue:
@@ -236,6 +328,9 @@ class ActivityEventBroadcaster:
 
         # Add to history (deque handles max size automatically)
         self._event_history.append(translated_dict)
+
+        # Write to activity log file for COO visibility
+        self._write_to_log(translated_dict)
 
         # Broadcast to all connected clients
         await self._send_to_all(translated_dict)
@@ -1059,6 +1154,13 @@ You are a Claude instance running inside the AI Corp API server (FastAPI). Here'
 - You MUST NOT edit system source code (src/*, tests/*, *.py outside corp/)
   - You CAN read src/* to understand implementations before delegating
   - But delegate actual code changes to Workers - they implement, you manage
+
+**LIVE ACTIVITY VISIBILITY:**
+- Real-time activity is logged to: {get_corp_path()}/live/activity.log
+- This file shows what's happening RIGHT NOW during delegations
+- Use `Read` or `tail` to see recent activity (auto-truncates to ~100 events)
+- Format: [TIMESTAMP] EVENT_TYPE | [MOL-ID] message
+- Check this when the CEO asks "what's happening?" or "what did the team do?"
 
 **OTHER NOTES:**
 - Everything is local - no network requests needed to access files
