@@ -864,6 +864,22 @@ class COOAgent(BaseAgent):
             if molecule.metadata.get('handoff_chain'):
                 work_context['handoff_chain'] = molecule.metadata['handoff_chain']
 
+            # Check if work item already exists for this step to prevent duplicates
+            # (important for reconciliation which calls delegate_molecule every cycle)
+            existing_item = None
+            for item in vp_hook.items:
+                if item.molecule_id == molecule.id and item.step_id == step.id:
+                    existing_item = item
+                    break
+
+            if existing_item:
+                # Work item already exists - skip creation
+                logger.debug(
+                    f"[COO] Skipping duplicate work item for step {step.id} "
+                    f"(existing: {existing_item.id}, status: {existing_item.status.value})"
+                )
+                continue
+
             work_item = self.hook_manager.add_work_to_hook(
                 hook_id=vp_hook.id,
                 title=step.name,
