@@ -576,7 +576,7 @@ def create_vp_agent(
             'role_id': 'vp_engineering',
             'role_name': 'VP Engineering',
             'directors': ['director_engineering', 'dir_frontend', 'dir_backend'],
-            'capabilities': ['technical_leadership', 'architecture', 'code_review']
+            'capabilities': ['engineering', 'technical_leadership', 'architecture', 'code_review']
         },
         'research': {
             'role_id': 'vp_research',
@@ -588,19 +588,19 @@ def create_vp_agent(
             'role_id': 'vp_product',
             'role_name': 'VP Product',
             'directors': ['dir_product'],
-            'capabilities': ['product_strategy', 'design', 'requirements', 'planning']
+            'capabilities': ['product', 'product_strategy', 'design', 'requirements', 'planning']
         },
         'quality': {
             'role_id': 'vp_quality',
             'role_name': 'VP Quality',
             'directors': ['dir_qa'],
-            'capabilities': ['quality_assurance', 'testing', 'security']
+            'capabilities': ['quality', 'quality_assurance', 'testing', 'security']
         },
         'operations': {
             'role_id': 'vp_operations',
             'role_name': 'VP Operations',
             'directors': [],  # No directors defined in CorporationExecutor
-            'capabilities': ['project_management', 'documentation', 'coordination']
+            'capabilities': ['operations', 'project_management', 'documentation', 'coordination']
         }
     }
 
