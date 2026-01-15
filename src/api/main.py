@@ -12,9 +12,10 @@ NOTE: Use --reload-dir to ONLY watch src/ for changes. This prevents restarts
 when corp/, foundation/, or tests/ files change during delegation.
 """
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any, Deque
 from pathlib import Path
@@ -62,6 +63,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Custom validation error handler to log 422 errors with details
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Log validation errors with full details for debugging."""
+    error_details = exc.errors()
+    body = None
+    try:
+        body = await request.body()
+        body = body.decode() if body else None
+    except Exception:
+        pass
+
+    logging.error(f"Validation error on {request.method} {request.url.path}")
+    logging.error(f"Request body: {body}")
+    logging.error(f"Validation errors: {error_details}")
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": error_details,
+            "body": body[:500] if body else None  # Include truncated body for debugging
+        }
+    )
+
 
 # Get corp path from environment or default
 def get_corp_path() -> Path:
