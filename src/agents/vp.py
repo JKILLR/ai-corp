@@ -26,6 +26,7 @@ from ..core.hook import WorkItem, WorkItemPriority
 from ..core.channel import MessagePriority
 from ..core.gate import GateKeeper
 from ..core.pool import PoolManager
+from ..core.memory import ContextType
 
 logger = logging.getLogger(__name__)
 
@@ -574,31 +575,31 @@ def create_vp_agent(
         'engineering': {
             'role_id': 'vp_engineering',
             'role_name': 'VP Engineering',
-            'directors': ['dir_architecture', 'dir_frontend', 'dir_backend', 'dir_devops'],
+            'directors': ['director_engineering', 'dir_frontend', 'dir_backend'],
             'capabilities': ['technical_leadership', 'architecture', 'code_review']
         },
         'research': {
             'role_id': 'vp_research',
             'role_name': 'VP Research',
-            'directors': ['dir_market_research', 'dir_technical_research'],
+            'directors': ['dir_research'],
             'capabilities': ['research', 'analysis', 'evaluation']
         },
         'product': {
             'role_id': 'vp_product',
             'role_name': 'VP Product',
-            'directors': ['dir_product', 'dir_design'],
+            'directors': ['dir_product'],
             'capabilities': ['product_strategy', 'design', 'requirements', 'planning']
         },
         'quality': {
             'role_id': 'vp_quality',
             'role_name': 'VP Quality',
-            'directors': ['dir_qa', 'dir_security'],
+            'directors': ['dir_qa'],
             'capabilities': ['quality_assurance', 'testing', 'security']
         },
         'operations': {
             'role_id': 'vp_operations',
             'role_name': 'VP Operations',
-            'directors': ['dir_project', 'dir_documentation'],
+            'directors': [],  # No directors defined in CorporationExecutor
             'capabilities': ['project_management', 'documentation', 'coordination']
         }
     }
@@ -615,7 +616,3 @@ def create_vp_agent(
         direct_reports=directors or config['directors'],
         capabilities=config['capabilities']
     )
-
-
-# Need to import ContextType for store_context
-from ..core.memory import ContextType

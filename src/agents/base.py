@@ -183,7 +183,10 @@ class BaseAgent(ABC):
             logger.warning(f"[{self.identity.role_name}] Failed to load bead history: {e}")
 
         # 3. Check for interrupted work (recovery)
-        if self.current_work is None:
+        if self.hook is None:
+            logger.warning(f"[{self.identity.role_name}] Hook is None in session start, skipping recovery check")
+            context['health_ok'] = False
+        elif self.current_work is None:
             # Check for work items that are in_progress status (interrupted from previous session)
             from ..core.hook import WorkItemStatus
             queued_items = self.hook.get_queued_items()
@@ -203,12 +206,15 @@ class BaseAgent(ABC):
                 )
 
         # 4. Verify hook health
-        try:
-            hook_stats = self.hook.get_stats()
-            context['hook_stats'] = hook_stats
-        except Exception as e:
-            logger.warning(f"[{self.identity.role_name}] Failed to get hook stats: {e}")
-            context['health_ok'] = False
+        if self.hook is None:
+            context['hook_stats'] = None
+        else:
+            try:
+                hook_stats = self.hook.get_stats()
+                context['hook_stats'] = hook_stats
+            except Exception as e:
+                logger.warning(f"[{self.identity.role_name}] Failed to get hook stats: {e}")
+                context['health_ok'] = False
 
         return context
 
@@ -662,7 +668,7 @@ Always maintain professional communication and follow the organizational hierarc
             'role': self.identity.role_name,
             'department': self.identity.department,
             'working_on': self.current_work.title if self.current_work else None,
-            'hook_stats': self.hook.get_stats(),
+            'hook_stats': self.hook.get_stats() if self.hook else None,
             'messages_pending': len(self.channel_manager.get_inbox(self.identity.id)),
             'memory_summary': self.memory.get_context_summary()
         }

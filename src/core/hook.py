@@ -208,18 +208,60 @@ class Hook:
         return None
 
     def claim_next(self, agent_id: str, capabilities: Optional[List[str]] = None) -> Optional[WorkItem]:
-        """Claim the next available work item that matches capabilities"""
-        for item in self.get_queued_items():
+        """
+        Claim the next available work item that matches capabilities.
+
+        Args:
+            agent_id: ID of the agent claiming work
+            capabilities: List of capabilities the agent has
+
+        Returns:
+            The claimed WorkItem, or None if no matching work available
+        """
+        queued_items = self.get_queued_items()
+
+        if not queued_items:
+            logger.debug(f"[{self.name}] No queued items for {agent_id}")
+            return None
+
+        logger.debug(
+            f"[{self.name}] Agent {agent_id} checking {len(queued_items)} queued items "
+            f"(agent capabilities: {capabilities or 'none'})"
+        )
+
+        for item in queued_items:
             # Check if agent has required capabilities
             if item.required_capabilities:
                 if capabilities is None:
-                    continue
-                if not all(cap in capabilities for cap in item.required_capabilities):
+                    logger.debug(
+                        f"[{self.name}] Skipping '{item.title}': "
+                        f"requires {item.required_capabilities}, agent has no capabilities"
+                    )
                     continue
 
+                missing_caps = [cap for cap in item.required_capabilities if cap not in capabilities]
+                if missing_caps:
+                    logger.debug(
+                        f"[{self.name}] Skipping '{item.title}': "
+                        f"requires {item.required_capabilities}, "
+                        f"agent missing {missing_caps}"
+                    )
+                    continue
+
+            # Found a match - claim it
             item.claim(agent_id)
             self.updated_at = datetime.utcnow().isoformat()
+            logger.info(
+                f"[{self.name}] Agent {agent_id} claimed work item '{item.title}' "
+                f"(molecule={item.molecule_id}, step={item.step_id})"
+            )
             return item
+
+        # No matching items found
+        logger.debug(
+            f"[{self.name}] No matching items for {agent_id} "
+            f"(all {len(queued_items)} items had capability mismatches)"
+        )
         return None
 
     def has_work(self) -> bool:
@@ -716,3 +758,98 @@ class HookManager:
             )
 
         return total_removed
+
+
+# =============================================================================
+# Convenience Functions
+# =============================================================================
+
+
+def clean_all_hooks(corp_path: Path) -> Dict[str, Any]:
+    """
+    Clean up all hooks, removing orphaned work items.
+
+    This is a convenience function that:
+    1. Gets all hook files from corp/hooks directory
+    2. Checks each work item's molecule_id against existing molecules
+    3. Removes work items whose molecules no longer exist
+    4. Logs and returns a summary of what was cleaned up
+
+    Usage:
+        from src.core.hook import clean_all_hooks
+        result = clean_all_hooks(Path('corp'))
+        print(f"Cleaned {result['total_removed']} orphaned items")
+
+    Args:
+        corp_path: Path to corporation root (contains hooks/ and molecules/)
+
+    Returns:
+        Dict with cleanup summary:
+        - total_removed: Number of orphaned work items removed
+        - orphaned_molecules: List of molecule IDs that no longer exist
+        - hooks_modified: Number of hooks that were modified
+        - hooks_scanned: Total number of hooks scanned
+    """
+    from src.core.molecule import MoleculeEngine
+
+    corp_path = Path(corp_path)
+
+    # Initialize systems
+    hook_manager = HookManager(corp_path)
+    molecule_engine = MoleculeEngine(corp_path)
+
+    # Track statistics
+    orphaned_molecules = set()
+    hooks_modified = 0
+    hooks_scanned = 0
+
+    # Get all hooks
+    all_hooks = hook_manager.list_hooks()
+    hooks_scanned = len(all_hooks)
+
+    logger.info(f"Scanning {hooks_scanned} hooks for orphaned work items...")
+
+    # Process each hook
+    total_removed = 0
+    for hook in all_hooks:
+        hook_modified = False
+        items_to_keep = []
+
+        for item in hook.items:
+            # Check if the molecule exists
+            if molecule_engine.molecule_exists(item.molecule_id):
+                items_to_keep.append(item)
+            else:
+                orphaned_molecules.add(item.molecule_id)
+                hook_modified = True
+                total_removed += 1
+                logger.debug(
+                    f"Removing orphaned work item '{item.title}' "
+                    f"(molecule {item.molecule_id} doesn't exist)"
+                )
+
+        if hook_modified:
+            hook.items = items_to_keep
+            hook.updated_at = datetime.utcnow().isoformat()
+            hook_manager._save_hook(hook)
+            hooks_modified += 1
+
+    # Build result summary
+    result = {
+        'total_removed': total_removed,
+        'orphaned_molecules': list(orphaned_molecules),
+        'hooks_modified': hooks_modified,
+        'hooks_scanned': hooks_scanned,
+    }
+
+    # Log summary
+    if total_removed > 0:
+        logger.info(
+            f"Hook cleanup complete: removed {total_removed} orphaned items "
+            f"from {hooks_modified} hooks "
+            f"(referenced {len(orphaned_molecules)} missing molecules)"
+        )
+    else:
+        logger.info("Hook cleanup complete: no orphaned items found")
+
+    return result

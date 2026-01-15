@@ -1580,7 +1580,13 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
     Note: molecule_id is for logging; run_cycle_skip_coo() processes all pending work.
 
     Uses timestamp-based lock with timeout for self-healing if a previous cycle got stuck.
+
+    Error handling:
+    - Full traceback logged on exceptions
+    - Lock always cleared in finally block
+    - Detailed logging of which agents processed what work
     """
+    import traceback
     from src.agents.executor import CorporationExecutor
 
     global _corporation_cycle_started_at, _corporation_cycle_molecule_id
@@ -1604,47 +1610,79 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
 
         # Run in executor to not block the event loop
         def run_cycle():
-            executor = CorporationExecutor(get_corp_path())
-            executor.initialize(['engineering', 'research', 'product', 'quality'])
+            try:
+                executor = CorporationExecutor(get_corp_path())
+                executor.initialize(['engineering', 'research', 'product', 'quality'])
 
-            # Loop until all work is complete (with safeguard)
-            max_cycles = 50
-            cycle_count = 0
-            total_processed = {'vps': 0, 'directors': 0, 'workers': 0}
+                # Log initialized agents
+                logger.info(
+                    f"[Cycle Init] Initialized: {len(executor.vps)} VPs, "
+                    f"{len(executor.directors)} Directors, {len(executor.workers)} Workers"
+                )
 
-            while cycle_count < max_cycles:
-                cycle_count += 1
-                logger.info(f"[Cycle {cycle_count}] Running corporation cycle...")
+                # Loop until all work is complete (with safeguard)
+                max_cycles = 50
+                cycle_count = 0
+                total_processed = {'vps': 0, 'directors': 0, 'workers': 0}
+                total_failed = {'vps': 0, 'directors': 0, 'workers': 0}
 
-                # Recover any stale claims from crashed/timed-out workers
-                # This resets items stuck in CLAIMED/IN_PROGRESS back to QUEUED
-                recovered = executor.hook_manager.recover_stale_claims(stale_threshold_minutes=10)
-                if recovered:
-                    logger.info(f"[Cycle {cycle_count}] Recovered {len(recovered)} stale work items")
+                while cycle_count < max_cycles:
+                    cycle_count += 1
+                    logger.info(f"[Cycle {cycle_count}] Running corporation cycle...")
 
-                results = executor.run_cycle_skip_coo()
+                    # Recover any stale claims from crashed/timed-out workers
+                    # This resets items stuck in CLAIMED/IN_PROGRESS back to QUEUED
+                    recovered = executor.hook_manager.recover_stale_claims(stale_threshold_minutes=10)
+                    if recovered:
+                        logger.info(f"[Cycle {cycle_count}] Recovered {len(recovered)} stale work items")
 
-                # Accumulate results
-                for tier in ['vps', 'directors', 'workers']:
-                    if tier in results:
-                        total_processed[tier] += results[tier].completed
+                    results = executor.run_cycle_skip_coo()
 
-                # Refresh hooks and check if there's still incomplete work
-                # (QUEUED, CLAIMED, or IN_PROGRESS - not just QUEUED)
-                executor._refresh_all_agent_hooks()
-                incomplete = executor.hook_manager.get_all_incomplete_work()
+                    # Log and accumulate detailed results
+                    for tier in ['vps', 'directors', 'workers']:
+                        if tier in results:
+                            result = results[tier]
+                            total_processed[tier] += result.completed
+                            total_failed[tier] += result.failed
+                            logger.info(
+                                f"[Cycle {cycle_count}] {tier.upper()}: "
+                                f"{result.completed} completed, {result.failed} failed, "
+                                f"{result.stopped} stopped (of {result.total_agents} agents)"
+                            )
 
-                if len(incomplete) == 0:
-                    logger.info(f"[Cycle {cycle_count}] All work complete after {cycle_count} cycles")
-                    break
+                    # Refresh hooks and check if there's still incomplete work
+                    # (QUEUED, CLAIMED, or IN_PROGRESS - not just QUEUED)
+                    executor._refresh_all_agent_hooks()
+                    incomplete = executor.hook_manager.get_all_incomplete_work()
 
-                logger.info(f"[Cycle {cycle_count}] {len(incomplete)} items still incomplete, continuing...")
-                time.sleep(0.5)  # Brief pause between cycles
+                    if len(incomplete) == 0:
+                        logger.info(f"[Cycle {cycle_count}] All work complete after {cycle_count} cycles")
+                        break
 
-            if cycle_count >= max_cycles:
-                logger.warning(f"Hit max_cycles ({max_cycles}) - some work may remain queued")
+                    # Log what's still pending
+                    incomplete_summary = {}
+                    for item in incomplete:
+                        status = item.status.value
+                        incomplete_summary[status] = incomplete_summary.get(status, 0) + 1
+                    logger.info(
+                        f"[Cycle {cycle_count}] {len(incomplete)} items still incomplete: {incomplete_summary}"
+                    )
+                    time.sleep(0.5)  # Brief pause between cycles
 
-            return {'cycles': cycle_count, 'total_processed': total_processed}
+                if cycle_count >= max_cycles:
+                    logger.warning(f"Hit max_cycles ({max_cycles}) - some work may remain queued")
+
+                return {
+                    'cycles': cycle_count,
+                    'total_processed': total_processed,
+                    'total_failed': total_failed
+                }
+
+            except Exception as inner_e:
+                # Log full traceback from within the thread
+                logger.error(f"[Cycle Error] Exception in run_cycle thread: {inner_e}")
+                logger.error(f"[Cycle Error] Traceback:\n{traceback.format_exc()}")
+                raise
 
         # Run the blocking operation in a thread pool
         loop = asyncio.get_running_loop()
@@ -1655,11 +1693,16 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
         _corporation_cycle_last_error = None
 
     except Exception as e:
+        # Log full exception with traceback
         error_msg = f"Background execution failed for molecule {molecule_id}: {e}"
         logger.error(error_msg)
-        _corporation_cycle_last_error = str(e)
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        _corporation_cycle_last_error = f"{e}\n{traceback.format_exc()}"
 
     finally:
+        # ALWAYS clear the lock, even on errors
+        elapsed = time.time() - (_corporation_cycle_started_at or time.time())
+        logger.info(f"Corporation cycle finished (elapsed={elapsed:.1f}s), clearing lock")
         _corporation_cycle_started_at = None
         _corporation_cycle_molecule_id = None
 
