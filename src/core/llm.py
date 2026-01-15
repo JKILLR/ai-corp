@@ -788,8 +788,6 @@ class AgentLLMInterface:
 
     def __init__(self, backend: Optional[LLMBackend] = None):
         self.backend = backend or LLMBackendFactory.get_best_available()
-        # Keep API backend available for image support
-        self._api_backend: Optional[LLMBackend] = None
 
     def execute(self, request: LLMRequest) -> LLMResponse:
         """
@@ -797,23 +795,7 @@ class AgentLLMInterface:
 
         Delegates to the underlying backend. Use this for custom prompts
         that don't fit the structured methods (think, analyze, etc.).
-
-        Note: If the request includes images and the primary backend is
-        ClaudeCodeBackend (which uses --print mode and can't execute Read tool),
-        we automatically fall back to AnthropicAPIBackend which properly
-        supports images via base64 content blocks.
         """
-        # If images are present, use API backend for proper image support
-        # ClaudeCodeBackend's --print mode can't execute tools to view images
-        if request.images and isinstance(self.backend, ClaudeCodeBackend):
-            if self._api_backend is None:
-                self._api_backend = LLMBackendFactory.create('anthropic_api')
-            if self._api_backend.is_available():
-                logger.info(f"Using API backend for image support ({len(request.images)} images)")
-                return self._api_backend.execute(request)
-            else:
-                logger.warning("Images provided but API backend unavailable - falling back to CLI")
-
         return self.backend.execute(request)
 
     def think(
