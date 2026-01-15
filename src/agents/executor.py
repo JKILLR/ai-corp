@@ -692,7 +692,24 @@ class CorporationExecutor:
             if key in hook_lookup:
                 director.hook = hook_lookup[key]
                 director.hook_manager._hooks[hook_lookup[key].id] = hook_lookup[key]
-                # Workers use their Director's hook (shared pool queue)
+            else:
+                # Hook not found on disk - try to recreate it
+                logger.warning(
+                    f"Hook not found for director {director.identity.role_id}, "
+                    f"recreating from agent's hook_manager"
+                )
+                # Ensure the director has a valid hook
+                if director.hook is None:
+                    director.hook = director.hook_manager.get_or_create_hook(
+                        name=f"{director.identity.role_name} Hook",
+                        owner_type='role',
+                        owner_id=director.identity.role_id,
+                        description=f"Work queue for {director.identity.role_name}"
+                    )
+                    logger.info(f"Recreated hook {director.hook.id} for {director.identity.role_id}")
+
+            # Workers use their Director's hook (shared pool queue)
+            if director.hook:
                 worker_ids = self._director_workers.get(director.identity.role_id, [])
                 for worker_id in worker_ids:
                     worker = self.workers.get(worker_id)

@@ -256,6 +256,15 @@ class BaseAgent(ABC):
         items_processed = 0
         items_failed = 0
 
+        # Safety check: ensure hook is available
+        if self.hook is None:
+            logger.error(
+                f"[{self.identity.role_name}] Hook is None! "
+                f"Agent role_id={self.identity.role_id}. "
+                f"This usually means the hook wasn't created or wasn't found during refresh."
+            )
+            return
+
         while self.hook.has_work() and iterations < max_iterations:
             iterations += 1
 
