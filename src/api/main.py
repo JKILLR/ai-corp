@@ -2858,5 +2858,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
-        reload_dirs=["src/"]  # ONLY watch src/ - ignore corp/, foundation/, tests/
+        reload_dirs=["src/"],
+        reload_excludes=["corp/", "foundation/", "tests/", "conversations/", "*.json", "*.yaml"]
     )
