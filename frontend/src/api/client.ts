@@ -133,14 +133,25 @@ class APIClient {
     context?: Record<string, unknown>,
     images?: ImageAttachment[]
   ): Promise<COOMessageResponse> {
+    // Debug: Log what we're about to send
+    const imagesSummary = images?.map(img => ({
+      media_type: img.media_type,
+      data_length: img.data?.length || 0
+    }));
+    console.log('[APIClient] sendCOOMessage - images param:', images?.length || 0, imagesSummary);
+
+    const requestBody = {
+      message,
+      thread_id: threadId,
+      context,
+      images: images && images.length > 0 ? images : undefined,
+    };
+
+    console.log('[APIClient] Request body images:', requestBody.images?.length || 0);
+
     return this.request<COOMessageResponse>('/api/coo/message', {
       method: 'POST',
-      body: JSON.stringify({
-        message,
-        thread_id: threadId,
-        context,
-        images: images && images.length > 0 ? images : undefined,
-      }),
+      body: JSON.stringify(requestBody),
     });
   }
 

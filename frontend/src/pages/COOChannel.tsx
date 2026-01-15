@@ -71,6 +71,7 @@ export function COOChannel() {
   const [isConnected, setIsConnected] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -125,6 +126,8 @@ export function COOChannel() {
   }, []);
 
   const handleSend = async () => {
+    // Don't send while image is still being processed (race condition prevention)
+    if (isProcessingImage) return;
     if (!input.trim() && attachedImages.length === 0) return;
 
     const userMessage: Message = {
@@ -218,6 +221,7 @@ export function COOChannel() {
 
   // Process an image file into base64
   const processImageFile = (file: File) => {
+    setIsProcessingImage(true);
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = (reader.result as string).split(',')[1]; // Remove data:image/xxx;base64, prefix
@@ -227,6 +231,11 @@ export function COOChannel() {
         console.log('[COOChannel] Attaching image, total will be:', prev.length + 1);
         return [...prev, { data: base64, media_type: mediaType }];
       });
+      setIsProcessingImage(false);
+    };
+    reader.onerror = () => {
+      console.error('[COOChannel] Failed to read image file');
+      setIsProcessingImage(false);
     };
     reader.readAsDataURL(file);
   };
@@ -416,8 +425,8 @@ export function COOChannel() {
         {/* Input Area */}
         <div className="p-4 border-t border-[var(--glass-border)]">
           {/* Image Preview Area */}
-          {imageDataUrls.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
+          {(imageDataUrls.length > 0 || isProcessingImage) && (
+            <div className="mb-3 flex flex-wrap gap-2 items-center">
               {imageDataUrls.map((dataUrl, idx) => (
                 <div key={idx} className="relative group">
                   <img
@@ -433,6 +442,11 @@ export function COOChannel() {
                   </button>
                 </div>
               ))}
+              {isProcessingImage && (
+                <div className="h-20 w-20 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg)] flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-[var(--color-neural)] border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
             </div>
           )}
           <GlassCard padding="sm">
@@ -469,7 +483,7 @@ export function COOChannel() {
                 variant="primary"
                 size="md"
                 onClick={handleSend}
-                disabled={!input.trim() && attachedImages.length === 0}
+                disabled={isProcessingImage || (!input.trim() && attachedImages.length === 0)}
               >
                 <Send className="w-4 h-4" />
               </Button>

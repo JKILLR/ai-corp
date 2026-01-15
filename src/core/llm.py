@@ -222,11 +222,14 @@ class ClaudeCodeBackend(LLMBackend):
         if request.working_directory:
             cmd.extend(['--add-dir', str(request.working_directory)])
 
-        # Handle images - save to temp files and reference in prompt
-        # Claude Code CLI accepts images by including file paths in the prompt text
+        # Handle images - save to temp files in working directory and reference in prompt
+        # Claude Code CLI can view images via Read tool, but only in allowed directories
+        # Save images in working_directory so Claude Code has permission to read them
         image_temp_files = []
         image_prompt_prefix = ""
         if request.images:
+            # Use working directory for temp files so Claude Code can access them
+            temp_dir = request.working_directory or Path.cwd()
             for i, img in enumerate(request.images):
                 try:
                     # Decode base64 to bytes
@@ -237,11 +240,12 @@ class ClaudeCodeBackend(LLMBackend):
                     if ext == 'jpeg':
                         ext = 'jpg'
 
-                    # Write to temp file (use a recognizable prefix for debugging)
+                    # Write to temp file in working directory (Claude Code has access here)
                     with tempfile.NamedTemporaryFile(
                         mode='wb',
                         prefix='coo_image_',
                         suffix=f'.{ext}',
+                        dir=temp_dir,
                         delete=False
                     ) as img_file:
                         img_file.write(img_data)
