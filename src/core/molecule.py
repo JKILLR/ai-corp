@@ -1562,14 +1562,12 @@ class MoleculeEngine:
             - deleted: True if molecule was found and deleted
             - work_items_removed: Number of work items removed from hooks
             - workers_reset: Number of workers reset from busy to idle
-            - hooks_modified: Number of hooks that were modified
             - pools_modified: Number of pools that were modified
         """
         result = {
             'deleted': False,
             'work_items_removed': 0,
             'workers_reset': 0,
-            'hooks_modified': 0,
             'pools_modified': 0,
         }
 
@@ -1589,35 +1587,16 @@ class MoleculeEngine:
 
         # Clean up related resources
         if result['deleted'] and cleanup_hooks:
-            # 1. Clean up work items in hooks
+            # 1. Clean up work items in hooks using existing HookManager method
             try:
                 from .hook import HookManager
                 hook_manager = HookManager(self.base_path)
 
-                # Iterate through all hooks and remove work items for this molecule
-                all_hooks = hook_manager.list_hooks()
-                for hook in all_hooks:
-                    items_before = len(hook.items)
-                    hook.items = [
-                        item for item in hook.items
-                        if item.molecule_id != molecule_id
-                    ]
-                    items_removed = items_before - len(hook.items)
-
-                    if items_removed > 0:
-                        hook.updated_at = datetime.utcnow().isoformat()
-                        hook_manager._save_hook(hook)
-                        result['work_items_removed'] += items_removed
-                        result['hooks_modified'] += 1
-                        logger.debug(
-                            f"Removed {items_removed} work items from hook {hook.name}"
-                        )
-
-                if result['work_items_removed'] > 0:
-                    logger.info(
-                        f"Cleaned up {result['work_items_removed']} work items "
-                        f"from {result['hooks_modified']} hooks for molecule {molecule_id}"
-                    )
+                # Use the existing cleanup method - it handles iteration and saving
+                removed = hook_manager.cleanup_molecule_work_items(molecule_id)
+                result['work_items_removed'] = removed
+                # Note: hooks_modified count not available from cleanup_molecule_work_items,
+                # but work_items_removed is the key metric for cleanup verification
 
             except Exception as e:
                 logger.warning(f"Could not clean up hooks for molecule {molecule_id}: {e}")
