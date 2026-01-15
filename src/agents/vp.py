@@ -26,6 +26,7 @@ from ..core.hook import WorkItem, WorkItemPriority
 from ..core.channel import MessagePriority
 from ..core.gate import GateKeeper
 from ..core.pool import PoolManager
+from ..core.memory import ContextType
 
 logger = logging.getLogger(__name__)
 
@@ -615,7 +616,3 @@ def create_vp_agent(
         direct_reports=directors or config['directors'],
         capabilities=config['capabilities']
     )
-
-
-# Need to import ContextType for store_context
-from ..core.memory import ContextType
