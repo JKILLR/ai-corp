@@ -161,7 +161,8 @@ class ActivityEventBroadcaster:
 
             # Count existing lines if file exists
             if self._log_file.exists():
-                self._log_line_count = sum(1 for _ in open(self._log_file))
+                with open(self._log_file, 'r') as f:
+                    self._log_line_count = sum(1 for _ in f)
             else:
                 # Create with header
                 with open(self._log_file, 'w') as f:
@@ -1739,6 +1740,32 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
                         logger.info(f"[Cycle {cycle_count}] Recovered {len(recovered)} stale work items")
 
                     results = executor.run_cycle_skip_coo()
+
+                    # === RECONCILIATION: Delegate next steps for completed work ===
+                    # Workers complete steps using their own MoleculeEngine instance,
+                    # which doesn't have the on_step_complete callback registered.
+                    # So we need to manually check for completed steps and delegate
+                    # the next available steps after each cycle.
+                    try:
+                        coo = get_coo()
+                        molecules = get_molecule_engine()
+                        # list_active_molecules() reads fresh from disk each time
+                        active_mols = molecules.list_active_molecules()
+
+                        delegations_added = 0
+                        for mol in active_mols:
+                            # delegate_molecule checks for pending steps with
+                            # dependencies met - safe to call repeatedly
+                            new_delegations = coo.delegate_molecule(mol)
+                            delegations_added += len(new_delegations)
+
+                        if delegations_added > 0:
+                            logger.info(
+                                f"[Cycle {cycle_count}] Reconciliation: delegated "
+                                f"{delegations_added} next-phase work items"
+                            )
+                    except Exception as recon_e:
+                        logger.warning(f"[Cycle {cycle_count}] Reconciliation failed: {recon_e}")
 
                     # Log and accumulate detailed results
                     for tier in ['vps', 'directors', 'workers']:
