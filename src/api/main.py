@@ -1740,6 +1740,35 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
 
                     results = executor.run_cycle_skip_coo()
 
+                    # === RECONCILIATION: Delegate next steps for completed work ===
+                    # Workers complete steps using their own MoleculeEngine instance,
+                    # which doesn't have the on_step_complete callback registered.
+                    # So we need to manually check for completed steps and delegate
+                    # the next available steps after each cycle.
+                    try:
+                        coo = get_coo()
+                        molecules = get_molecule_engine()
+                        active_mols = molecules.list_active_molecules()
+
+                        delegations_added = 0
+                        for mol in active_mols:
+                            # Reload molecule from disk to get fresh state
+                            # (workers may have updated step statuses)
+                            fresh_mol = molecules.get_molecule(mol.id)
+                            if fresh_mol:
+                                # delegate_molecule checks for pending steps with
+                                # dependencies met - safe to call repeatedly
+                                new_delegations = coo.delegate_molecule(fresh_mol)
+                                delegations_added += len(new_delegations)
+
+                        if delegations_added > 0:
+                            logger.info(
+                                f"[Cycle {cycle_count}] Reconciliation: delegated "
+                                f"{delegations_added} next-phase work items"
+                            )
+                    except Exception as recon_e:
+                        logger.warning(f"[Cycle {cycle_count}] Reconciliation failed: {recon_e}")
+
                     # Log and accumulate detailed results
                     for tier in ['vps', 'directors', 'workers']:
                         if tier in results:
