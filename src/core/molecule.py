@@ -1544,43 +1544,119 @@ class MoleculeEngine:
 
         return False
 
-    def delete_molecule(self, molecule_id: str, cleanup_hooks: bool = True) -> bool:
+    def delete_molecule(self, molecule_id: str, cleanup_hooks: bool = True) -> Dict[str, Any]:
         """
-        Delete a molecule and optionally clean up related work items.
+        Delete a molecule and clean up all associated resources.
+
+        This method ensures no orphaned work items or stuck workers remain:
+        1. Removes all work items referencing this molecule from hooks
+        2. Resets any workers that are busy on this molecule to idle
+        3. Deletes the molecule file
 
         Args:
             molecule_id: The molecule ID to delete
-            cleanup_hooks: If True, also remove work items from hooks
+            cleanup_hooks: If True, also clean up hooks and workers (default True)
 
         Returns:
-            True if the molecule was deleted, False if not found
+            Summary dict with cleanup results:
+            - deleted: True if molecule was found and deleted
+            - work_items_removed: Number of work items removed from hooks
+            - workers_reset: Number of workers reset from busy to idle
+            - hooks_modified: Number of hooks that were modified
+            - pools_modified: Number of pools that were modified
         """
-        deleted = False
+        result = {
+            'deleted': False,
+            'work_items_removed': 0,
+            'workers_reset': 0,
+            'hooks_modified': 0,
+            'pools_modified': 0,
+        }
 
         # Try to delete from active
         active_file = self.active_path / f"{molecule_id}.yaml"
         if active_file.exists():
             active_file.unlink()
-            deleted = True
+            result['deleted'] = True
+            logger.info(f"Deleted active molecule: {molecule_id}")
 
         # Try to delete from completed
         completed_file = self.completed_path / f"{molecule_id}.yaml"
         if completed_file.exists():
             completed_file.unlink()
-            deleted = True
+            result['deleted'] = True
+            logger.info(f"Deleted completed molecule: {molecule_id}")
 
-        # Clean up related work items in hooks
-        if deleted and cleanup_hooks:
+        # Clean up related resources
+        if result['deleted'] and cleanup_hooks:
+            # 1. Clean up work items in hooks
             try:
                 from .hook import HookManager
                 hook_manager = HookManager(self.base_path)
-                removed = hook_manager.cleanup_molecule_work_items(molecule_id)
-                if removed > 0:
-                    print(f"Cleaned up {removed} work items for deleted molecule {molecule_id}")
-            except Exception as e:
-                print(f"Warning: Could not clean up hooks for molecule {molecule_id}: {e}")
 
-        return deleted
+                # Iterate through all hooks and remove work items for this molecule
+                all_hooks = hook_manager.list_hooks()
+                for hook in all_hooks:
+                    items_before = len(hook.items)
+                    hook.items = [
+                        item for item in hook.items
+                        if item.molecule_id != molecule_id
+                    ]
+                    items_removed = items_before - len(hook.items)
+
+                    if items_removed > 0:
+                        hook.updated_at = datetime.utcnow().isoformat()
+                        hook_manager._save_hook(hook)
+                        result['work_items_removed'] += items_removed
+                        result['hooks_modified'] += 1
+                        logger.debug(
+                            f"Removed {items_removed} work items from hook {hook.name}"
+                        )
+
+                if result['work_items_removed'] > 0:
+                    logger.info(
+                        f"Cleaned up {result['work_items_removed']} work items "
+                        f"from {result['hooks_modified']} hooks for molecule {molecule_id}"
+                    )
+
+            except Exception as e:
+                logger.warning(f"Could not clean up hooks for molecule {molecule_id}: {e}")
+
+            # 2. Reset any workers busy on this molecule
+            try:
+                from .pool import PoolManager, WorkerStatus
+                pool_manager = PoolManager(self.base_path)
+
+                for pool in pool_manager.list_pools():
+                    pool_modified = False
+                    for worker in pool.workers:
+                        if (worker.current_molecule_id == molecule_id and
+                                worker.status == WorkerStatus.BUSY):
+                            # Reset worker to idle
+                            worker.status = WorkerStatus.IDLE
+                            worker.current_work_item_id = None
+                            worker.current_molecule_id = None
+                            result['workers_reset'] += 1
+                            pool_modified = True
+                            logger.debug(
+                                f"Reset worker {worker.id} from busy to idle "
+                                f"(was working on molecule {molecule_id})"
+                            )
+
+                    if pool_modified:
+                        pool_manager._save_pool(pool)
+                        result['pools_modified'] += 1
+
+                if result['workers_reset'] > 0:
+                    logger.info(
+                        f"Reset {result['workers_reset']} workers "
+                        f"in {result['pools_modified']} pools for molecule {molecule_id}"
+                    )
+
+            except Exception as e:
+                logger.warning(f"Could not reset workers for molecule {molecule_id}: {e}")
+
+        return result
 
     def create_from_template(
         self,
