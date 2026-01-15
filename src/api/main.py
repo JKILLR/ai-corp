@@ -161,7 +161,8 @@ class ActivityEventBroadcaster:
 
             # Count existing lines if file exists
             if self._log_file.exists():
-                self._log_line_count = sum(1 for _ in open(self._log_file))
+                with open(self._log_file, 'r') as f:
+                    self._log_line_count = sum(1 for _ in f)
             else:
                 # Create with header
                 with open(self._log_file, 'w') as f:
@@ -1748,18 +1749,15 @@ async def _run_corporation_cycle_async(molecule_id: str) -> None:
                     try:
                         coo = get_coo()
                         molecules = get_molecule_engine()
+                        # list_active_molecules() reads fresh from disk each time
                         active_mols = molecules.list_active_molecules()
 
                         delegations_added = 0
                         for mol in active_mols:
-                            # Reload molecule from disk to get fresh state
-                            # (workers may have updated step statuses)
-                            fresh_mol = molecules.get_molecule(mol.id)
-                            if fresh_mol:
-                                # delegate_molecule checks for pending steps with
-                                # dependencies met - safe to call repeatedly
-                                new_delegations = coo.delegate_molecule(fresh_mol)
-                                delegations_added += len(new_delegations)
+                            # delegate_molecule checks for pending steps with
+                            # dependencies met - safe to call repeatedly
+                            new_delegations = coo.delegate_molecule(mol)
+                            delegations_added += len(new_delegations)
 
                         if delegations_added > 0:
                             logger.info(
