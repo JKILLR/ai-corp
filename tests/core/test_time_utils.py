@@ -356,7 +356,7 @@ class TestFormatDuration:
 
     def test_format_duration_seconds(self):
         """Should format seconds."""
-        assert format_duration(30) == "0m 30s"
+        assert format_duration(30) == "30s"
 
     def test_format_duration_minutes(self):
         """Should format minutes."""

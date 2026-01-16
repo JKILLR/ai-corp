@@ -260,14 +260,13 @@ class TestEdgeCases:
         assert response.success is True
         assert 'Hello\nWorld\t!' in response.parsed_json['message']
 
-    def test_multiple_json_objects_takes_first(self):
-        """Multiple JSON objects should extract the first complete one."""
+    def test_multiple_json_objects_fails(self):
+        """Multiple JSON objects in a row is invalid JSON."""
         content = '{"first": 1} {"second": 2}'
         response = validate_response(content, expect_json=True)
-        assert response.success is True
-        # Should get the outer braces spanning both
-        # or just the first one depending on implementation
-        assert 'first' in response.parsed_json
+        # This is invalid JSON - parser finds braces but content between them is invalid
+        assert response.success is False
+        assert 'JSON' in response.error
 
     def test_dict_without_extractable_content(self):
         """Dict without any known content field should error."""

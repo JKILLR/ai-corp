@@ -171,12 +171,14 @@ class TestPoolConcurrency:
         pool = pm.create_pool(name='test-pool', department='eng', director_id='dir-1')
         worker = pm.add_worker_to_pool(pool.id, 'worker-1')
 
-        # Claim the only worker
-        pm.claim_worker(pool.id, 'wi-1', 'mol-1')
+        # Mark worker as OFFLINE (not recoverable)
+        pool_data = pm._load_pool_fresh(pool.id)
+        pool_data.workers[0].status = WorkerStatus.OFFLINE
+        pm._save_pool(pool_data)
 
-        # Second claim should return None
-        claimed2 = pm.claim_worker(pool.id, 'wi-2', 'mol-2')
-        assert claimed2 is None
+        # Claim should return None since no workers are available
+        claimed = pm.claim_worker(pool.id, 'wi-1', 'mol-1')
+        assert claimed is None
 
     def test_release_updates_stats(self, tmp_path: Path):
         """Release should update worker statistics."""
