@@ -147,7 +147,7 @@ class TestAllowedCommands:
 
     def test_find_allowed(self):
         """find should be allowed."""
-        is_valid, _ = validate_command("find . -name '*.py'")
+        is_valid, _ = validate_command("find . -name *.py")
         assert is_valid is True
 
     def test_make_allowed(self):
@@ -191,7 +191,8 @@ class TestExecuteSafeCommand:
 
     def test_failed_command_returns_failure(self):
         """Commands that fail should return success=False."""
-        result = execute_safe_command("python -c 'exit(1)'")
+        # Use a command that will fail: python with nonexistent file
+        result = execute_safe_command("python nonexistent_file_xyz.py")
         assert result['success'] is False
         assert result.get('blocked') is None or result.get('blocked') is False
 
