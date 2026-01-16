@@ -22,6 +22,8 @@ from typing import Optional, List, Dict, Any, Set
 from dataclasses import dataclass, field, asdict
 import yaml
 
+from src.core.time_utils import now_iso
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,7 +66,7 @@ class Worker:
             role_id=role_id,
             capabilities=capabilities or [],
             skills=skills or [],
-            started_at=datetime.utcnow().isoformat()
+            started_at=now_iso()
         )
 
     def claim_work(self, work_item_id: str, molecule_id: str) -> None:
@@ -85,7 +87,7 @@ class Worker:
 
     def heartbeat(self) -> None:
         """Update heartbeat timestamp"""
-        self.last_heartbeat = datetime.utcnow().isoformat()
+        self.last_heartbeat = now_iso()
 
     def has_capability(self, capability: str) -> bool:
         """Check if worker has a capability"""
@@ -138,7 +140,7 @@ class WorkerPool:
         required_capabilities: Optional[List[str]] = None,
         required_skills: Optional[List[str]] = None
     ) -> 'WorkerPool':
-        now = datetime.utcnow().isoformat()
+        now = now_iso()
         return cls(
             id=f"POOL-{uuid.uuid4().hex[:8].upper()}",
             name=name,
@@ -169,7 +171,7 @@ class WorkerPool:
             skills=self.required_skills.copy()
         )
         self.workers.append(worker)
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = now_iso()
         return worker
 
     def remove_worker(self, worker_id: str) -> bool:
@@ -179,7 +181,7 @@ class WorkerPool:
                 if worker.status == WorkerStatus.BUSY:
                     raise ValueError("Cannot remove busy worker")
                 self.workers.pop(i)
-                self.updated_at = datetime.utcnow().isoformat()
+                self.updated_at = now_iso()
                 return True
         return False
 
@@ -447,7 +449,7 @@ class PoolManager:
 
             # Claim the worker
             worker.claim_work(work_item_id, molecule_id)
-            worker.last_heartbeat = datetime.utcnow().isoformat()
+            worker.last_heartbeat = now_iso()
 
             # Save immediately while holding lock
             self._save_pool(pool)

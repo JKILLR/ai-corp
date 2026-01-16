@@ -23,6 +23,8 @@ from typing import Optional, List, Dict, Any, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field, asdict
 import yaml
 
+from src.core.time_utils import now_iso
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -326,7 +328,7 @@ class Checkpoint:
             step_id=step_id,
             description=description,
             data=data,
-            created_at=datetime.utcnow().isoformat(),
+            created_at=now_iso(),
             created_by=created_by
         )
 
@@ -506,7 +508,7 @@ class Molecule:
 
             old_status = self.status
             self.status = new_status
-            self.updated_at = datetime.utcnow().isoformat()
+            self.updated_at = now_iso()
             logger.info(f"[Molecule {self.id}] Status: {old_status.value} -> {new_status.value}")
             return True
 
@@ -548,7 +550,7 @@ class Molecule:
 
             old_status = step.status
             step.status = new_status
-            self.updated_at = datetime.utcnow().isoformat()
+            self.updated_at = now_iso()
             logger.info(
                 f"[Molecule {self.id}] Step {step_id}: {old_status.value} -> {new_status.value}"
             )
@@ -572,7 +574,7 @@ class Molecule:
         swarm_config: Optional[SwarmConfig] = None,
         composite_config: Optional[CompositeConfig] = None
     ) -> 'Molecule':
-        now = datetime.utcnow().isoformat()
+        now = now_iso()
         return cls(
             id=f"MOL-{uuid.uuid4().hex[:8].upper()}",
             name=name,
@@ -596,7 +598,7 @@ class Molecule:
     def add_step(self, step: MoleculeStep) -> None:
         """Add a step to the molecule"""
         self.steps.append(step)
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = now_iso()
 
     def get_step(self, step_id: str) -> Optional[MoleculeStep]:
         """Get a step by ID"""
@@ -960,8 +962,8 @@ class MoleculeEngine:
             self._start_composite_phase(molecule)
 
         molecule.status = MoleculeStatus.ACTIVE
-        molecule.started_at = datetime.utcnow().isoformat()
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.started_at = now_iso()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
 
         # Fire molecule started callback
@@ -1140,7 +1142,7 @@ class MoleculeEngine:
             'phase_index': config.current_phase,
             'phase_name': phase.name,
             'child_molecule_id': child_molecule.id,
-            'started_at': datetime.utcnow().isoformat()
+            'started_at': now_iso()
         })
 
         # Save parent molecule with updated metadata and child links
@@ -1213,7 +1215,7 @@ class MoleculeEngine:
             'phase_index': config.current_phase,
             'child_molecule_id': failed_child_id,
             'reason': failure_reason,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': now_iso()
         })
 
         # Determine action based on phase configuration
@@ -1281,7 +1283,7 @@ class MoleculeEngine:
                 'from_phase': config.current_phase,
                 'child_molecule_id': child_molecule.id,
                 'reason': failure_reason,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now_iso()
             })
 
             self._save_molecule(molecule)
@@ -1304,12 +1306,12 @@ class MoleculeEngine:
 
         step.status = StepStatus.IN_PROGRESS
         step.assigned_to = assigned_to
-        step.started_at = datetime.utcnow().isoformat()
-        molecule.updated_at = datetime.utcnow().isoformat()
+        step.started_at = now_iso()
+        molecule.updated_at = now_iso()
 
         if molecule.status == MoleculeStatus.PENDING:
             molecule.status = MoleculeStatus.ACTIVE
-            molecule.started_at = datetime.utcnow().isoformat()
+            molecule.started_at = now_iso()
 
         self._save_molecule(molecule)
 
@@ -1340,7 +1342,7 @@ class MoleculeEngine:
             raise ValueError(f"Step {step_id} not found")
 
         checkpoint = step.add_checkpoint(description, data, agent_id)
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
         return checkpoint
 
@@ -1361,8 +1363,8 @@ class MoleculeEngine:
 
         result = result or {}
         step.result = result
-        step.completed_at = datetime.utcnow().isoformat()
-        molecule.updated_at = datetime.utcnow().isoformat()
+        step.completed_at = now_iso()
+        molecule.updated_at = now_iso()
 
         # Check if result indicates failure
         if result.get('status') == 'failed':
@@ -1377,7 +1379,7 @@ class MoleculeEngine:
         # Check if molecule is complete
         if molecule.is_complete():
             molecule.status = MoleculeStatus.COMPLETED
-            molecule.completed_at = datetime.utcnow().isoformat()
+            molecule.completed_at = now_iso()
             self._move_to_completed(molecule)
 
             # Fire molecule completion callback for outcome recording
@@ -1444,9 +1446,9 @@ class MoleculeEngine:
             'status': 'delegated',
             'delegations': delegations or [],
             'delegated_by': delegated_by,
-            'delegated_at': datetime.utcnow().isoformat()
+            'delegated_at': now_iso()
         }
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
 
         self._save_molecule(molecule)
         return step
@@ -1474,7 +1476,7 @@ class MoleculeEngine:
 
         step.status = StepStatus.FAILED
         step.error = error
-        step.completed_at = datetime.utcnow().isoformat()
+        step.completed_at = now_iso()
 
         # Record failure in history for Ralph Mode
         failure_record = {
@@ -1482,7 +1484,7 @@ class MoleculeEngine:
             'step_name': step.name,
             'error': error,
             'error_type': error_type or 'unknown',
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': now_iso(),
             'retry_count': molecule.retry_count,
             'context': context or {}
         }
@@ -1508,13 +1510,13 @@ class MoleculeEngine:
         if molecule.ralph_mode and self._should_ralph_retry(molecule):
             # Don't mark as blocked - prepare for retry
             molecule.retry_count += 1
-            molecule.updated_at = datetime.utcnow().isoformat()
+            molecule.updated_at = now_iso()
             self._save_molecule(molecule)
             return step
 
         # Standard failure - block the molecule
         molecule.status = MoleculeStatus.BLOCKED
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
         return step
 
@@ -1562,7 +1564,7 @@ class MoleculeEngine:
 
         molecule.status = MoleculeStatus.IN_REVIEW
         molecule.metadata['current_gate'] = gate_id
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
         return molecule
 
@@ -1579,18 +1581,18 @@ class MoleculeEngine:
         for step in molecule.steps:
             if step.is_gate and step.gate_id == gate_id:
                 step.status = StepStatus.COMPLETED
-                step.completed_at = datetime.utcnow().isoformat()
+                step.completed_at = now_iso()
                 step.result = {'approved_by': approved_by}
                 break
 
         molecule.status = MoleculeStatus.ACTIVE
         molecule.metadata.pop('current_gate', None)
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
 
         # Check if fully complete
         if molecule.is_complete():
             molecule.status = MoleculeStatus.COMPLETED
-            molecule.completed_at = datetime.utcnow().isoformat()
+            molecule.completed_at = now_iso()
             self._move_to_completed(molecule)
         else:
             self._save_molecule(molecule)
@@ -1608,12 +1610,12 @@ class MoleculeEngine:
             if step.is_gate and step.gate_id == gate_id:
                 step.status = StepStatus.FAILED
                 step.error = f"Rejected by {rejected_by}: {reason}"
-                step.completed_at = datetime.utcnow().isoformat()
+                step.completed_at = now_iso()
                 break
 
         molecule.status = MoleculeStatus.BLOCKED
         molecule.metadata['rejection_reason'] = reason
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
         return molecule
 
@@ -1831,9 +1833,9 @@ class MoleculeEngine:
             'max_retries': max_retries,
             'cost_cap': cost_cap,
             'restart_strategy': restart_strategy,
-            'enabled_at': datetime.utcnow().isoformat()
+            'enabled_at': now_iso()
         }
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
         return molecule
 
@@ -1915,7 +1917,7 @@ class MoleculeEngine:
 
         # Update molecule status
         molecule.status = MoleculeStatus.ACTIVE
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
 
         # Store retry context in metadata
         molecule.metadata['ralph_retry_context'] = self.get_ralph_context(molecule_id)

@@ -19,12 +19,14 @@ import logging
 import threading
 import uuid
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field, asdict
 import yaml
+
+from src.core.time_utils import now, now_iso, parse_iso
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +86,7 @@ class WorkItem:
         required_skills: Optional[List[str]] = None,
         context: Optional[Dict[str, Any]] = None
     ) -> 'WorkItem':
-        now = datetime.utcnow().isoformat()
+        now = now_iso()
         return cls(
             id=f"WI-{uuid.uuid4().hex[:8].upper()}",
             hook_id=hook_id,
@@ -106,28 +108,28 @@ class WorkItem:
             raise ValueError(f"Can only claim QUEUED items, got {self.status}")
         self.status = WorkItemStatus.CLAIMED
         self.assigned_to = agent_id
-        self.claimed_at = datetime.utcnow().isoformat()
-        self.updated_at = datetime.utcnow().isoformat()
+        self.claimed_at = now_iso()
+        self.updated_at = now_iso()
 
     def start(self) -> None:
         """Start working on this item"""
         if self.status != WorkItemStatus.CLAIMED:
             raise ValueError(f"Can only start CLAIMED items, got {self.status}")
         self.status = WorkItemStatus.IN_PROGRESS
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = now_iso()
 
     def complete(self, result: Optional[Dict[str, Any]] = None) -> None:
         """Mark this item as completed"""
         self.status = WorkItemStatus.COMPLETED
         self.result = result or {}
-        self.completed_at = datetime.utcnow().isoformat()
-        self.updated_at = datetime.utcnow().isoformat()
+        self.completed_at = now_iso()
+        self.updated_at = now_iso()
 
     def fail(self, error: str) -> bool:
         """Mark as failed, return True if should retry"""
         self.error = error
         self.retry_count += 1
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = now_iso()
 
         if self.retry_count < self.max_retries:
             # Reset for retry
@@ -137,7 +139,7 @@ class WorkItem:
             return True
         else:
             self.status = WorkItemStatus.FAILED
-            self.completed_at = datetime.utcnow().isoformat()
+            self.completed_at = now_iso()
             return False
 
     def to_dict(self) -> Dict[str, Any]:
@@ -179,7 +181,7 @@ class Hook:
         owner_id: str,
         description: str = ""
     ) -> 'Hook':
-        now = datetime.utcnow().isoformat()
+        now = now_iso()
         return cls(
             id=f"HOOK-{uuid.uuid4().hex[:8].upper()}",
             name=name,
@@ -193,7 +195,7 @@ class Hook:
     def add_work(self, item: WorkItem) -> None:
         """Add a work item to this hook"""
         self.items.append(item)
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = now_iso()
 
     def get_queued_items(self) -> List[WorkItem]:
         """Get all queued (unclaimed) items, sorted by priority"""
@@ -255,7 +257,7 @@ class Hook:
 
             # Found a match - claim it
             item.claim(agent_id)
-            self.updated_at = datetime.utcnow().isoformat()
+            self.updated_at = now_iso()
             logger.info(
                 f"[{self.name}] Agent {agent_id} claimed work item '{item.title}' "
                 f"(molecule={item.molecule_id}, step={item.step_id})"
@@ -309,7 +311,7 @@ class Hook:
 
         original_count = len(self.items)
         self.items = [item for item in self.items if item.id not in removed_ids]
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = now_iso()
 
         return original_count - len(self.items)
 
@@ -330,7 +332,7 @@ class Hook:
         removed = original_count - len(self.items)
 
         if removed > 0:
-            self.updated_at = datetime.utcnow().isoformat()
+            self.updated_at = now_iso()
             logger.info(f"Removed {removed} work items for molecule {molecule_id} from hook {self.id}")
 
         return removed
@@ -692,9 +694,7 @@ class HookManager:
         Returns:
             List of work items that were reset
         """
-        from datetime import datetime, timedelta
-
-        threshold = datetime.utcnow() - timedelta(minutes=stale_threshold_minutes)
+        threshold = now() - timedelta(minutes=stale_threshold_minutes)
         recovered = []
 
         for hook in self.list_hooks():
@@ -709,10 +709,9 @@ class HookManager:
                     continue
 
                 try:
-                    claimed_time = datetime.fromisoformat(item.claimed_at.replace('Z', '+00:00'))
-                    # Handle timezone-naive comparison
-                    if claimed_time.tzinfo:
-                        claimed_time = claimed_time.replace(tzinfo=None)
+                    claimed_time = parse_iso(item.claimed_at)
+                    if not claimed_time:
+                        continue
 
                     if claimed_time < threshold:
                         logger.warning(
@@ -723,7 +722,7 @@ class HookManager:
                         item.status = WorkItemStatus.QUEUED
                         item.assigned_to = None
                         item.claimed_at = None
-                        item.updated_at = datetime.utcnow().isoformat()
+                        item.updated_at = now_iso()
                         recovered.append(item)
                         hook_modified = True
 
@@ -874,7 +873,7 @@ class HookManager:
 
             if hook_modified:
                 hook.items = items_to_keep
-                hook.updated_at = datetime.utcnow().isoformat()
+                hook.updated_at = now_iso()
                 self._save_hook(hook)
 
         if total_removed > 0:
@@ -956,7 +955,7 @@ def clean_all_hooks(corp_path: Path) -> Dict[str, Any]:
 
         if hook_modified:
             hook.items = items_to_keep
-            hook.updated_at = datetime.utcnow().isoformat()
+            hook.updated_at = now_iso()
             hook_manager._save_hook(hook)
             hooks_modified += 1
 
