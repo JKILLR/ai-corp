@@ -340,6 +340,11 @@ class CorporationExecutor:
     3. direct_reports chain configuration
     4. Worker pool registration
     5. Workers use Director's hook (shared pool queue)
+
+    Resource Management (FIX-002):
+    - Proper shutdown() method for thread cleanup
+    - Context manager support (__enter__/__exit__)
+    - Guaranteed cleanup even on exceptions
     """
 
     def __init__(
@@ -377,6 +382,47 @@ class CorporationExecutor:
 
         # Mapping of director_id -> [worker_role_ids]
         self._director_workers: Dict[str, List[str]] = {}
+
+        # Track whether executor has been shutdown
+        self._shutdown = False
+
+    def __enter__(self) -> 'CorporationExecutor':
+        """Context manager entry - returns self for use in with statement."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        """Context manager exit - ensures cleanup on exit."""
+        self.shutdown()
+        return False  # Don't suppress exceptions
+
+    def shutdown(self) -> None:
+        """
+        Clean shutdown of all executor resources.
+
+        Safely shuts down all tier executors and releases thread resources.
+        This method is idempotent - calling it multiple times is safe.
+        """
+        if self._shutdown:
+            return
+
+        logger.info("Shutting down CorporationExecutor...")
+
+        # Shutdown tier executors (they use thread pools)
+        for executor_name, executor in [
+            ('executive', self.executive_executor),
+            ('vp', self.vp_executor),
+            ('director', self.director_executor),
+            ('worker', self.worker_executor)
+        ]:
+            if executor is not None:
+                try:
+                    executor.stop()
+                    logger.debug(f"Stopped {executor_name} executor")
+                except Exception as e:
+                    logger.warning(f"Error stopping {executor_name} executor: {e}")
+
+        self._shutdown = True
+        logger.info("CorporationExecutor shutdown complete")
 
     def initialize(self, departments: Optional[List[str]] = None) -> None:
         """
@@ -588,35 +634,45 @@ class CorporationExecutor:
 
         FIX #1: Hooks are refreshed before each tier runs to ensure
         agents see work delegated by the previous tier.
+
+        FIX-002: Proper exception handling ensures resources are not leaked.
         """
+        if self._shutdown:
+            raise RuntimeError("CorporationExecutor has been shutdown")
+
         results = {}
 
-        # Run each tier with hook refresh between them
-        logger.info("=== Running COO ===")
-        results['coo'] = self.executive_executor.run_once()
+        try:
+            # Run each tier with hook refresh between them
+            logger.info("=== Running COO ===")
+            results['coo'] = self.executive_executor.run_once()
 
-        # FIX #1: Refresh hooks before VP tier
-        logger.info("Refreshing hooks before VP tier...")
-        self._refresh_all_agent_hooks()
+            # FIX #1: Refresh hooks before VP tier
+            logger.info("Refreshing hooks before VP tier...")
+            self._refresh_all_agent_hooks()
 
-        logger.info("=== Running VPs ===")
-        results['vps'] = self.vp_executor.run_once()
+            logger.info("=== Running VPs ===")
+            results['vps'] = self.vp_executor.run_once()
 
-        # FIX #1: Refresh hooks before Director tier
-        logger.info("Refreshing hooks before Director tier...")
-        self._refresh_all_agent_hooks()
+            # FIX #1: Refresh hooks before Director tier
+            logger.info("Refreshing hooks before Director tier...")
+            self._refresh_all_agent_hooks()
 
-        logger.info("=== Running Directors ===")
-        results['directors'] = self.director_executor.run_once()
+            logger.info("=== Running Directors ===")
+            results['directors'] = self.director_executor.run_once()
 
-        # FIX #1: Refresh hooks before Worker tier
-        logger.info("Refreshing hooks before Worker tier...")
-        self._refresh_all_agent_hooks()
+            # FIX #1: Refresh hooks before Worker tier
+            logger.info("Refreshing hooks before Worker tier...")
+            self._refresh_all_agent_hooks()
 
-        logger.info("=== Running Workers ===")
-        results['workers'] = self.worker_executor.run_once()
+            logger.info("=== Running Workers ===")
+            results['workers'] = self.worker_executor.run_once()
 
-        return results
+            return results
+
+        except Exception as e:
+            logger.error(f"Corporation cycle failed: {e}")
+            raise
 
     def run_cycle_skip_coo(self) -> Dict[str, ExecutionResult]:
         """
@@ -633,46 +689,56 @@ class CorporationExecutor:
         Logging:
         - Logs before each agent.run() with agent_id and hook state
         - Logs work items claimed/skipped with molecule IDs
+
+        FIX-002: Proper exception handling ensures resources are not leaked.
         """
+        if self._shutdown:
+            raise RuntimeError("CorporationExecutor has been shutdown")
+
         results = {}
 
-        # Start with hook refresh to pick up work from external COO
-        logger.info("Refreshing hooks to pick up delegated work...")
-        self._refresh_all_agent_hooks()
+        try:
+            # Start with hook refresh to pick up work from external COO
+            logger.info("Refreshing hooks to pick up delegated work...")
+            self._refresh_all_agent_hooks()
 
-        # Log pending work before VP tier
-        self._log_pending_work("Before VPs")
+            # Log pending work before VP tier
+            self._log_pending_work("Before VPs")
 
-        logger.info("=== Running VPs ===")
-        for vp_id, vp in self.vps.items():
-            hook_stats = vp.hook.get_stats() if vp.hook else {'queued': 0}
-            logger.info(f"  Running VP {vp_id}: hook has {hook_stats.get('queued', 0)} queued items")
-        results['vps'] = self.vp_executor.run_once()
-        self._log_tier_result("VPs", results['vps'])
+            logger.info("=== Running VPs ===")
+            for vp_id, vp in self.vps.items():
+                hook_stats = vp.hook.get_stats() if vp.hook else {'queued': 0}
+                logger.info(f"  Running VP {vp_id}: hook has {hook_stats.get('queued', 0)} queued items")
+            results['vps'] = self.vp_executor.run_once()
+            self._log_tier_result("VPs", results['vps'])
 
-        logger.info("Refreshing hooks before Director tier...")
-        self._refresh_all_agent_hooks()
-        self._log_pending_work("Before Directors")
+            logger.info("Refreshing hooks before Director tier...")
+            self._refresh_all_agent_hooks()
+            self._log_pending_work("Before Directors")
 
-        logger.info("=== Running Directors ===")
-        for dir_id, director in self.directors.items():
-            hook_stats = director.hook.get_stats() if director.hook else {'queued': 0}
-            logger.info(f"  Running Director {dir_id}: hook has {hook_stats.get('queued', 0)} queued items")
-        results['directors'] = self.director_executor.run_once()
-        self._log_tier_result("Directors", results['directors'])
+            logger.info("=== Running Directors ===")
+            for dir_id, director in self.directors.items():
+                hook_stats = director.hook.get_stats() if director.hook else {'queued': 0}
+                logger.info(f"  Running Director {dir_id}: hook has {hook_stats.get('queued', 0)} queued items")
+            results['directors'] = self.director_executor.run_once()
+            self._log_tier_result("Directors", results['directors'])
 
-        logger.info("Refreshing hooks before Worker tier...")
-        self._refresh_all_agent_hooks()
-        self._log_pending_work("Before Workers")
+            logger.info("Refreshing hooks before Worker tier...")
+            self._refresh_all_agent_hooks()
+            self._log_pending_work("Before Workers")
 
-        logger.info("=== Running Workers ===")
-        for worker_id, worker in self.workers.items():
-            hook_stats = worker.hook.get_stats() if worker.hook else {'queued': 0}
-            logger.info(f"  Running Worker {worker_id}: hook has {hook_stats.get('queued', 0)} queued items")
-        results['workers'] = self.worker_executor.run_once()
-        self._log_tier_result("Workers", results['workers'])
+            logger.info("=== Running Workers ===")
+            for worker_id, worker in self.workers.items():
+                hook_stats = worker.hook.get_stats() if worker.hook else {'queued': 0}
+                logger.info(f"  Running Worker {worker_id}: hook has {hook_stats.get('queued', 0)} queued items")
+            results['workers'] = self.worker_executor.run_once()
+            self._log_tier_result("Workers", results['workers'])
 
-        return results
+            return results
+
+        except Exception as e:
+            logger.error(f"Corporation cycle (skip COO) failed: {e}")
+            raise
 
     def _log_pending_work(self, phase: str) -> None:
         """Log summary of pending work items across all hooks."""
@@ -772,7 +838,12 @@ class CorporationExecutor:
         Args:
             interval_seconds: Sleep between cycles
             max_cycles: Maximum cycles to run (None for infinite)
+
+        FIX-002: Ensures proper cleanup on exit (interrupt or exception).
         """
+        if self._shutdown:
+            raise RuntimeError("CorporationExecutor has been shutdown")
+
         logger.info(f"Starting continuous corporation execution")
         cycle = 0
 
@@ -797,6 +868,10 @@ class CorporationExecutor:
 
         except KeyboardInterrupt:
             logger.info("Corporation execution interrupted")
+        finally:
+            # Ensure cleanup happens even on interrupt
+            logger.info("Cleaning up after continuous execution...")
+            self.shutdown()
 
     def get_status(self) -> Dict[str, Any]:
         """Get corporation status including scheduler metrics"""

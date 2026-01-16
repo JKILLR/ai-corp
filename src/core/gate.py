@@ -15,17 +15,113 @@ auto-approve when all criteria are met according to the approval policy.
 
 import uuid
 import subprocess
+import shlex
+import re
 import threading
 import logging
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Callable
+from typing import Optional, List, Dict, Any, Callable, Tuple
 from dataclasses import dataclass, field, asdict
 from concurrent.futures import ThreadPoolExecutor, Future
 import yaml
 
 logger = logging.getLogger(__name__)
+
+# ==================== Command Security ====================
+# Allowlist of safe base commands for auto-check criteria
+ALLOWED_COMMANDS = {'pytest', 'python', 'pip', 'git', 'ls', 'cat', 'echo', 'grep', 'find', 'make', 'npm', 'node'}
+
+# Dangerous shell metacharacters that could enable injection
+DANGEROUS_PATTERNS = re.compile(r'[;&|`$(){}[\]<>\\]')
+
+
+def validate_command(command: str) -> Tuple[bool, str]:
+    """
+    Validate a command is safe to execute.
+
+    Security checks:
+    1. Command is not empty
+    2. No dangerous shell metacharacters
+    3. Base command is in allowlist
+
+    Args:
+        command: The command string to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not command or not command.strip():
+        return False, "Empty command"
+
+    # Check for dangerous metacharacters
+    if DANGEROUS_PATTERNS.search(command):
+        return False, f"Command contains dangerous characters: {command}"
+
+    # Parse and validate base command
+    try:
+        parts = shlex.split(command)
+    except ValueError as e:
+        return False, f"Invalid command syntax: {e}"
+
+    if not parts:
+        return False, "Empty command after parsing"
+
+    # Handle absolute paths (e.g., /usr/bin/pytest -> pytest)
+    base_command = parts[0].split('/')[-1]
+    if base_command not in ALLOWED_COMMANDS:
+        return False, f"Command '{base_command}' not in allowlist"
+
+    return True, ""
+
+
+def execute_safe_command(
+    command: str,
+    working_directory: Optional[Path] = None,
+    timeout: int = 60
+) -> Dict[str, Any]:
+    """
+    Execute a command safely with shell=False.
+
+    This function validates the command before execution and uses
+    subprocess with shell=False to prevent command injection.
+
+    Args:
+        command: The command string to execute
+        working_directory: Optional working directory
+        timeout: Command timeout in seconds (default 60)
+
+    Returns:
+        Dict with success, stdout, stderr, returncode, and optionally error/blocked
+    """
+    is_valid, error = validate_command(command)
+    if not is_valid:
+        logger.warning(f"[Gate] Blocked unsafe command: {error}")
+        return {'success': False, 'error': error, 'blocked': True}
+
+    try:
+        parts = shlex.split(command)
+        result = subprocess.run(
+            parts,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            shell=False,  # CRITICAL: Never use shell=True
+            cwd=str(working_directory) if working_directory else None
+        )
+        return {
+            'success': result.returncode == 0,
+            'stdout': result.stdout,
+            'stderr': result.stderr,
+            'returncode': result.returncode
+        }
+    except subprocess.TimeoutExpired:
+        return {'success': False, 'error': 'Command timed out', 'stdout': '', 'stderr': ''}
+    except FileNotFoundError as e:
+        return {'success': False, 'error': f'Command not found: {e}', 'stdout': '', 'stderr': ''}
+    except Exception as e:
+        return {'success': False, 'error': str(e), 'stdout': '', 'stderr': ''}
 
 
 class GateStatus(Enum):
@@ -1126,7 +1222,11 @@ class AsyncGateEvaluator:
 
     def _run_auto_check(self, criterion: GateCriterion) -> Dict[str, Any]:
         """
-        Run an auto-check criterion.
+        Run an auto-check criterion safely.
+
+        Uses validate_command() and execute_safe_command() to prevent
+        command injection attacks. Commands must be in the ALLOWED_COMMANDS
+        allowlist and cannot contain shell metacharacters.
 
         Args:
             criterion: The criterion to check
@@ -1142,33 +1242,26 @@ class AsyncGateEvaluator:
                 'error': None
             }
 
-        try:
-            result = subprocess.run(
-                criterion.check_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=60,  # 1 minute timeout per check
-                cwd=str(self.working_directory)
-            )
+        # Use safe command execution with validation
+        result = execute_safe_command(
+            criterion.check_command,
+            working_directory=self.working_directory,
+            timeout=60  # 1 minute timeout per check
+        )
 
-            return {
-                'passed': result.returncode == 0,
-                'output': result.stdout[:1000] if result.stdout else '',
-                'error': result.stderr[:500] if result.stderr and result.returncode != 0 else None
-            }
-        except subprocess.TimeoutExpired:
+        # Check if command was blocked due to security validation
+        if result.get('blocked'):
             return {
                 'passed': False,
                 'output': '',
-                'error': 'Check command timed out'
+                'error': f"Command blocked: {result.get('error', 'security violation')}"
             }
-        except Exception as e:
-            return {
-                'passed': False,
-                'output': '',
-                'error': str(e)
-            }
+
+        return {
+            'passed': result.get('success', False),
+            'output': result.get('stdout', '')[:1000] if result.get('stdout') else '',
+            'error': result.get('stderr', '')[:500] if result.get('stderr') and not result.get('success') else result.get('error')
+        }
 
     def _check_auto_approval(
         self,
