@@ -31,6 +31,7 @@ from ..core.hook import WorkItem, WorkItemPriority
 from ..core.memory import ContextType
 from ..core.llm import LLMResponse
 from ..core.gate import GateKeeper
+from ..core.pool import PoolManager
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,9 @@ class WorkerAgent(BaseAgent):
         super().__init__(identity, corp_path)
 
         self.specialty = specialty
+
+        # Initialize pool manager for releasing back to pool after work
+        self.pool_manager = PoolManager(self.corp_path)
 
         # Initialize gate keeper for submitting completed work
         self.gate_keeper = GateKeeper(self.corp_path)
@@ -155,6 +159,16 @@ class WorkerAgent(BaseAgent):
                     logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as FAILED")
                 except ValueError as e:
                     logger.warning(f"[{self.identity.role_name}] Could not mark step failed: {e}")
+
+            # Release worker back to pool even on failure
+            pool_id = work_item.context.get('pool_id')
+            assigned_worker_id = work_item.context.get('assigned_worker')
+            if pool_id and assigned_worker_id:
+                try:
+                    self.pool_manager.release_worker(pool_id, assigned_worker_id, success=False)
+                    logger.info(f"[{self.identity.role_name}] Released back to pool {pool_id} (failed)")
+                except Exception as e:
+                    logger.warning(f"[{self.identity.role_name}] Could not release to pool: {e}")
 
             # Check if we should escalate
             if self._should_escalate(response.error):
@@ -246,6 +260,16 @@ class WorkerAgent(BaseAgent):
             except ValueError as e:
                 # Step may not exist or be in unexpected state
                 logger.warning(f"[{self.identity.role_name}] Could not complete step: {e}")
+
+        # Release worker back to pool
+        pool_id = work_item.context.get('pool_id')
+        assigned_worker_id = work_item.context.get('assigned_worker')
+        if pool_id and assigned_worker_id:
+            try:
+                self.pool_manager.release_worker(pool_id, assigned_worker_id, success=True)
+                logger.info(f"[{self.identity.role_name}] Released back to pool {pool_id}")
+            except Exception as e:
+                logger.warning(f"[{self.identity.role_name}] Could not release to pool: {e}")
 
         logger.info(f"[{self.identity.role_name}] Completed: {work_item.title}")
 

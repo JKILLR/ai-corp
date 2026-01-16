@@ -220,6 +220,7 @@ class DirectorAgent(BaseAgent):
             context={
                 'assigned_worker': worker.id,
                 'delegated_by': self.identity.id,
+                'pool_id': self.worker_pool.id,
                 'analysis': analysis,
                 'task_type': 'worker_execution'
             }
