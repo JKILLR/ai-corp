@@ -423,7 +423,7 @@ class PoolManager:
                 self._pools[pool.id] = pool
                 pools.append(pool)
             except Exception as e:
-                print(f"Error loading pool {pool_file}: {e}")
+                logger.error(f"Error loading pool {pool_file}: {e}")
         return pools
 
     def get_all_stats(self) -> Dict[str, Dict[str, Any]]:
