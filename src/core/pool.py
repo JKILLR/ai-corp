@@ -6,10 +6,15 @@ This enables:
 - Dynamic scaling based on workload
 - Capability-based task assignment
 - Load balancing across workers
+
+FIX-007: Thread-safe and file-locked atomic operations for concurrent access.
 """
 
+import fcntl
 import logging
+import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -261,7 +266,14 @@ class PoolManager:
     Manager for all worker pools.
 
     Handles pool creation, worker management, and scaling decisions.
+
+    FIX-007: Thread-safe operations with file locking for cross-process safety.
+    Uses both threading locks (for in-process safety) and fcntl file locks
+    (for cross-process safety) to prevent worker double-claims.
     """
+
+    # Class-level lock for pool lock dictionary access
+    _instance_lock = threading.Lock()
 
     def __init__(self, base_path: Path):
         self.base_path = Path(base_path)
@@ -270,6 +282,53 @@ class PoolManager:
 
         # Cache
         self._pools: Dict[str, WorkerPool] = {}
+
+        # Per-pool thread locks for fine-grained locking
+        self._pool_locks: Dict[str, threading.RLock] = {}
+
+    def _get_pool_lock(self, pool_id: str) -> threading.RLock:
+        """Get or create a thread lock for a specific pool."""
+        if pool_id not in self._pool_locks:
+            with self._instance_lock:
+                if pool_id not in self._pool_locks:
+                    self._pool_locks[pool_id] = threading.RLock()
+        return self._pool_locks[pool_id]
+
+    @contextmanager
+    def _atomic_pool_operation(self, pool_id: str):
+        """
+        Context manager for atomic pool operations.
+
+        Provides both thread-level and process-level locking:
+        1. Thread lock prevents concurrent access within the same process
+        2. File lock prevents concurrent access across processes
+
+        The pool is reloaded from disk inside the lock to ensure freshness.
+        """
+        lock = self._get_pool_lock(pool_id)
+        lock_file_path = self.pools_path / f"{pool_id}.lock"
+
+        with lock:  # Thread lock
+            # Ensure lock file directory exists
+            lock_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Use file lock for cross-process safety
+            lock_file = open(lock_file_path, 'w')
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                lock_file.close()
+
+    def _load_pool_fresh(self, pool_id: str) -> Optional[WorkerPool]:
+        """Load pool directly from disk, bypassing cache."""
+        pool_file = self.pools_path / f"{pool_id}.yaml"
+        if pool_file.exists():
+            pool = WorkerPool.from_yaml(pool_file.read_text())
+            self._pools[pool_id] = pool
+            return pool
+        return None
 
     def create_pool(
         self,
@@ -354,39 +413,72 @@ class PoolManager:
         molecule_id: str,
         required_capabilities: Optional[List[str]] = None
     ) -> Optional[Worker]:
-        """Claim an available worker from a pool"""
-        pool = self.get_pool(pool_id)
-        if not pool:
-            return None
+        """
+        Atomically claim an available worker from a pool.
 
-        # First try to find an idle worker
-        worker = pool.get_available_worker(required_capabilities)
+        FIX-007: Uses atomic locking to prevent worker double-claims.
 
-        # If none available, try recovering stale workers
-        if not worker:
-            recovered = self._cleanup_stale_workers(pool)
-            if recovered > 0:
-                worker = pool.get_available_worker(required_capabilities)
+        Args:
+            pool_id: ID of the pool to claim from
+            work_item_id: ID of the work item being assigned
+            molecule_id: ID of the molecule being worked on
+            required_capabilities: Optional list of required worker capabilities
 
-        if worker:
+        Returns:
+            The claimed Worker or None if no worker available
+        """
+        with self._atomic_pool_operation(pool_id):
+            # Re-read pool inside lock to ensure freshness
+            pool = self._load_pool_fresh(pool_id)
+            if not pool:
+                return None
+
+            # First try to find an idle worker
+            worker = pool.get_available_worker(required_capabilities)
+
+            # If none available, try recovering stale workers
+            if not worker:
+                recovered = self._cleanup_stale_workers(pool)
+                if recovered > 0:
+                    worker = pool.get_available_worker(required_capabilities)
+
+            if not worker:
+                return None
+
+            # Claim the worker
             worker.claim_work(work_item_id, molecule_id)
             worker.last_heartbeat = datetime.utcnow().isoformat()
-            self._save_pool(pool)
-            logger.info(f"[PoolManager] Claimed worker {worker.id} for {work_item_id}")
 
-        return worker
+            # Save immediately while holding lock
+            self._save_pool(pool)
+            logger.info(f"[PoolManager] Claimed worker {worker.id} for {work_item_id} atomically")
+            return worker
 
     def release_worker(self, pool_id: str, worker_id: str, success: bool = True) -> Optional[Worker]:
-        """Release a worker back to the pool"""
-        pool = self.get_pool(pool_id)
-        if not pool:
-            return None
+        """
+        Atomically release a worker back to the pool.
 
-        worker = pool.get_worker(worker_id)
-        if worker:
-            worker.complete_work(success)
-            self._save_pool(pool)
-        return worker
+        FIX-007: Uses atomic locking for thread-safe release.
+
+        Args:
+            pool_id: ID of the pool containing the worker
+            worker_id: ID of the worker to release
+            success: Whether the work completed successfully
+
+        Returns:
+            The released Worker or None if not found
+        """
+        with self._atomic_pool_operation(pool_id):
+            pool = self._load_pool_fresh(pool_id)
+            if not pool:
+                return None
+
+            worker = pool.get_worker(worker_id)
+            if worker:
+                worker.complete_work(success)
+                self._save_pool(pool)
+                logger.info(f"[PoolManager] Released worker {worker_id} (success={success})")
+            return worker
 
     def heartbeat(self, pool_id: str, worker_id: str) -> bool:
         """Update worker heartbeat"""

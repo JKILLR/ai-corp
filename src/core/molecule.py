@@ -14,6 +14,7 @@ Key concepts:
 
 import json
 import logging
+import threading
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -48,6 +49,31 @@ class StepStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+
+# ==================== State Machine Validation (FIX-003) ====================
+# Valid state transitions for molecules
+# Key = current state, Value = set of valid next states
+VALID_MOLECULE_TRANSITIONS = {
+    MoleculeStatus.DRAFT: {MoleculeStatus.PENDING, MoleculeStatus.ACTIVE, MoleculeStatus.CANCELLED},
+    MoleculeStatus.PENDING: {MoleculeStatus.ACTIVE, MoleculeStatus.CANCELLED},
+    MoleculeStatus.ACTIVE: {MoleculeStatus.COMPLETED, MoleculeStatus.FAILED, MoleculeStatus.BLOCKED, MoleculeStatus.IN_REVIEW, MoleculeStatus.CANCELLED},
+    MoleculeStatus.BLOCKED: {MoleculeStatus.ACTIVE, MoleculeStatus.FAILED, MoleculeStatus.CANCELLED},
+    MoleculeStatus.IN_REVIEW: {MoleculeStatus.ACTIVE, MoleculeStatus.COMPLETED, MoleculeStatus.BLOCKED, MoleculeStatus.CANCELLED},
+    MoleculeStatus.COMPLETED: set(),  # Terminal state
+    MoleculeStatus.FAILED: set(),      # Terminal state
+    MoleculeStatus.CANCELLED: set(),   # Terminal state
+}
+
+# Valid state transitions for steps
+VALID_STEP_TRANSITIONS = {
+    StepStatus.PENDING: {StepStatus.IN_PROGRESS, StepStatus.SKIPPED},
+    StepStatus.IN_PROGRESS: {StepStatus.DELEGATED, StepStatus.COMPLETED, StepStatus.FAILED},
+    StepStatus.DELEGATED: {StepStatus.COMPLETED, StepStatus.FAILED},
+    StepStatus.COMPLETED: set(),  # Terminal state
+    StepStatus.FAILED: set(),      # Terminal state
+    StepStatus.SKIPPED: set(),     # Terminal state
+}
 
 
 class WorkflowType(Enum):
@@ -436,6 +462,97 @@ class Molecule:
         if self.estimated_cost > 0:
             return self.estimated_value / self.estimated_cost
         return None
+
+    def __post_init__(self):
+        """Initialize non-dataclass fields after dataclass init."""
+        # Thread lock for state machine operations (FIX-003)
+        # Using object.__setattr__ to work with frozen dataclass if needed
+        object.__setattr__(self, '_lock', threading.RLock())
+
+    def _get_lock(self) -> threading.RLock:
+        """Get the molecule's lock, creating if needed (for deserialized molecules)."""
+        if not hasattr(self, '_lock') or self._lock is None:
+            object.__setattr__(self, '_lock', threading.RLock())
+        return self._lock
+
+    def update_status(self, new_status: MoleculeStatus) -> bool:
+        """
+        Update molecule status with validation and locking.
+
+        Thread-safe status update that validates the transition is allowed
+        according to the state machine defined in VALID_MOLECULE_TRANSITIONS.
+
+        Args:
+            new_status: The new status to transition to (MoleculeStatus enum or string)
+
+        Returns:
+            True if transition was successful, False if invalid transition
+        """
+        # Handle string input
+        if isinstance(new_status, str):
+            try:
+                new_status = MoleculeStatus(new_status)
+            except ValueError:
+                logger.warning(f"[Molecule {self.id}] Invalid status value: {new_status}")
+                return False
+
+        with self._get_lock():
+            current = self.status
+            if new_status not in VALID_MOLECULE_TRANSITIONS.get(current, set()):
+                logger.warning(
+                    f"[Molecule {self.id}] Invalid transition: {current.value} -> {new_status.value}"
+                )
+                return False
+
+            old_status = self.status
+            self.status = new_status
+            self.updated_at = datetime.utcnow().isoformat()
+            logger.info(f"[Molecule {self.id}] Status: {old_status.value} -> {new_status.value}")
+            return True
+
+    def update_step_status(self, step_id: str, new_status: StepStatus) -> bool:
+        """
+        Update step status with validation and locking.
+
+        Thread-safe step status update that validates the transition is allowed
+        according to the state machine defined in VALID_STEP_TRANSITIONS.
+
+        Args:
+            step_id: The ID of the step to update
+            new_status: The new status to transition to (StepStatus enum or string)
+
+        Returns:
+            True if transition was successful, False if invalid or step not found
+        """
+        # Handle string input
+        if isinstance(new_status, str):
+            try:
+                new_status = StepStatus(new_status)
+            except ValueError:
+                logger.warning(f"[Molecule {self.id}] Invalid step status value: {new_status}")
+                return False
+
+        with self._get_lock():
+            step = self.get_step(step_id)
+            if not step:
+                logger.error(f"[Molecule {self.id}] Step not found: {step_id}")
+                return False
+
+            current_status = step.status
+            if new_status not in VALID_STEP_TRANSITIONS.get(current_status, set()):
+                logger.warning(
+                    f"[Molecule {self.id}] Invalid step transition: "
+                    f"{current_status.value} -> {new_status.value} for step {step_id}"
+                )
+                return False
+
+            old_status = step.status
+            step.status = new_status
+            self.updated_at = datetime.utcnow().isoformat()
+            logger.info(
+                f"[Molecule {self.id}] Step {step_id}: {old_status.value} -> {new_status.value}"
+            )
+            return True
 
     @classmethod
     def create(

@@ -9,11 +9,16 @@ Key concepts:
 - Hooks are pull-based, not push-based
 - Work items reference molecules and steps
 - Hooks are persisted for crash recovery
+
+FIX-004: Thread-safe and file-locked atomic operations for concurrent access.
 """
 
+import fcntl
 import json
 import logging
+import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -363,7 +368,14 @@ class HookManager:
     Manager for all hooks in the system.
 
     Handles creating, storing, and retrieving hooks.
+
+    FIX-004: Thread-safe operations with file locking for cross-process safety.
+    Uses both threading locks (for in-process safety) and fcntl file locks
+    (for cross-process safety) to prevent work item double-claims.
     """
+
+    # Class-level lock for hook lock dictionary access
+    _instance_lock = threading.Lock()
 
     def __init__(self, base_path: Path):
         self.base_path = Path(base_path)
@@ -372,6 +384,44 @@ class HookManager:
 
         # Cache of loaded hooks
         self._hooks: Dict[str, Hook] = {}
+
+        # Per-hook thread locks for fine-grained locking
+        self._hook_locks: Dict[str, threading.RLock] = {}
+
+    def _get_hook_lock(self, hook_id: str) -> threading.RLock:
+        """Get or create a thread lock for a specific hook."""
+        if hook_id not in self._hook_locks:
+            with self._instance_lock:
+                if hook_id not in self._hook_locks:
+                    self._hook_locks[hook_id] = threading.RLock()
+        return self._hook_locks[hook_id]
+
+    @contextmanager
+    def _atomic_hook_operation(self, hook_id: str):
+        """
+        Context manager for atomic hook operations.
+
+        Provides both thread-level and process-level locking:
+        1. Thread lock prevents concurrent access within the same process
+        2. File lock prevents concurrent access across processes
+
+        The hook is reloaded from disk inside the lock to ensure freshness.
+        """
+        lock = self._get_hook_lock(hook_id)
+        lock_file_path = self.hooks_path / f"{hook_id}.lock"
+
+        with lock:  # Thread lock
+            # Ensure lock file directory exists
+            lock_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Use file lock for cross-process safety
+            lock_file = open(lock_file_path, 'w')
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                lock_file.close()
 
     def create_hook(
         self,
@@ -464,17 +514,93 @@ class HookManager:
         self,
         hook_id: str,
         agent_id: str,
-        capabilities: Optional[List[str]] = None
+        capabilities: Optional[List[str]] = None,
+        work_item_id: Optional[str] = None
     ) -> Optional[WorkItem]:
-        """Claim the next available work item from a hook"""
-        hook = self.get_hook(hook_id)
-        if not hook:
-            return None
+        """
+        Atomically claim a work item from a hook.
 
-        item = hook.claim_next(agent_id, capabilities)
-        if item:
+        FIX-004: Uses atomic locking to prevent double-claims.
+
+        Args:
+            hook_id: ID of the hook to claim from
+            agent_id: ID of the agent claiming work
+            capabilities: List of capabilities the agent has
+            work_item_id: Optional specific item to claim, otherwise claims next available
+
+        Returns:
+            The claimed WorkItem or None if no work available/claim failed
+        """
+        with self._atomic_hook_operation(hook_id):
+            # Re-read state inside lock to ensure freshness
+            hook = self.refresh_hook(hook_id)
+            if not hook:
+                return None
+
+            if work_item_id:
+                # Claim a specific item
+                item = hook.get_item(work_item_id)
+                if not item or item.status != WorkItemStatus.QUEUED:
+                    return None
+                # Verify capability match
+                if item.required_capabilities and capabilities:
+                    missing = [c for c in item.required_capabilities if c not in capabilities]
+                    if missing:
+                        return None
+                elif item.required_capabilities and not capabilities:
+                    return None
+                # Claim it
+                item.claim(agent_id)
+            else:
+                # Claim next available
+                item = hook.claim_next(agent_id, capabilities)
+                if not item:
+                    return None
+
+            # Persist immediately while still holding lock
             self._save_hook(hook)
-        return item
+            logger.info(f"[HookManager] {agent_id} claimed {item.id} atomically")
+            return item
+
+    def release_work(
+        self,
+        hook_id: str,
+        work_item_id: str,
+        success: bool,
+        result: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Atomically release a claimed work item.
+
+        FIX-004: Uses atomic locking for thread-safe release.
+
+        Args:
+            hook_id: ID of the hook containing the work item
+            work_item_id: ID of the work item to release
+            success: Whether the work completed successfully
+            result: Optional result data
+
+        Returns:
+            True if release succeeded, False otherwise
+        """
+        with self._atomic_hook_operation(hook_id):
+            hook = self.refresh_hook(hook_id)
+            if not hook:
+                return False
+
+            item = hook.get_item(work_item_id)
+            if not item:
+                return False
+
+            if success:
+                item.complete(result)
+            else:
+                error = result.get('error', 'Unknown error') if result else 'Unknown error'
+                item.fail(error)
+
+            self._save_hook(hook)
+            logger.info(f"[HookManager] Released {work_item_id} (success={success})")
+            return True
 
     def complete_work(
         self,
