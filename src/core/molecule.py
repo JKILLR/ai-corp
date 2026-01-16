@@ -78,6 +78,132 @@ VALID_STEP_TRANSITIONS = {
 }
 
 
+# ==================== Dependency Validation (FIX-009) ====================
+
+class DependencyValidationError(Exception):
+    """Error in step dependency configuration."""
+    pass
+
+
+def validate_dependencies(steps: list) -> tuple:
+    """Validate step dependencies are valid.
+
+    Checks:
+    1. All referenced dependencies exist
+    2. No circular dependencies
+    3. No self-references
+
+    Args:
+        steps: List of step dicts or MoleculeStep objects
+
+    Returns:
+        tuple of (is_valid: bool, error_message: str)
+    """
+    # Normalize to get step_id and depends_on from either dicts or objects
+    def get_step_info(step):
+        if hasattr(step, 'id'):
+            return step.id, getattr(step, 'depends_on', []) or []
+        else:
+            return step.get('id'), step.get('depends_on', []) or []
+
+    step_ids = set()
+    graph = {}
+
+    for step in steps:
+        step_id, deps = get_step_info(step)
+        if step_id is None:
+            return False, "Step missing 'id' field"
+        step_ids.add(step_id)
+        graph[step_id] = deps
+
+    # Check self-references and missing dependencies
+    for step_id, deps in graph.items():
+        # Check self-reference
+        if step_id in deps:
+            return False, f"Step {step_id} references itself"
+
+        # Check all deps exist
+        for dep in deps:
+            if dep not in step_ids:
+                return False, f"Step {step_id} depends on non-existent step {dep}"
+
+    # Check for cycles using DFS
+    visited = set()
+    rec_stack = set()
+
+    def has_cycle(node: str, path: list) -> tuple:
+        visited.add(node)
+        rec_stack.add(node)
+
+        for neighbor in graph.get(node, []):
+            if neighbor not in visited:
+                cycle_found, cycle_path = has_cycle(neighbor, path + [node])
+                if cycle_found:
+                    return True, cycle_path
+            elif neighbor in rec_stack:
+                return True, path + [node, neighbor]
+
+        rec_stack.remove(node)
+        return False, []
+
+    for step_id in step_ids:
+        if step_id not in visited:
+            cycle_found, cycle_path = has_cycle(step_id, [])
+            if cycle_found:
+                return False, f"Circular dependency detected: {' -> '.join(cycle_path)}"
+
+    return True, ""
+
+
+def get_execution_order(steps: list) -> list:
+    """Get steps in valid execution order (topological sort).
+
+    Args:
+        steps: List of step dicts or MoleculeStep objects
+
+    Returns:
+        List of step IDs in order they should execute
+
+    Raises:
+        DependencyValidationError: If dependencies are invalid
+    """
+    is_valid, error = validate_dependencies(steps)
+    if not is_valid:
+        raise DependencyValidationError(error)
+
+    # Normalize to get step_id and depends_on
+    def get_step_info(step):
+        if hasattr(step, 'id'):
+            return step.id, set(getattr(step, 'depends_on', []) or [])
+        else:
+            return step.get('id'), set(step.get('depends_on', []) or [])
+
+    step_ids = []
+    deps = {}
+    for step in steps:
+        step_id, step_deps = get_step_info(step)
+        step_ids.append(step_id)
+        deps[step_id] = step_deps
+
+    result = []
+    remaining = set(step_ids)
+
+    while remaining:
+        # Find steps with no unmet dependencies
+        ready = [s for s in remaining if deps[s].issubset(set(result))]
+
+        if not ready:
+            # Should not happen if validation passed
+            raise DependencyValidationError("Could not determine execution order")
+
+        # Sort ready steps for deterministic order
+        ready.sort()
+        result.append(ready[0])
+        remaining.remove(ready[0])
+
+    return result
+
+
 class WorkflowType(Enum):
     """Type of workflow for the molecule"""
     PROJECT = "project"       # Default, linear execution
@@ -595,10 +721,44 @@ class Molecule:
             composite_config=composite_config
         )
 
-    def add_step(self, step: MoleculeStep) -> None:
-        """Add a step to the molecule"""
+    def add_step(self, step: MoleculeStep, validate: bool = True) -> None:
+        """Add a step to the molecule.
+
+        Args:
+            step: The step to add
+            validate: If True, validate dependencies after adding (default: True)
+
+        Raises:
+            DependencyValidationError: If step creates invalid dependencies
+        """
         self.steps.append(step)
         self.updated_at = now_iso()
+
+        if validate:
+            is_valid, error = validate_dependencies(self.steps)
+            if not is_valid:
+                # Remove the step and raise
+                self.steps.pop()
+                raise DependencyValidationError(error)
+
+    def validate_all_dependencies(self) -> tuple:
+        """Validate all step dependencies in this molecule.
+
+        Returns:
+            tuple of (is_valid: bool, error_message: str)
+        """
+        return validate_dependencies(self.steps)
+
+    def get_execution_order(self) -> List[str]:
+        """Get step IDs in valid execution order.
+
+        Returns:
+            List of step IDs in topological order
+
+        Raises:
+            DependencyValidationError: If dependencies are invalid
+        """
+        return get_execution_order(self.steps)
 
     def get_step(self, step_id: str) -> Optional[MoleculeStep]:
         """Get a step by ID"""
