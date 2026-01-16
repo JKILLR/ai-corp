@@ -103,8 +103,65 @@ def get_corp_path() -> Path:
 
     return cwd / 'corp'
 
-# Initialize core systems (lazy loading)
+
+# =============================================================================
+# Thread-Safe Systems Manager (FIX-008)
+# =============================================================================
+
+import threading
+
+# Global lock for systems initialization
+_systems_lock = threading.Lock()
+
+# Initialize core systems (lazy loading with thread safety)
 _systems = {}
+_systems_initialized = False
+
+
+def get_systems_lock() -> threading.Lock:
+    """Get the systems lock for external synchronization if needed."""
+    return _systems_lock
+
+
+def _get_or_create_system(key: str, factory):
+    """
+    Thread-safe lazy initialization of a system component.
+
+    FIX-008: Uses double-checked locking pattern to ensure only one
+    instance is created even under concurrent access.
+
+    Args:
+        key: The key to store/retrieve the system under
+        factory: A callable that creates the system instance
+
+    Returns:
+        The system instance (existing or newly created)
+    """
+    # Fast path: already initialized
+    if key in _systems:
+        return _systems[key]
+
+    # Slow path: need to initialize
+    with _systems_lock:
+        # Double-check after acquiring lock
+        if key not in _systems:
+            logger.info(f"[SystemsManager] Initializing {key}...")
+            _systems[key] = factory()
+            logger.info(f"[SystemsManager] {key} initialized")
+        return _systems[key]
+
+
+def reset_systems():
+    """
+    Reset all systems - for testing only.
+
+    FIX-008: Thread-safe reset of all system instances.
+    """
+    global _systems, _systems_initialized
+    with _systems_lock:
+        _systems = {}
+        _systems_initialized = False
+        logger.info("[SystemsManager] All systems reset")
 
 
 # =============================================================================
@@ -462,13 +519,11 @@ class ActivityEventBroadcaster:
 
 def get_activity_broadcaster() -> ActivityEventBroadcaster:
     """
-    Get the ActivityEventBroadcaster instance.
+    Get the ActivityEventBroadcaster instance (thread-safe singleton).
 
-    Uses the _systems dict pattern consistent with other system components.
+    FIX-008: Uses thread-safe initialization pattern.
     """
-    if 'activity_broadcaster' not in _systems:
-        _systems['activity_broadcaster'] = ActivityEventBroadcaster()
-    return _systems['activity_broadcaster']
+    return _get_or_create_system('activity_broadcaster', ActivityEventBroadcaster)
 
 
 # =============================================================================
@@ -639,9 +694,8 @@ def emit_work_delegated(molecule_id: str, step_name: str, department: str,
 
 
 def get_coo() -> COOAgent:
-    if 'coo' not in _systems:
-        _systems['coo'] = COOAgent(get_corp_path())
-    return _systems['coo']
+    """Get the COO agent instance (thread-safe singleton)."""
+    return _get_or_create_system('coo', lambda: COOAgent(get_corp_path()))
 
 
 def _get_latest_completed_step(molecule: 'Molecule') -> Optional['MoleculeStep']:
@@ -663,65 +717,73 @@ def _emit_latest_step_completed(molecule: 'Molecule') -> None:
         emit_step_completed(molecule, latest_step, latest_step.result)
 
 
+def _create_molecule_engine() -> MoleculeEngine:
+    """
+    Factory function to create and configure the MoleculeEngine.
+
+    FIX-008: Separated into factory for use with thread-safe initialization.
+    """
+    engine = MoleculeEngine(get_corp_path())
+
+    # =================================================================
+    # Molecule Lifecycle Callbacks - integrate with Activity Feed
+    # =================================================================
+
+    # Callback: Molecule created
+    def on_molecule_created(molecule):
+        emit_molecule_created(molecule)
+    engine.on_molecule_created = on_molecule_created
+
+    # Callback: Molecule started
+    def on_molecule_started(molecule):
+        emit_molecule_started(molecule)
+    engine.on_molecule_started = on_molecule_started
+
+    # Callback: Step started
+    def on_step_started(molecule, step):
+        emit_step_started(molecule, step)
+    engine.on_step_started = on_step_started
+
+    # Callback: Step failed
+    def on_step_failed(molecule, step, error):
+        emit_step_failed(molecule, step, error)
+    engine.on_step_failed = on_step_failed
+
+    # Callback: Step completed - emit activity event + auto-advance
+    def on_step_complete(molecule):
+        _emit_latest_step_completed(molecule)
+
+        # Auto-advance: delegate next steps
+        coo = get_coo()
+        if molecule.status.value == 'active':
+            delegations = coo.delegate_molecule(molecule)
+            if delegations:
+                logger.info(f"Auto-advanced molecule {molecule.id}: {len(delegations)} steps delegated")
+    engine.on_step_complete = on_step_complete
+
+    # Callback: Molecule completed - emit activity event + record outcome
+    def on_molecule_complete(molecule):
+        # Flush any pending aggregated events for this molecule
+        # This ensures all events are sent before the completion event
+        broadcaster = get_activity_broadcaster()
+        broadcaster.flush_aggregations()
+
+        # Emit step_completed for the final step (on_step_complete doesn't fire for last step)
+        _emit_latest_step_completed(molecule)
+
+        emit_molecule_completed(molecule)
+        try:
+            _record_molecule_outcome(molecule)
+        except Exception as e:
+            logger.warning(f"Failed to record molecule outcome: {e}")
+    engine.on_molecule_complete = on_molecule_complete
+
+    return engine
+
+
 def get_molecule_engine() -> MoleculeEngine:
-    if 'molecules' not in _systems:
-        engine = MoleculeEngine(get_corp_path())
-
-        # =================================================================
-        # Molecule Lifecycle Callbacks - integrate with Activity Feed
-        # =================================================================
-
-        # Callback: Molecule created
-        def on_molecule_created(molecule):
-            emit_molecule_created(molecule)
-        engine.on_molecule_created = on_molecule_created
-
-        # Callback: Molecule started
-        def on_molecule_started(molecule):
-            emit_molecule_started(molecule)
-        engine.on_molecule_started = on_molecule_started
-
-        # Callback: Step started
-        def on_step_started(molecule, step):
-            emit_step_started(molecule, step)
-        engine.on_step_started = on_step_started
-
-        # Callback: Step failed
-        def on_step_failed(molecule, step, error):
-            emit_step_failed(molecule, step, error)
-        engine.on_step_failed = on_step_failed
-
-        # Callback: Step completed - emit activity event + auto-advance
-        def on_step_complete(molecule):
-            _emit_latest_step_completed(molecule)
-
-            # Auto-advance: delegate next steps
-            coo = get_coo()
-            if molecule.status.value == 'active':
-                delegations = coo.delegate_molecule(molecule)
-                if delegations:
-                    logger.info(f"Auto-advanced molecule {molecule.id}: {len(delegations)} steps delegated")
-        engine.on_step_complete = on_step_complete
-
-        # Callback: Molecule completed - emit activity event + record outcome
-        def on_molecule_complete(molecule):
-            # Flush any pending aggregated events for this molecule
-            # This ensures all events are sent before the completion event
-            broadcaster = get_activity_broadcaster()
-            broadcaster.flush_aggregations()
-
-            # Emit step_completed for the final step (on_step_complete doesn't fire for last step)
-            _emit_latest_step_completed(molecule)
-
-            emit_molecule_completed(molecule)
-            try:
-                _record_molecule_outcome(molecule)
-            except Exception as e:
-                logger.warning(f"Failed to record molecule outcome: {e}")
-        engine.on_molecule_complete = on_molecule_complete
-
-        _systems['molecules'] = engine
-    return _systems['molecules']
+    """Get the MoleculeEngine instance (thread-safe singleton)."""
+    return _get_or_create_system('molecules', _create_molecule_engine)
 
 
 def _record_molecule_outcome(molecule) -> None:
@@ -814,32 +876,31 @@ def _record_molecule_outcome(molecule) -> None:
     logger.info(f"Recorded outcome for molecule {molecule.id}: {outcome}")
 
 def get_gate_keeper() -> GateKeeper:
-    if 'gates' not in _systems:
-        _systems['gates'] = GateKeeper(get_corp_path())
-    return _systems['gates']
+    """Get the GateKeeper instance (thread-safe singleton)."""
+    return _get_or_create_system('gates', lambda: GateKeeper(get_corp_path()))
+
 
 def get_monitor() -> SystemMonitor:
-    if 'monitor' not in _systems:
-        _systems['monitor'] = SystemMonitor(get_corp_path())
-    return _systems['monitor']
+    """Get the SystemMonitor instance (thread-safe singleton)."""
+    return _get_or_create_system('monitor', lambda: SystemMonitor(get_corp_path()))
+
 
 def get_bead_ledger() -> BeadLedger:
-    if 'beads' not in _systems:
-        _systems['beads'] = BeadLedger(get_corp_path())
-    return _systems['beads']
+    """Get the BeadLedger instance (thread-safe singleton)."""
+    return _get_or_create_system('beads', lambda: BeadLedger(get_corp_path()))
+
 
 def get_forge() -> TheForge:
-    if 'forge' not in _systems:
-        _systems['forge'] = TheForge(get_corp_path())
-    return _systems['forge']
+    """Get the TheForge instance (thread-safe singleton)."""
+    return _get_or_create_system('forge', lambda: TheForge(get_corp_path()))
 
 
 def get_conversation_summarizer() -> ConversationSummarizer:
-    """Get the conversation summarizer (uses COO's LLM client)."""
-    if 'summarizer' not in _systems:
+    """Get the conversation summarizer (thread-safe singleton, uses COO's LLM client)."""
+    def _create_summarizer():
         coo = get_coo()
-        _systems['summarizer'] = ConversationSummarizer(llm_client=coo.llm)
-    return _systems['summarizer']
+        return ConversationSummarizer(llm_client=coo.llm)
+    return _get_or_create_system('summarizer', _create_summarizer)
 
 
 def get_relevant_lessons_for_task(task_description: str, max_results: int = 3) -> str:
