@@ -8,6 +8,7 @@ This enables:
 - Load balancing across workers
 """
 
+import logging
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -15,6 +16,8 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any, Set
 from dataclasses import dataclass, field, asdict
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 class WorkerStatus(Enum):
@@ -356,10 +359,21 @@ class PoolManager:
         if not pool:
             return None
 
+        # First try to find an idle worker
         worker = pool.get_available_worker(required_capabilities)
+
+        # If none available, try recovering stale workers
+        if not worker:
+            recovered = self._cleanup_stale_workers(pool)
+            if recovered > 0:
+                worker = pool.get_available_worker(required_capabilities)
+
         if worker:
             worker.claim_work(work_item_id, molecule_id)
+            worker.last_heartbeat = datetime.utcnow().isoformat()
             self._save_pool(pool)
+            logger.info(f"[PoolManager] Claimed worker {worker.id} for {work_item_id}")
+
         return worker
 
     def release_worker(self, pool_id: str, worker_id: str, success: bool = True) -> Optional[Worker]:
@@ -420,3 +434,46 @@ class PoolManager:
         """Save pool to disk"""
         pool_file = self.pools_path / f"{pool.id}.yaml"
         pool_file.write_text(pool.to_yaml())
+
+    def _cleanup_stale_workers(self, pool: WorkerPool) -> int:
+        """Release workers stuck on completed/failed/missing molecules.
+
+        Returns number of workers cleaned up.
+        """
+        from .molecule import MoleculeEngine  # Import here to avoid circular
+        engine = MoleculeEngine(self.base_path)
+        cleaned = 0
+
+        for worker in pool.workers:
+            if worker.status != WorkerStatus.BUSY:
+                continue
+
+            should_release = False
+            reason = ""
+
+            if not worker.current_molecule_id:
+                # BUSY but no molecule reference - invalid state
+                should_release = True
+                reason = "no molecule reference"
+            else:
+                molecule = engine.get_molecule(worker.current_molecule_id)
+                if not molecule:
+                    # Molecule doesn't exist anymore
+                    should_release = True
+                    reason = f"molecule {worker.current_molecule_id} not found"
+                elif molecule.status.value in ['completed', 'failed', 'cancelled']:
+                    # Molecule is done, worker should have been released
+                    should_release = True
+                    reason = f"molecule {worker.current_molecule_id} is {molecule.status.value}"
+
+            if should_release:
+                logger.info(f"[PoolManager] Recovering stale worker {worker.id}: {reason}")
+                worker.status = WorkerStatus.IDLE
+                worker.current_work_item_id = None
+                worker.current_molecule_id = None
+                cleaned += 1
+
+        if cleaned > 0:
+            self._save_pool(pool)
+
+        return cleaned
