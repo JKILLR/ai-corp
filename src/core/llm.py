@@ -70,6 +70,173 @@ class LLMResponse:
     tool_calls: List[Dict[str, Any]] = field(default_factory=list)
     conversation_id: Optional[str] = None
     tokens_used: int = 0
+    parsed_json: Optional[Dict[str, Any]] = None
+    raw_response: Any = None
+
+    @classmethod
+    def success_response(cls, content: str, parsed_json: Dict[str, Any] = None,
+                         raw: Any = None, metadata: Dict[str, Any] = None) -> 'LLMResponse':
+        """Create a successful response."""
+        return cls(
+            content=content,
+            success=True,
+            parsed_json=parsed_json,
+            raw_response=raw,
+            metadata=metadata or {}
+        )
+
+    @classmethod
+    def error_response(cls, error: str, raw: Any = None,
+                       content: str = "") -> 'LLMResponse':
+        """Create an error response."""
+        return cls(
+            content=content,
+            success=False,
+            error=error,
+            raw_response=raw
+        )
+
+
+class LLMError(Exception):
+    """Error from LLM interaction."""
+    pass
+
+
+def validate_response(response: Any, expect_json: bool = False) -> LLMResponse:
+    """Validate and parse an LLM response.
+
+    Handles various response formats and extracts content. Optionally
+    parses JSON from the response.
+
+    Args:
+        response: Raw response from LLM API (string, dict, or LLMResponse)
+        expect_json: If True, response content should be valid JSON
+
+    Returns:
+        Validated LLMResponse object
+
+    Raises:
+        LLMError: If response is critically malformed
+    """
+    # Handle None response
+    if response is None:
+        return LLMResponse.error_response("Received null response from LLM")
+
+    # If already an LLMResponse, handle it
+    if isinstance(response, LLMResponse):
+        if not response.success:
+            return response
+        content = response.content
+        raw = response.raw_response or response
+    else:
+        # Extract content based on response type
+        content = None
+        raw = response
+
+        if isinstance(response, str):
+            content = response
+        elif isinstance(response, dict):
+            # Common API response formats
+            content = response.get('content') or response.get('text') or response.get('message')
+            if not content and 'choices' in response:
+                # OpenAI format
+                choices = response.get('choices', [])
+                if choices:
+                    content = choices[0].get('message', {}).get('content')
+
+    if content is None:
+        return LLMResponse.error_response(
+            f"Could not extract content from response: {type(response)}",
+            raw=raw
+        )
+
+    # Validate content is not empty
+    if not content.strip():
+        return LLMResponse.error_response("LLM returned empty content", raw=raw)
+
+    # Parse JSON if expected
+    parsed_json = None
+    if expect_json:
+        # Try to extract JSON from content
+        content_stripped = content.strip()
+
+        # Handle markdown code blocks
+        if content_stripped.startswith('```'):
+            lines = content_stripped.split('\n')
+            # Remove first and last lines (```json and ```)
+            json_lines = []
+            in_block = False
+            for line in lines:
+                if line.startswith('```') and not in_block:
+                    in_block = True
+                    continue
+                elif line.startswith('```') and in_block:
+                    break
+                elif in_block:
+                    json_lines.append(line)
+            content_stripped = '\n'.join(json_lines)
+
+        # Try to find JSON object or array in content
+        json_content = content_stripped
+        if not json_content.startswith('{') and not json_content.startswith('['):
+            # Try to find JSON in the content
+            start_brace = content_stripped.find('{')
+            start_bracket = content_stripped.find('[')
+
+            if start_brace >= 0 and (start_bracket < 0 or start_brace < start_bracket):
+                end = content_stripped.rfind('}') + 1
+                if end > start_brace:
+                    json_content = content_stripped[start_brace:end]
+            elif start_bracket >= 0:
+                end = content_stripped.rfind(']') + 1
+                if end > start_bracket:
+                    json_content = content_stripped[start_bracket:end]
+
+        try:
+            parsed_json = json.loads(json_content)
+        except json.JSONDecodeError as e:
+            return LLMResponse.error_response(
+                f"Expected JSON but got invalid JSON: {e}",
+                raw=raw,
+                content=content
+            )
+
+    return LLMResponse.success_response(
+        content=content,
+        parsed_json=parsed_json,
+        raw=raw
+    )
+
+
+def validate_json_fields(response: LLMResponse, required_fields: List[str]) -> LLMResponse:
+    """Validate that required fields exist in a JSON response.
+
+    Args:
+        response: LLMResponse with parsed_json
+        required_fields: List of field names that must exist
+
+    Returns:
+        Same response if valid, error response if fields missing
+    """
+    if not response.success:
+        return response
+
+    if not response.parsed_json:
+        return LLMResponse.error_response(
+            "Response has no parsed JSON to validate",
+            raw=response.raw_response,
+            content=response.content
+        )
+
+    missing = [f for f in required_fields if f not in response.parsed_json]
+    if missing:
+        return LLMResponse.error_response(
+            f"Response missing required fields: {missing}",
+            raw=response.raw_response,
+            content=response.content
+        )
+
+    return response
 
 
 @dataclass
