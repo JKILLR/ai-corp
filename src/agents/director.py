@@ -153,8 +153,10 @@ class DirectorAgent(BaseAgent):
         complexity = analysis.get('estimated_complexity', 'medium')
 
         # Decide: delegate or handle directly
+        # Note: We always try delegation first since claim_worker() has stale recovery
+        # that can free up stuck workers. It returns None if truly no workers available.
         if complexity == 'high' or analysis.get('delegation_candidate', True):
-            if self.worker_pool and self._pool_has_capacity():
+            if self.worker_pool:
                 return self._delegate_to_workers(work_item, analysis)
 
         # Handle directly for simple tasks or when no workers available
@@ -175,9 +177,17 @@ class DirectorAgent(BaseAgent):
         }
 
     def _pool_has_capacity(self) -> bool:
-        """Check if worker pool has capacity"""
+        """Check if worker pool has capacity (triggers stale recovery first)"""
         if not self.worker_pool:
             return False
+
+        # Trigger stale worker recovery before checking
+        # This ensures we get an accurate count of available workers
+        pool = self.pool_manager.get_pool(self.worker_pool.id)
+        if pool:
+            self.pool_manager._cleanup_stale_workers(pool)
+            # Refresh our cached pool reference
+            self.worker_pool = pool
 
         idle_workers = self.worker_pool.get_idle_workers()
         return len(idle_workers) > 0
