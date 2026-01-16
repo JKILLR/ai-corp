@@ -1339,13 +1339,15 @@ Respond naturally as the COO. Handle simple things directly. For bigger asks, pr
             tools_to_use = None  # None = use defaults (all tools)
 
             logger.info(f"[DEBUG] About to call Claude CLI (likely_delegation={delegation_context.get('likely_delegation')}, tools={tools_to_use}, images={len(llm_images)})")
-            response = coo.llm.execute(LLMRequest(
+            # Run LLM execution in thread pool to avoid blocking the async event loop
+            llm_request = LLMRequest(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 working_directory=get_corp_path(),
                 tools=tools_to_use,
                 images=llm_images
-            ))
+            )
+            response = await asyncio.to_thread(coo.llm.execute, llm_request)
 
             logger.info(f"[DEBUG] LLM response received: success={response.success}")
 
