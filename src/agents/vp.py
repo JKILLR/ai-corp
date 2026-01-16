@@ -162,10 +162,12 @@ class VPAgent(BaseAgent):
         work_item: WorkItem,
         analysis: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Delegate work to directors"""
-        delegations = []
-        subtasks = analysis.get('subtasks', [work_item.title])
+        """Delegate work to directors.
 
+        Creates a SINGLE work item for the director with the full task.
+        The VP's strategic analysis is included as context - the Director
+        decides how to break it down for workers.
+        """
         # Mark the molecule step as IN_PROGRESS when we start delegating
         if work_item.molecule_id and work_item.step_id:
             try:
@@ -198,67 +200,76 @@ class VPAgent(BaseAgent):
             logger.warning(f"No directors available for delegation")
             return self._handle_directly(work_item, analysis)
 
-        for i, subtask in enumerate(subtasks):
-            # Create work item in director's hook
-            dir_hook = self.hook_manager.get_or_create_hook(
-                name=f"{target_director} Hook",
-                owner_type='role',
-                owner_id=target_director
-            )
+        # Get or create the director's hook
+        dir_hook = self.hook_manager.get_or_create_hook(
+            name=f"{target_director} Hook",
+            owner_type='role',
+            owner_id=target_director
+        )
 
-            dir_work_item = self.hook_manager.add_work_to_hook(
-                hook_id=dir_hook.id,
-                title=subtask if isinstance(subtask, str) else subtask.get('title', f"Subtask {i+1}"),
-                description=work_item.description,
-                molecule_id=work_item.molecule_id,
-                step_id=work_item.step_id,
-                priority=work_item.priority,
-                context={
-                    'parent_work_item': work_item.id,
-                    'delegated_by': self.identity.id,
-                    'analysis': analysis
-                }
-            )
+        # Extract subtask suggestions (if any) as guidance, not separate work items
+        subtask_suggestions = analysis.get('subtasks', [])
 
-            # Send delegation message
-            self.delegate_to(
-                recipient_id=target_director,
-                recipient_role=target_director,
-                molecule_id=work_item.molecule_id,
-                step_id=work_item.step_id,
-                instructions=f"""
-Task: {subtask if isinstance(subtask, str) else subtask.get('title', 'Task')}
+        # Create ONE work item with the full task + strategic guidance
+        dir_work_item = self.hook_manager.add_work_to_hook(
+            hook_id=dir_hook.id,
+            title=work_item.title,  # Keep original title
+            description=work_item.description,  # Keep original description
+            molecule_id=work_item.molecule_id,
+            step_id=work_item.step_id,
+            priority=work_item.priority,
+            context={
+                'parent_work_item': work_item.id,
+                'delegated_by': self.identity.id,
+                'strategic_analysis': analysis,  # VP's full analysis
+                'subtask_suggestions': subtask_suggestions,  # Suggestions, not requirements
+                'priority': analysis.get('priority', 'normal'),
+                'task_type': 'director_execution'
+            }
+        )
+
+        # Send delegation message
+        self.delegate_to(
+            recipient_id=target_director,
+            recipient_role=target_director,
+            molecule_id=work_item.molecule_id,
+            step_id=work_item.step_id,
+            instructions=f"""
+Task: {work_item.title}
 
 Context: {work_item.description}
 
-Analysis: {analysis.get('understanding', 'Please analyze and execute.')}
+Strategic Analysis: {analysis.get('understanding', 'Please analyze and execute.')}
 
 Approach: {analysis.get('approach', 'Use your judgment.')}
+
+Suggested breakdown (optional guidance):
+{chr(10).join(f'- {s}' for s in subtask_suggestions) if subtask_suggestions else '- Use your judgment to break this down as needed'}
 """,
-                priority=MessagePriority.NORMAL
-            )
+            priority=MessagePriority.NORMAL
+        )
 
-            delegations.append({
-                'director': target_director,
-                'work_item_id': dir_work_item.id,
-                'subtask': subtask
-            })
+        delegation_info = {
+            'director': target_director,
+            'work_item_id': dir_work_item.id,
+            'task': work_item.title
+        }
 
-            logger.info(f"[{self.identity.role_name}] Delegated to {target_director}: {subtask}")
+        logger.info(f"[{self.identity.role_name}] Delegated to {target_director}: {work_item.title}")
 
         # Checkpoint
         self.checkpoint(
-            description=f"Delegated to directors",
-            data={'delegations': delegations}
+            description=f"Delegated to director",
+            data={'delegation': delegation_info}
         )
 
         # Mark the molecule step as DELEGATED (not COMPLETED - work is still in progress)
-        if work_item.molecule_id and work_item.step_id and delegations:
+        if work_item.molecule_id and work_item.step_id:
             try:
                 self.molecule_engine.delegate_step(
                     molecule_id=work_item.molecule_id,
                     step_id=work_item.step_id,
-                    delegations=delegations,
+                    delegations=[delegation_info],
                     delegated_by=self.identity.id
                 )
                 logger.info(f"[{self.identity.role_name}] Marked step {work_item.step_id} as DELEGATED")
@@ -267,7 +278,7 @@ Approach: {analysis.get('approach', 'Use your judgment.')}
 
         return {
             'status': 'delegated',
-            'delegations': delegations,
+            'delegations': [delegation_info],
             'target_director': target_director
         }
 
