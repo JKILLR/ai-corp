@@ -23,6 +23,8 @@ from typing import Optional, List, Dict, Any, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field, asdict
 import yaml
 
+from src.core.time_utils import now_iso
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -74,6 +76,132 @@ VALID_STEP_TRANSITIONS = {
     StepStatus.FAILED: set(),      # Terminal state
     StepStatus.SKIPPED: set(),     # Terminal state
 }
+
+
+# ==================== Dependency Validation (FIX-009) ====================
+
+class DependencyValidationError(Exception):
+    """Error in step dependency configuration."""
+    pass
+
+
+def validate_dependencies(steps: list) -> tuple:
+    """Validate step dependencies are valid.
+
+    Checks:
+    1. All referenced dependencies exist
+    2. No circular dependencies
+    3. No self-references
+
+    Args:
+        steps: List of step dicts or MoleculeStep objects
+
+    Returns:
+        tuple of (is_valid: bool, error_message: str)
+    """
+    # Normalize to get step_id and depends_on from either dicts or objects
+    def get_step_info(step):
+        if hasattr(step, 'id'):
+            return step.id, getattr(step, 'depends_on', []) or []
+        else:
+            return step.get('id'), step.get('depends_on', []) or []
+
+    step_ids = set()
+    graph = {}
+
+    for step in steps:
+        step_id, deps = get_step_info(step)
+        if step_id is None:
+            return False, "Step missing 'id' field"
+        step_ids.add(step_id)
+        graph[step_id] = deps
+
+    # Check self-references and missing dependencies
+    for step_id, deps in graph.items():
+        # Check self-reference
+        if step_id in deps:
+            return False, f"Step {step_id} references itself"
+
+        # Check all deps exist
+        for dep in deps:
+            if dep not in step_ids:
+                return False, f"Step {step_id} depends on non-existent step {dep}"
+
+    # Check for cycles using DFS
+    visited = set()
+    rec_stack = set()
+
+    def has_cycle(node: str, path: list) -> tuple:
+        visited.add(node)
+        rec_stack.add(node)
+
+        for neighbor in graph.get(node, []):
+            if neighbor not in visited:
+                cycle_found, cycle_path = has_cycle(neighbor, path + [node])
+                if cycle_found:
+                    return True, cycle_path
+            elif neighbor in rec_stack:
+                return True, path + [node, neighbor]
+
+        rec_stack.remove(node)
+        return False, []
+
+    for step_id in step_ids:
+        if step_id not in visited:
+            cycle_found, cycle_path = has_cycle(step_id, [])
+            if cycle_found:
+                return False, f"Circular dependency detected: {' -> '.join(cycle_path)}"
+
+    return True, ""
+
+
+def get_execution_order(steps: list) -> list:
+    """Get steps in valid execution order (topological sort).
+
+    Args:
+        steps: List of step dicts or MoleculeStep objects
+
+    Returns:
+        List of step IDs in order they should execute
+
+    Raises:
+        DependencyValidationError: If dependencies are invalid
+    """
+    is_valid, error = validate_dependencies(steps)
+    if not is_valid:
+        raise DependencyValidationError(error)
+
+    # Normalize to get step_id and depends_on
+    def get_step_info(step):
+        if hasattr(step, 'id'):
+            return step.id, set(getattr(step, 'depends_on', []) or [])
+        else:
+            return step.get('id'), set(step.get('depends_on', []) or [])
+
+    step_ids = []
+    deps = {}
+    for step in steps:
+        step_id, step_deps = get_step_info(step)
+        step_ids.append(step_id)
+        deps[step_id] = step_deps
+
+    result = []
+    remaining = set(step_ids)
+
+    while remaining:
+        # Find steps with no unmet dependencies
+        ready = [s for s in remaining if deps[s].issubset(set(result))]
+
+        if not ready:
+            # Should not happen if validation passed
+            raise DependencyValidationError("Could not determine execution order")
+
+        # Sort ready steps for deterministic order
+        ready.sort()
+        result.append(ready[0])
+        remaining.remove(ready[0])
+
+    return result
 
 
 class WorkflowType(Enum):
@@ -326,7 +454,7 @@ class Checkpoint:
             step_id=step_id,
             description=description,
             data=data,
-            created_at=datetime.utcnow().isoformat(),
+            created_at=now_iso(),
             created_by=created_by
         )
 
@@ -506,7 +634,7 @@ class Molecule:
 
             old_status = self.status
             self.status = new_status
-            self.updated_at = datetime.utcnow().isoformat()
+            self.updated_at = now_iso()
             logger.info(f"[Molecule {self.id}] Status: {old_status.value} -> {new_status.value}")
             return True
 
@@ -548,7 +676,7 @@ class Molecule:
 
             old_status = step.status
             step.status = new_status
-            self.updated_at = datetime.utcnow().isoformat()
+            self.updated_at = now_iso()
             logger.info(
                 f"[Molecule {self.id}] Step {step_id}: {old_status.value} -> {new_status.value}"
             )
@@ -572,7 +700,7 @@ class Molecule:
         swarm_config: Optional[SwarmConfig] = None,
         composite_config: Optional[CompositeConfig] = None
     ) -> 'Molecule':
-        now = datetime.utcnow().isoformat()
+        now = now_iso()
         return cls(
             id=f"MOL-{uuid.uuid4().hex[:8].upper()}",
             name=name,
@@ -593,10 +721,44 @@ class Molecule:
             composite_config=composite_config
         )
 
-    def add_step(self, step: MoleculeStep) -> None:
-        """Add a step to the molecule"""
+    def add_step(self, step: MoleculeStep, validate: bool = True) -> None:
+        """Add a step to the molecule.
+
+        Args:
+            step: The step to add
+            validate: If True, validate dependencies after adding (default: True)
+
+        Raises:
+            DependencyValidationError: If step creates invalid dependencies
+        """
         self.steps.append(step)
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = now_iso()
+
+        if validate:
+            is_valid, error = validate_dependencies(self.steps)
+            if not is_valid:
+                # Remove the step and raise
+                self.steps.pop()
+                raise DependencyValidationError(error)
+
+    def validate_all_dependencies(self) -> tuple:
+        """Validate all step dependencies in this molecule.
+
+        Returns:
+            tuple of (is_valid: bool, error_message: str)
+        """
+        return validate_dependencies(self.steps)
+
+    def get_execution_order(self) -> List[str]:
+        """Get step IDs in valid execution order.
+
+        Returns:
+            List of step IDs in topological order
+
+        Raises:
+            DependencyValidationError: If dependencies are invalid
+        """
+        return get_execution_order(self.steps)
 
     def get_step(self, step_id: str) -> Optional[MoleculeStep]:
         """Get a step by ID"""
@@ -960,8 +1122,8 @@ class MoleculeEngine:
             self._start_composite_phase(molecule)
 
         molecule.status = MoleculeStatus.ACTIVE
-        molecule.started_at = datetime.utcnow().isoformat()
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.started_at = now_iso()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
 
         # Fire molecule started callback
@@ -1140,7 +1302,7 @@ class MoleculeEngine:
             'phase_index': config.current_phase,
             'phase_name': phase.name,
             'child_molecule_id': child_molecule.id,
-            'started_at': datetime.utcnow().isoformat()
+            'started_at': now_iso()
         })
 
         # Save parent molecule with updated metadata and child links
@@ -1213,7 +1375,7 @@ class MoleculeEngine:
             'phase_index': config.current_phase,
             'child_molecule_id': failed_child_id,
             'reason': failure_reason,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': now_iso()
         })
 
         # Determine action based on phase configuration
@@ -1281,7 +1443,7 @@ class MoleculeEngine:
                 'from_phase': config.current_phase,
                 'child_molecule_id': child_molecule.id,
                 'reason': failure_reason,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now_iso()
             })
 
             self._save_molecule(molecule)
@@ -1304,12 +1466,12 @@ class MoleculeEngine:
 
         step.status = StepStatus.IN_PROGRESS
         step.assigned_to = assigned_to
-        step.started_at = datetime.utcnow().isoformat()
-        molecule.updated_at = datetime.utcnow().isoformat()
+        step.started_at = now_iso()
+        molecule.updated_at = now_iso()
 
         if molecule.status == MoleculeStatus.PENDING:
             molecule.status = MoleculeStatus.ACTIVE
-            molecule.started_at = datetime.utcnow().isoformat()
+            molecule.started_at = now_iso()
 
         self._save_molecule(molecule)
 
@@ -1340,7 +1502,7 @@ class MoleculeEngine:
             raise ValueError(f"Step {step_id} not found")
 
         checkpoint = step.add_checkpoint(description, data, agent_id)
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
         return checkpoint
 
@@ -1361,8 +1523,8 @@ class MoleculeEngine:
 
         result = result or {}
         step.result = result
-        step.completed_at = datetime.utcnow().isoformat()
-        molecule.updated_at = datetime.utcnow().isoformat()
+        step.completed_at = now_iso()
+        molecule.updated_at = now_iso()
 
         # Check if result indicates failure
         if result.get('status') == 'failed':
@@ -1377,7 +1539,7 @@ class MoleculeEngine:
         # Check if molecule is complete
         if molecule.is_complete():
             molecule.status = MoleculeStatus.COMPLETED
-            molecule.completed_at = datetime.utcnow().isoformat()
+            molecule.completed_at = now_iso()
             self._move_to_completed(molecule)
 
             # Fire molecule completion callback for outcome recording
@@ -1444,9 +1606,9 @@ class MoleculeEngine:
             'status': 'delegated',
             'delegations': delegations or [],
             'delegated_by': delegated_by,
-            'delegated_at': datetime.utcnow().isoformat()
+            'delegated_at': now_iso()
         }
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
 
         self._save_molecule(molecule)
         return step
@@ -1474,7 +1636,7 @@ class MoleculeEngine:
 
         step.status = StepStatus.FAILED
         step.error = error
-        step.completed_at = datetime.utcnow().isoformat()
+        step.completed_at = now_iso()
 
         # Record failure in history for Ralph Mode
         failure_record = {
@@ -1482,7 +1644,7 @@ class MoleculeEngine:
             'step_name': step.name,
             'error': error,
             'error_type': error_type or 'unknown',
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': now_iso(),
             'retry_count': molecule.retry_count,
             'context': context or {}
         }
@@ -1508,13 +1670,13 @@ class MoleculeEngine:
         if molecule.ralph_mode and self._should_ralph_retry(molecule):
             # Don't mark as blocked - prepare for retry
             molecule.retry_count += 1
-            molecule.updated_at = datetime.utcnow().isoformat()
+            molecule.updated_at = now_iso()
             self._save_molecule(molecule)
             return step
 
         # Standard failure - block the molecule
         molecule.status = MoleculeStatus.BLOCKED
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
         return step
 
@@ -1562,7 +1724,7 @@ class MoleculeEngine:
 
         molecule.status = MoleculeStatus.IN_REVIEW
         molecule.metadata['current_gate'] = gate_id
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
         return molecule
 
@@ -1579,18 +1741,18 @@ class MoleculeEngine:
         for step in molecule.steps:
             if step.is_gate and step.gate_id == gate_id:
                 step.status = StepStatus.COMPLETED
-                step.completed_at = datetime.utcnow().isoformat()
+                step.completed_at = now_iso()
                 step.result = {'approved_by': approved_by}
                 break
 
         molecule.status = MoleculeStatus.ACTIVE
         molecule.metadata.pop('current_gate', None)
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
 
         # Check if fully complete
         if molecule.is_complete():
             molecule.status = MoleculeStatus.COMPLETED
-            molecule.completed_at = datetime.utcnow().isoformat()
+            molecule.completed_at = now_iso()
             self._move_to_completed(molecule)
         else:
             self._save_molecule(molecule)
@@ -1608,12 +1770,12 @@ class MoleculeEngine:
             if step.is_gate and step.gate_id == gate_id:
                 step.status = StepStatus.FAILED
                 step.error = f"Rejected by {rejected_by}: {reason}"
-                step.completed_at = datetime.utcnow().isoformat()
+                step.completed_at = now_iso()
                 break
 
         molecule.status = MoleculeStatus.BLOCKED
         molecule.metadata['rejection_reason'] = reason
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
         return molecule
 
@@ -1831,9 +1993,9 @@ class MoleculeEngine:
             'max_retries': max_retries,
             'cost_cap': cost_cap,
             'restart_strategy': restart_strategy,
-            'enabled_at': datetime.utcnow().isoformat()
+            'enabled_at': now_iso()
         }
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
         self._save_molecule(molecule)
         return molecule
 
@@ -1915,7 +2077,7 @@ class MoleculeEngine:
 
         # Update molecule status
         molecule.status = MoleculeStatus.ACTIVE
-        molecule.updated_at = datetime.utcnow().isoformat()
+        molecule.updated_at = now_iso()
 
         # Store retry context in metadata
         molecule.metadata['ralph_retry_context'] = self.get_ralph_context(molecule_id)

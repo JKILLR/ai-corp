@@ -20,6 +20,8 @@ from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field, asdict
 import yaml
 
+from src.core.time_utils import now_iso
+
 
 def _sanitize_for_yaml(obj: Any) -> Any:
     """Recursively convert enums and other non-YAML-safe types to safe values."""
@@ -61,7 +63,7 @@ class BeadEntry:
     ) -> 'BeadEntry':
         return cls(
             id=f"BEAD-{uuid.uuid4().hex[:12].upper()}",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=now_iso(),
             agent_id=agent_id,
             action=action,
             entity_type=entity_type,
@@ -103,7 +105,7 @@ class BeadLedger:
         """Initialize the ledger file"""
         initial_data = {
             'version': '1.0',
-            'created_at': datetime.utcnow().isoformat(),
+            'created_at': now_iso(),
             'entries': []
         }
         self.ledger_file.write_text(yaml.dump(initial_data, default_flow_style=False))
@@ -144,7 +146,7 @@ class BeadLedger:
 
         ledger_data = self._load_ledger()
         ledger_data['entries'].append(entry.to_dict())
-        ledger_data['updated_at'] = datetime.utcnow().isoformat()
+        ledger_data['updated_at'] = now_iso()
         self._save_ledger(ledger_data)
 
         # Also save individual entry for quick access

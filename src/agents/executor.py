@@ -38,6 +38,34 @@ from ..core.hook import HookManager
 
 logger = logging.getLogger(__name__)
 
+
+# ============================================================================
+# Custom Exceptions (FIX-006: Silent Failure Propagation)
+# ============================================================================
+
+class ExecutorError(Exception):
+    """Base exception for executor errors."""
+    pass
+
+
+class AgentExecutionError(ExecutorError):
+    """Error during agent execution."""
+
+    def __init__(self, agent_id: str, message: str, cause: Exception = None):
+        self.agent_id = agent_id
+        self.cause = cause
+        super().__init__(f"Agent {agent_id} failed: {message}")
+
+
+class CycleExecutionError(ExecutorError):
+    """Error during execution cycle."""
+
+    def __init__(self, cycle_id: str, failed_agents: list, message: str):
+        self.cycle_id = cycle_id
+        self.failed_agents = failed_agents
+        super().__init__(message)
+
+
 # Capability constants for delegation chain (FIX: avoid duplication)
 DELEGATION_CAPABILITIES = frozenset([
     'development', 'coding', 'implementation', 'research',
@@ -906,6 +934,171 @@ class CorporationExecutor:
             level=level,
             capabilities=agent.identity.capabilities
         )
+
+    # ========================================================================
+    # FIX-006: Proper Error Propagation Methods
+    # ========================================================================
+
+    def _get_agent(self, agent_id: str) -> BaseAgent:
+        """
+        Get an agent by ID.
+
+        Args:
+            agent_id: The agent's role_id
+
+        Returns:
+            The agent instance
+
+        Raises:
+            AgentExecutionError: If agent not found
+        """
+        agent = self.agents.get(agent_id)
+        if not agent:
+            raise AgentExecutionError(
+                agent_id,
+                f"Agent not found: {agent_id}",
+                cause=KeyError(agent_id)
+            )
+        return agent
+
+    def _get_agents_with_work(self) -> List[str]:
+        """
+        Get list of agent IDs that have pending work.
+
+        Returns:
+            List of agent role_ids with queued work items
+        """
+        agents_with_work = []
+
+        # Check all registered agents for work in their hooks
+        for agent_id, agent in self.agents.items():
+            if hasattr(agent, 'hook') and agent.hook:
+                stats = agent.hook.get_stats()
+                if stats.get('queued', 0) > 0:
+                    agents_with_work.append(agent_id)
+
+        return agents_with_work
+
+    def run_agent(self, agent_id: str, work_item: dict = None) -> dict:
+        """
+        Run a single agent with proper error propagation.
+
+        Args:
+            agent_id: The agent's role_id
+            work_item: Optional work item to process
+
+        Returns:
+            dict with 'success', 'result', and optionally 'error' keys
+
+        Raises:
+            AgentExecutionError: If agent execution fails critically
+        """
+        try:
+            agent = self._get_agent(agent_id)
+
+            # Run the agent
+            logger.debug(f"[Executor] Running agent: {agent_id}")
+            result = agent.run()
+
+            # Check if result indicates an error
+            if isinstance(result, dict) and result.get('status') == 'error':
+                logger.error(
+                    f"[Executor] Agent {agent_id} reported error: {result.get('error')}"
+                )
+                return {
+                    'success': False,
+                    'agent_id': agent_id,
+                    'error': result.get('error'),
+                    'result': result
+                }
+
+            return {
+                'success': True,
+                'agent_id': agent_id,
+                'result': result
+            }
+
+        except AgentExecutionError:
+            # Re-raise our own exceptions
+            raise
+        except Exception as e:
+            logger.exception(f"[Executor] Agent {agent_id} raised exception")
+            raise AgentExecutionError(agent_id, str(e), cause=e)
+
+    def run_cycle_with_errors(self, molecule_id: str = None) -> dict:
+        """
+        Run one execution cycle with proper error collection and reporting.
+
+        This method provides detailed error information instead of silently
+        swallowing failures.
+
+        Args:
+            molecule_id: Optional molecule ID for context
+
+        Returns:
+            dict with 'success', 'completed', 'failed', and 'errors' keys
+
+        Raises:
+            CycleExecutionError: If critical failures occur (all agents fail)
+        """
+        if self._shutdown:
+            raise RuntimeError("CorporationExecutor has been shutdown")
+
+        results = {
+            'success': True,
+            'completed': [],
+            'failed': [],
+            'errors': []
+        }
+
+        try:
+            agents_to_run = self._get_agents_with_work()
+
+            if not agents_to_run:
+                logger.info("[Executor] No agents have pending work")
+                return results
+
+            for agent_id in agents_to_run:
+                try:
+                    result = self.run_agent(agent_id)
+                    if result['success']:
+                        results['completed'].append(agent_id)
+                    else:
+                        results['failed'].append(agent_id)
+                        results['errors'].append({
+                            'agent_id': agent_id,
+                            'error': result.get('error')
+                        })
+                        results['success'] = False
+
+                except AgentExecutionError as e:
+                    results['failed'].append(e.agent_id)
+                    results['errors'].append({
+                        'agent_id': e.agent_id,
+                        'error': str(e),
+                        'cause': str(e.cause) if e.cause else None
+                    })
+                    results['success'] = False
+
+            # If all agents failed, raise
+            if results['failed'] and not results['completed']:
+                raise CycleExecutionError(
+                    cycle_id=molecule_id or 'unknown',
+                    failed_agents=results['failed'],
+                    message=f"All {len(results['failed'])} agents failed"
+                )
+
+            return results
+
+        except CycleExecutionError:
+            raise
+        except Exception as e:
+            logger.exception("[Executor] Cycle failed unexpectedly")
+            raise CycleExecutionError(
+                cycle_id=molecule_id or 'unknown',
+                failed_agents=[],
+                message=f"Unexpected cycle failure: {e}"
+            )
 
 
 # Convenience function
