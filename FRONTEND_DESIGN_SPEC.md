@@ -1,0 +1,6045 @@
+# AI Corp - Frontend Design Specification
+
+A design framework for building a web UI around the AI Corp autonomous agent system.
+
+> **📐 This is the FUNCTIONAL SPEC** — defining *what* to build (features, flows, APIs, data models).
+>
+> **🎨 For VISUAL DESIGN** — colors, animations, glass effects, motion physics — see **[NEURAL_GLASS_UI.md](./NEURAL_GLASS_UI.md)**
+>
+> Together: This spec defines the features → Neural Glass defines how they look and move.
+
+---
+
+## Executive Summary
+
+**What is AI Corp?**
+An autonomous AI corporation where multiple Claude instances work as a unified organization - with hierarchy, departments, work queues, and quality gates - just like a real company.
+
+**User Role:** The human user is the **CEO** - they provide high-level direction, approve major decisions, and monitor progress. The AI agents handle execution.
+
+**Core Metaphor:** A corporate org chart that actually runs itself.
+
+---
+
+## Information Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         AI CORP UI                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │  DASHBOARD  │  │  PROJECTS   │  │   AGENTS    │             │
+│  │  (Home)     │  │  (Molecules)│  │  (Org Chart)│             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│                                                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │  DISCOVERY  │  │   GATES     │  │  SETTINGS   │             │
+│  │  (New Work) │  │  (Approvals)│  │  (Config)   │             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Key Screens
+
+### 1. Dashboard (Home) - Command Center
+
+**Purpose:** The CEO's command center - at-a-glance system health, active work, and items requiring attention. This is where the user spends 60%+ of their time.
+
+---
+
+#### 1.1 Dashboard Layout Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  AI CORP                              [🔍 Search] [New Project] [👤 CEO ▼] │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ SYSTEM STATUS ──────────────────────────────────────────────────────┐  │
+│  │  ● OPERATIONAL    Agents: 12/15 healthy    Last sync: 2s ago    [⟳]  │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐            │
+│  │   ████████████   │ │   ▓▓▓▓▓▓░░░░░░   │ │       ⚠ 2       │            │
+│  │      12/15       │ │       3          │ │    PENDING       │            │
+│  │  Agents Active   │ │  Projects Live   │ │   APPROVALS      │            │
+│  │   [View All →]   │ │   [View All →]   │ │   [Review →]     │            │
+│  └──────────────────┘ └──────────────────┘ └──────────────────┘            │
+│                                                                             │
+│  ┌─ ACTIVE PROJECTS ─────────────────────────────────────────┐ ┌─────────┐ │
+│  │                                                           │ │ QUICK   │ │
+│  │  🔵 User Auth System                                      │ │ ACTIONS │ │
+│  │     ████████████░░░░░░  67%   •   3 workers active       │ │         │ │
+│  │     Next: Security Review gate                            │ │ [+ New  │ │
+│  │                                                  [View →] │ │ Project]│ │
+│  │  ─────────────────────────────────────────────────────── │ │         │ │
+│  │  🟡 API Refactor                                          │ │ [Review │ │
+│  │     ██████████░░░░░░░░  50%   •   Waiting on design      │ │  Gates] │ │
+│  │     Blocked: Design approval pending                      │ │         │ │
+│  │                                                  [View →] │ │ [View   │ │
+│  │  ─────────────────────────────────────────────────────── │ │  Agents]│ │
+│  │  🟢 Dashboard UI                                          │ │         │ │
+│  │     ██░░░░░░░░░░░░░░░░  15%   •   Just started           │ │ [Send   │ │
+│  │     Current: Research phase                               │ │ Message]│ │
+│  │                                                  [View →] │ │         │ │
+│  │                                                           │ └─────────┘ │
+│  │                                      [View All Projects →]│             │
+│  └───────────────────────────────────────────────────────────┘             │
+│                                                                             │
+│  ┌─ LIVE ACTIVITY FEED ──────────────────┐ ┌─ ALERTS ─────────────────────┐│
+│  │                                  [⏸]  │ │                              ││
+│  │  ● FE-01 completed "Login Form"   2m │ │  🔴 Security Review awaiting  ││
+│  │  → VP Eng delegated to BE Team    5m │ │     your approval (2h old)   ││
+│  │  ● QA passed: API endpoints      12m │ │                     [Review] ││
+│  │  ✓ Gate approved: Design Review  18m │ │                              ││
+│  │  ● BE-01 started "User Model"    23m │ │  🟡 2 workers idle - consider ││
+│  │  ⚠ COO flagged: scope creep      31m │ │     assigning work           ││
+│  │                                       │ │                    [Assign] ││
+│  │                         [View All →] │ │                              ││
+│  └───────────────────────────────────────┘ │  🔵 System backup completed  ││
+│                                            │     successfully             ││
+│                                            │                    [Dismiss] ││
+│                                            └──────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 1.2 Metric Cards (KPI Tiles)
+
+The top row shows critical KPIs with visual indicators:
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                           METRIC CARD DESIGNS                               │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  HEALTHY STATE:                    WARNING STATE:                          │
+│  ┌──────────────────┐              ┌──────────────────┐                   │
+│  │   ████████████   │              │   ██████████░░   │                   │
+│  │      12/15       │              │      10/15       │                   │
+│  │  Agents Active   │              │  Agents Active   │                   │
+│  │   ● All healthy  │              │   ⚠ 3 degraded   │                   │
+│  │   [View All →]   │              │   [View All →]   │                   │
+│  └──────────────────┘              └──────────────────┘                   │
+│    (green accent)                    (yellow accent)                       │
+│                                                                            │
+│  CRITICAL STATE:                   EMPTY STATE:                            │
+│  ┌──────────────────┐              ┌──────────────────┐                   │
+│  │   ████░░░░░░░░   │              │   ░░░░░░░░░░░░   │                   │
+│  │       5/15       │              │        0         │                   │
+│  │  Agents Active   │              │  Agents Active   │                   │
+│  │   🔴 5 offline   │              │   No agents yet  │                   │
+│  │   [Fix Now →]    │              │   [Hire →]       │                   │
+│  └──────────────────┘              └──────────────────┘                   │
+│    (red accent, pulse)               (gray, dashed border)                │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Metric Card Interactions:**
+- **Hover:** Shows trend tooltip (↑12% from yesterday)
+- **Click:** Navigates to detailed view
+- **Critical state:** Adds subtle pulse animation
+
+**Available Metrics:**
+| Metric | Source | Click Action |
+|--------|--------|--------------|
+| Agents Active | `SystemMonitor.collect_metrics()` | → Org Chart |
+| Projects Live | `MoleculeEngine.list_active_molecules()` | → Projects |
+| Pending Approvals | `GateKeeper.get_pending_submissions()` | → Gates |
+| Queue Depth | `WorkScheduler.get_scheduling_report()` | → Agents |
+| Completion Rate | `MoleculeEngine.get_completion_stats()` | → Analytics |
+
+---
+
+#### 1.3 Active Projects Panel
+
+Shows projects sorted by activity/priority:
+
+```
+┌─ ACTIVE PROJECTS ───────────────────────────────────────────────────────────┐
+│  [Sort: Activity ▼]  [Filter: All ▼]                        [+ New Project] │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ 🔵 User Auth System                                        P1 - HIGH   ││
+│  │ ──────────────────────────────────────────────────────────────────────  ││
+│  │                                                                         ││
+│  │  Progress: ████████████████████████░░░░░░░░░░  67%                     ││
+│  │                                                                         ││
+│  │  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐                     ││
+│  │  │ Rsch │→│Design│→│Build │→│  QA  │→│Launch│                         ││
+│  │  │  ✓   │  │  ✓   │  │ ◉67% │  │  ○   │  │  ○   │                     ││
+│  │  └──────┘  └──────┘  └──────┘  └──────┘  └──────┘                     ││
+│  │                                                                         ││
+│  │  Current: Build Phase • 3 workers active • ETA: 4 hours                ││
+│  │  Next Gate: Security Review (auto-triggered at 80%)                    ││
+│  │                                                                         ││
+│  │  Recent:                                                                ││
+│  │  • FE-01 completed login form (2m ago)                                 ││
+│  │  • BE-01 started session management (15m ago)                          ││
+│  │                                                                         ││
+│  │                        [Pause] [Reassign] [View Details →]             ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ 🟡 API Refactor                                          P2 - MEDIUM   ││
+│  │ ──────────────────────────────────────────────────────────────────────  ││
+│  │                                                                         ││
+│  │  Progress: ██████████████████░░░░░░░░░░░░░░░░  50%     ⚠ BLOCKED      ││
+│  │                                                                         ││
+│  │  Blocked: Waiting on Design Director approval                          ││
+│  │  Blocker age: 3 hours                                    [Unblock →]   ││
+│  │                                                                         ││
+│  │                                                   [View Details →]     ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ 🟢 Dashboard UI                                            P3 - LOW    ││
+│  │ Progress: ████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  15%    • Just started   ││
+│  │                                                   [View Details →]     ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  Showing 3 of 3 active projects                          [View All →]      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Project Card States:**
+- 🔵 **Active** - Work in progress, healthy
+- 🟡 **Blocked** - Waiting on approval/dependency
+- 🟢 **New** - Recently started, early stages
+- 🔴 **At Risk** - Behind schedule or failing
+
+**Interactions:**
+- **Click card:** Expand inline or navigate to project detail
+- **Hover progress bar:** Shows step breakdown
+- **Click worker count:** Shows list of assigned workers
+- **[Unblock]:** Opens gate approval or reassignment modal
+
+---
+
+#### 1.4 Live Activity Feed
+
+Real-time stream of corporation activity:
+
+```
+┌─ LIVE ACTIVITY FEED ───────────────────────────────────────────────────────┐
+│  [Filter: All ▼] [Departments: All ▼]                     [⏸ Pause] [🔔]  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ● NOW ──────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  ┌─ 2 seconds ago ─────────────────────────────────────────────────────┐   │
+│  │ ● frontend_worker_01 completed checkpoint                           │   │
+│  │   "Login form validation complete"                                   │   │
+│  │   Project: User Auth System                                          │   │
+│  │   Progress: 67% → 72%                                    [View →]   │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─ 5 minutes ago ─────────────────────────────────────────────────────┐   │
+│  │ → vp_engineering delegated work                                      │   │
+│  │   "Session management" → backend_worker_01                           │   │
+│  │   Project: User Auth System                              [View →]   │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─ 12 minutes ago ────────────────────────────────────────────────────┐   │
+│  │ ✓ qa_director approved gate                                          │   │
+│  │   "Design Review" passed with all criteria met                       │   │
+│  │   Project: API Refactor                                  [View →]   │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─ 31 minutes ago ────────────────────────────────────────────────────┐   │
+│  │ ⚠ coo flagged issue                                                  │   │
+│  │   "Potential scope creep detected in Dashboard UI project"           │   │
+│  │   Recommendation: Review requirements with user          [Review →] │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ─────────────────────── Older activity ────────────────────────────────   │
+│                                                                             │
+│                                                    [Load More ↓]           │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Event Types & Icons:**
+| Icon | Event Type | Example |
+|------|------------|---------|
+| ● | Work completed | "Checkpoint complete" |
+| → | Delegation | "VP delegated to worker" |
+| ← | Status report | "Worker reported to director" |
+| ✓ | Approval | "Gate approved" |
+| ✗ | Rejection | "Gate rejected" |
+| ⚠ | Warning/Flag | "COO flagged issue" |
+| 🔴 | Error | "Worker encountered error" |
+| + | Created | "New project created" |
+
+**Filtering Options:**
+- By department (Engineering, Product, Quality, etc.)
+- By event type (Completions, Delegations, Approvals)
+- By project
+- By agent
+
+**Real-time Behavior:**
+- New events slide in from top with subtle animation
+- Timestamp updates in real-time ("2s ago" → "3s ago")
+- [Pause] freezes the feed for reading
+- Bell icon controls sound/desktop notifications
+
+---
+
+#### 1.5 Alerts Panel
+
+Prioritized list of items requiring attention:
+
+```
+┌─ ALERTS ─────────────────────────────────────────────────────────────────────┐
+│  2 critical • 1 warning • 1 info                            [Clear All ▼]   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─ CRITICAL ───────────────────────────────────────────────────────────┐   │
+│  │ 🔴 Security Review awaiting your approval                            │   │
+│  │    Project: User Auth System • Waiting: 2 hours 14 minutes           │   │
+│  │                                                                       │   │
+│  │    This gate requires CEO approval before proceeding to QA phase.    │   │
+│  │                                                                       │   │
+│  │    [Review Now →]                              [Snooze 1h] [Dismiss] │   │
+│  └───────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌─ CRITICAL ───────────────────────────────────────────────────────────┐   │
+│  │ 🔴 backend_worker_02 unresponsive                                     │   │
+│  │    Last heartbeat: 15 minutes ago • Assigned work: API endpoints     │   │
+│  │                                                                       │   │
+│  │    [Restart Agent] [Reassign Work] [View Logs]             [Dismiss] │   │
+│  └───────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌─ WARNING ────────────────────────────────────────────────────────────┐   │
+│  │ 🟡 3 workers idle with available work in queue                        │   │
+│  │    Workers: frontend_worker_03, backend_worker_03, qa_engineer_02    │   │
+│  │    Queue has 5 unassigned items                                       │   │
+│  │                                                                       │   │
+│  │    [Auto-Assign]  [View Workers]  [View Queue]             [Dismiss] │   │
+│  └───────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌─ INFO ───────────────────────────────────────────────────────────────┐   │
+│  │ 🔵 Daily backup completed successfully                                │   │
+│  │    Backed up: 3 projects, 12 agent states, 847 beads                 │   │
+│  │                                                                       │   │
+│  │    [View Report]                                           [Dismiss] │   │
+│  └───────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Alert Severity Levels:**
+| Level | Color | Auto-Dismiss | Examples |
+|-------|-------|--------------|----------|
+| Critical | 🔴 Red | Never | Gate awaiting CEO, Agent down |
+| Warning | 🟡 Yellow | 4 hours | Idle workers, Slow progress |
+| Info | 🔵 Blue | 1 hour | Backup complete, System update |
+
+**Alert Actions:**
+- **Primary action:** Direct resolution (Review, Restart, Assign)
+- **Snooze:** Temporarily hide (1h, 4h, tomorrow)
+- **Dismiss:** Remove from list
+- **View:** Navigate to relevant detail page
+
+---
+
+#### 1.6 Dashboard Customization
+
+Users can customize their dashboard layout:
+
+```
+┌─ CUSTOMIZE DASHBOARD ────────────────────────────────────────────────────────┐
+│                                                                    [× Close] │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  LAYOUT PRESETS:                                                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐                     │
+│  │ ████████ │  │ ████     │  │ ████████ │  │ ████████ │                     │
+│  │ ████     │  │ ████     │  │ ████████ │  │ ░░░░░░░░ │                     │
+│  │ ████     │  │ ████████ │  │ ░░░░░░░░ │  │ ████████ │                     │
+│  │ Default  │  │ Projects │  │ Activity │  │ Minimal  │                     │
+│  │    ●     │  │    ○     │  │    ○     │  │    ○     │                     │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘                     │
+│                                                                              │
+│  VISIBLE PANELS:                                                             │
+│  ☑ Metric Cards            ☑ Active Projects                                │
+│  ☑ Live Activity Feed      ☑ Alerts                                         │
+│  ☐ Department Summary      ☐ Completion Chart                               │
+│  ☐ Agent Leaderboard       ☐ Recent Gates                                   │
+│                                                                              │
+│  REFRESH RATE:                                                               │
+│  ○ Real-time (WebSocket)   ● Every 5 seconds   ○ Every 30 seconds           │
+│                                                                              │
+│  NOTIFICATIONS:                                                              │
+│  ☑ Desktop notifications for critical alerts                                │
+│  ☑ Sound for new activity                                                   │
+│  ☐ Email digest (daily)                                                     │
+│                                                                              │
+│                                            [Reset to Default]  [Save]       │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 1.7 Empty States
+
+When no data is available:
+
+```
+┌─ NO ACTIVE PROJECTS ────────────────────────────────────────────────────────┐
+│                                                                              │
+│                              ┌─────────┐                                    │
+│                              │  📋     │                                    │
+│                              │         │                                    │
+│                              └─────────┘                                    │
+│                                                                              │
+│                    No active projects right now                             │
+│                                                                              │
+│         Start a new project to put your AI corporation to work.             │
+│                                                                              │
+│                          [+ New Project]                                    │
+│                                                                              │
+│         Or choose a template:                                               │
+│         [Web App] [API Service] [Data Pipeline] [Documentation]            │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 1.8 Mobile Dashboard
+
+Simplified layout for mobile devices:
+
+```
+┌─────────────────────────────────┐
+│  AI CORP              [☰] [+]  │
+├─────────────────────────────────┤
+│                                 │
+│  ┌─────────────────────────────┐│
+│  │ ● OPERATIONAL     12/15 ▲  ││
+│  └─────────────────────────────┘│
+│                                 │
+│  ┌──────────┐ ┌──────────┐     │
+│  │  3       │ │  ⚠ 2     │     │
+│  │ Projects │ │ Approvals│     │
+│  └──────────┘ └──────────┘     │
+│                                 │
+│  ─ NEEDS ATTENTION ───────────  │
+│                                 │
+│  🔴 Security Review             │
+│     Awaiting approval • 2h     │
+│                      [Review]  │
+│                                 │
+│  🟡 3 workers idle              │
+│                      [Assign]  │
+│                                 │
+│  ─ PROJECTS ──────────────────  │
+│                                 │
+│  User Auth System              │
+│  ████████░░░░ 67%   [View →]  │
+│                                 │
+│  API Refactor                  │
+│  ██████░░░░░░ 50%   [View →]  │
+│                                 │
+│                  [All Projects] │
+│                                 │
+└─────────────────────────────────┘
+```
+
+---
+
+#### 1.9 Technical Implementation
+
+**Data Sources:**
+```typescript
+// Dashboard data aggregation
+interface DashboardData {
+  metrics: {
+    agentsHealthy: number;
+    agentsTotal: number;
+    projectsActive: number;
+    pendingApprovals: number;
+    queueDepth: number;
+  };
+  projects: ProjectSummary[];
+  activity: ActivityEvent[];
+  alerts: Alert[];
+  lastUpdated: string;
+}
+
+// API endpoints
+GET /api/dashboard              → Full dashboard data
+GET /api/dashboard/metrics      → Just metrics (lightweight)
+GET /api/dashboard/activity     → Activity feed (paginated)
+GET /api/dashboard/alerts       → Active alerts
+
+// WebSocket events
+ws.on('metric.updated', updateMetricCard)
+ws.on('activity.new', prependActivityItem)
+ws.on('alert.new', showAlert)
+ws.on('alert.resolved', removeAlert)
+ws.on('project.progress', updateProjectCard)
+```
+
+**Performance Optimizations:**
+- Metrics polled every 5s (lightweight endpoint)
+- Activity feed uses WebSocket for real-time updates
+- Project cards lazy-load detailed info on hover
+- Virtual scrolling for long activity feeds
+- Alerts cached locally, synced on visibility change
+
+---
+
+### 2. Discovery / New Project - Conversational Requirements
+
+**Purpose:** The COO conducts a discovery conversation to understand what you want to build, then creates a structured Success Contract and project plan. This is how work enters the system.
+
+---
+
+#### 2.1 Discovery Flow Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          DISCOVERY PROCESS                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Step 1              Step 2              Step 3              Step 4         │
+│  ┌──────────┐        ┌──────────┐        ┌──────────┐        ┌──────────┐  │
+│  │          │        │          │        │          │        │          │  │
+│  │  💬      │   →    │  📋      │   →    │  ✓      │   →    │  🚀      │  │
+│  │          │        │          │        │          │        │          │  │
+│  └──────────┘        └──────────┘        └──────────┘        └──────────┘  │
+│   Conversation        Contract            Review              Launch        │
+│   with COO            Extraction          & Edit              Project       │
+│                                                                             │
+│   "What do you       AI extracts         You approve         Work begins   │
+│   want to build?"    requirements        or modify           immediately   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 2.2 Main Discovery Interface
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ← Dashboard                    NEW PROJECT                        [?] Help │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ CONVERSATION WITH COO ──────────────────────┐ ┌─ LIVE EXTRACTION ─────┐│
+│  │                                              │ │                        ││
+│  │  ┌──────────────────────────────────────────┐│ │  OBJECTIVE             ││
+│  │  │ 🤖 COO                                   ││ │  ────────────────────  ││
+│  │  │                                          ││ │  User authentication   ││
+│  │  │ Hello! I'm the COO and I'll help you     ││ │  system                ││
+│  │  │ define this project clearly before we    ││ │                        ││
+│  │  │ start building.                          ││ │  SUCCESS CRITERIA      ││
+│  │  │                                          ││ │  ────────────────────  ││
+│  │  │ What would you like the corporation to   ││ │  ☑ Register with email ││
+│  │  │ work on today?                           ││ │  ☑ Login & session     ││
+│  │  └──────────────────────────────────────────┘│ │  ☑ Password reset      ││
+│  │                                              │ │  ☐ Social login        ││
+│  │  ┌──────────────────────────────────────────┐│ │  ☐ 2FA (optional)      ││
+│  │  │ 👤 You                                   ││ │                        ││
+│  │  │                                          ││ │  IN SCOPE              ││
+│  │  │ Build a user authentication system for   ││ │  ────────────────────  ││
+│  │  │ our web app. Users should be able to     ││ │  • User registration   ││
+│  │  │ register, log in, and reset passwords.   ││ │  • Login/logout        ││
+│  │  └──────────────────────────────────────────┘│ │  • Password reset      ││
+│  │                                              │ │  • Session management  ││
+│  │  ┌──────────────────────────────────────────┐│ │                        ││
+│  │  │ 🤖 COO                                   ││ │  OUT OF SCOPE          ││
+│  │  │                                          ││ │  ────────────────────  ││
+│  │  │ Great, an auth system. Let me ask a few  ││ │  • Payment integration ││
+│  │  │ clarifying questions:                    ││ │  • User profiles       ││
+│  │  │                                          ││ │  • Admin dashboard     ││
+│  │  │ 1. **Users**: Public users or internal   ││ │                        ││
+│  │  │    team only?                            ││ │  CONSTRAINTS           ││
+│  │  │                                          ││ │  ────────────────────  ││
+│  │  │ 2. **Security**: Do you need two-factor  ││ │  • Must use bcrypt     ││
+│  │  │    authentication (2FA)?                 ││ │  • JWT tokens          ││
+│  │  │                                          ││ │  • HTTPS required      ││
+│  │  │ 3. **Integration**: Any existing auth    ││ │                        ││
+│  │  │    systems or databases to connect?      ││ │  PRIORITY              ││
+│  │  └──────────────────────────────────────────┘│ │  ────────────────────  ││
+│  │                                              │ │  ● P1 - High           ││
+│  │  ┌──────────────────────────────────────────┐│ │                        ││
+│  │  │ 👤 You                                   ││ │  ─────────────────────  ││
+│  │  │                                          ││ │  Confidence: 78%       ││
+│  │  │ Public users. 2FA would be nice to have  ││ │  [Edit Contract →]     ││
+│  │  │ but not required for v1. No existing     ││ │                        ││
+│  │  │ systems, this is a new project.          ││ └────────────────────────┘│
+│  │  └──────────────────────────────────────────┘│                           │
+│  │                                              │                           │
+│  │  ┌──────────────────────────────────────────┐│                           │
+│  │  │ 🤖 COO                           typing… ││                           │
+│  │  └──────────────────────────────────────────┘│                           │
+│  │                                              │                           │
+│  │  ┌──────────────────────────────────────────┐│                           │
+│  │  │ Type a message...                   [⏎] ││                           │
+│  │  │                                          ││                           │
+│  │  │ [📎 Attach] [🎤 Voice]    [Send Message] ││                           │
+│  │  └──────────────────────────────────────────┘│                           │
+│  │                                              │                           │
+│  └──────────────────────────────────────────────┘                           │
+│                                                                             │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  [Cancel]  [Save Draft]                           [Finalize Contract →]    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 2.3 Chat Interface Details
+
+**Message Types:**
+
+```
+COO MESSAGE (AI):
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🤖 COO                                                    2:34 PM   │
+│                                                                      │
+│ Based on your requirements, I'm proposing the following phases:      │
+│                                                                      │
+│ **Phase 1: Core Auth (3-5 days)**                                   │
+│ - Registration form with email verification                          │
+│ - Login with session management                                      │
+│ - Password reset flow                                                │
+│                                                                      │
+│ **Phase 2: Enhancement (2-3 days)**                                  │
+│ - Remember me functionality                                          │
+│ - Account lockout after failed attempts                              │
+│ - Optional 2FA                                                       │
+│                                                                      │
+│ Does this breakdown look right?                                      │
+│                                                                      │
+│ [👍 Looks good] [🔄 Modify phases] [❓ Questions]                    │
+└──────────────────────────────────────────────────────────────────────┘
+
+USER MESSAGE:
+┌──────────────────────────────────────────────────────────────────────┐
+│ 👤 You                                                    2:36 PM   │
+│                                                                      │
+│ Looks good, but can we add social login (Google/GitHub) to phase 2? │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+
+SYSTEM MESSAGE:
+┌──────────────────────────────────────────────────────────────────────┐
+│ ℹ️ Contract Updated                                       2:36 PM   │
+│                                                                      │
+│ Added "Social login (Google, GitHub)" to Phase 2 scope              │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Quick Response Buttons:**
+- COO can offer quick response options
+- Clicking inserts the response and sends immediately
+- Keyboard shortcut: `1`, `2`, `3` for first three options
+
+**Input Enhancements:**
+- **Markdown support** in messages
+- **File attachment** for specs, wireframes, examples
+- **Voice input** option (transcribed to text)
+- **@ mentions** for referencing existing projects
+
+---
+
+#### 2.4 Live Contract Extraction Panel
+
+The right panel updates in real-time as the conversation progresses:
+
+```
+┌─ LIVE EXTRACTION ────────────────────────────────────────────────────────────┐
+│                                                          Confidence: 78%    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  OBJECTIVE                                                          [Edit]  │
+│  ══════════════════════════════════════════════════════════════════════════  │
+│  Build a user authentication system that allows public users to register,   │
+│  log in, and manage their accounts securely.                                │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  SUCCESS CRITERIA                                                   [Edit]  │
+│  ══════════════════════════════════════════════════════════════════════════  │
+│                                                                              │
+│  Phase 1 (MVP):                                                              │
+│  ☑ Users can register with email and password                               │
+│  ☑ Users can log in and receive a valid session                             │
+│  ☑ Users can reset their password via email                                 │
+│  ☑ Sessions expire after 24 hours of inactivity                             │
+│                                                                              │
+│  Phase 2 (Enhancement):                                                      │
+│  ☐ Users can enable two-factor authentication                               │
+│  ☐ Users can log in with Google or GitHub                                   │
+│  ☐ Account locks after 5 failed login attempts                              │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  SCOPE                                                              [Edit]  │
+│  ══════════════════════════════════════════════════════════════════════════  │
+│                                                                              │
+│  ✓ In Scope                          ✗ Out of Scope                         │
+│  ─────────────                       ─────────────────                       │
+│  • User registration                 • Payment processing                    │
+│  • Login/logout                      • User profile management              │
+│  • Password reset                    • Admin dashboard                       │
+│  • Session management                • Email notifications                   │
+│  • Remember me                       • Analytics/tracking                    │
+│  • Social login (Google, GitHub)                                             │
+│  • 2FA (optional)                                                            │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  CONSTRAINTS                                                        [Edit]  │
+│  ══════════════════════════════════════════════════════════════════════════  │
+│  • Passwords must be hashed with bcrypt (cost factor ≥ 12)                  │
+│  • Sessions must use JWT tokens                                              │
+│  • All endpoints must be HTTPS                                               │
+│  • Must comply with GDPR (user data deletion)                               │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  DEPARTMENTS INVOLVED                                                        │
+│  ══════════════════════════════════════════════════════════════════════════  │
+│  🔧 Engineering (Lead)    🎨 Product (Support)    🔒 Quality (Review)       │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  ESTIMATED EFFORT                                                            │
+│  ══════════════════════════════════════════════════════════════════════════  │
+│  Phase 1: 3-5 days  •  Phase 2: 2-3 days  •  Total: ~1 week                 │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│                                              [View Full Contract →]          │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Confidence Indicator:**
+- Shows how complete/confident the extraction is
+- Updates after each message
+- Recommends continuing conversation if < 70%
+
+**Inline Editing:**
+- Click [Edit] to modify any section directly
+- Changes sync back to conversation context
+- COO acknowledges edits in chat
+
+---
+
+#### 2.5 Contract Review & Edit Modal
+
+Before finalizing, users can review and edit the full contract:
+
+```
+┌─ REVIEW CONTRACT ────────────────────────────────────────────────────────────┐
+│  User Authentication System                                        [× Close] │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─ TABS ────────────────────────────────────────────────────────────────┐  │
+│  │ [Overview] [Success Criteria] [Scope] [Constraints] [Workflow]        │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│  ══════════════════════════════════════════════════════════════════════════  │
+│  SUCCESS CRITERIA (Editable)                                                 │
+│  ══════════════════════════════════════════════════════════════════════════  │
+│                                                                              │
+│  Drag to reorder • Click to edit • Check to mark as MVP-required            │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ ☑ MVP  │ Users can register with email and password          [⋮] [×]│   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ ☑ MVP  │ Users can log in and receive a valid session        [⋮] [×]│   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ ☑ MVP  │ Users can reset their password via email            [⋮] [×]│   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ ☐ Nice │ Users can enable two-factor authentication          [⋮] [×]│   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ ☐ Nice │ Users can log in with Google or GitHub              [⋮] [×]│   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  [+ Add Criterion]                                                           │
+│                                                                              │
+│  ══════════════════════════════════════════════════════════════════════════  │
+│  WORKFLOW PREVIEW                                                            │
+│  ══════════════════════════════════════════════════════════════════════════  │
+│                                                                              │
+│  Based on this contract, the COO will create the following workflow:         │
+│                                                                              │
+│  ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐            │
+│  │Research│ → │ Design │ → │ Build  │ → │   QA   │ → │Security│ → Done     │
+│  │ 1 day  │   │ 1 day  │   │ 3 days │   │ 1 day  │   │Review  │            │
+│  └────────┘   └────────┘   └────────┘   └────────┘   └────────┘            │
+│                                                                              │
+│  Departments: Engineering (lead), Product, Quality                           │
+│  Estimated total: 5-7 days                                                   │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  [Back to Chat]   [Save Draft]           [Create Project & Start Work →]    │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 2.6 Quick Start Templates
+
+For common project types, offer pre-filled templates:
+
+```
+┌─ PROJECT TEMPLATES ──────────────────────────────────────────────────────────┐
+│  Start from a template or begin with a blank conversation                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐           │
+│  │                  │  │                  │  │                  │           │
+│  │     🔐           │  │     🌐           │  │     📊           │           │
+│  │                  │  │                  │  │                  │           │
+│  │  Authentication  │  │    REST API      │  │  Data Pipeline   │           │
+│  │     System       │  │    Service       │  │                  │           │
+│  │                  │  │                  │  │                  │           │
+│  │  Login, signup,  │  │  CRUD endpoints  │  │  ETL, transforms │           │
+│  │  password reset  │  │  with validation │  │  scheduled jobs  │           │
+│  │                  │  │                  │  │                  │           │
+│  │     [Use →]      │  │     [Use →]      │  │     [Use →]      │           │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘           │
+│                                                                              │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐           │
+│  │                  │  │                  │  │                  │           │
+│  │     📝           │  │     🐛           │  │     📄           │           │
+│  │                  │  │                  │  │                  │           │
+│  │   UI Component   │  │    Bug Fix       │  │  Documentation   │           │
+│  │                  │  │                  │  │                  │           │
+│  │  React/Vue comp  │  │  Investigate &   │  │  Technical docs  │           │
+│  │  with tests      │  │  fix a bug       │  │  or guides       │           │
+│  │                  │  │                  │  │                  │           │
+│  │     [Use →]      │  │     [Use →]      │  │     [Use →]      │           │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘           │
+│                                                                              │
+│  ─────────────────────────────────────────────────────────────────────────── │
+│                                                                              │
+│                               [Start Blank Conversation →]                   │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 2.7 Discovery States
+
+**Loading/Thinking State:**
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🤖 COO                                                    thinking… │
+│                                                                      │
+│ ┌────────────────────────────────────────────────────────────────┐  │
+│ │  ●●●                                                           │  │
+│ │  Analyzing requirements and preparing questions...             │  │
+│ └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Error State:**
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ ⚠️ Connection Issue                                                  │
+│                                                                      │
+│ Lost connection to COO. Your conversation is saved.                 │
+│                                                                      │
+│ [Retry Connection] [Continue Offline]                               │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Draft Saved State:**
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ 💾 Draft Saved                                             Just now │
+│                                                                      │
+│ "User Authentication System" - 78% complete                         │
+│                                                                      │
+│ You can return to this conversation anytime from your drafts.       │
+│                                                                      │
+│ [Continue Editing] [View Drafts]                                    │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 2.8 Mobile Discovery
+
+```
+┌─────────────────────────────────────┐
+│  ← Back         NEW PROJECT    [?] │
+├─────────────────────────────────────┤
+│                                     │
+│  ┌─────────────────────────────────┐│
+│  │ 🤖 COO                          ││
+│  │ What would you like to build?   ││
+│  └─────────────────────────────────┘│
+│                                     │
+│  ┌─────────────────────────────────┐│
+│  │ 👤 You                          ││
+│  │ Build a user auth system        ││
+│  └─────────────────────────────────┘│
+│                                     │
+│  ┌─────────────────────────────────┐│
+│  │ 🤖 COO                          ││
+│  │ Great! A few questions:         ││
+│  │ 1. Public or internal users?    ││
+│  │ 2. Need 2FA?                    ││
+│  │ 3. Existing systems?            ││
+│  └─────────────────────────────────┘│
+│                                     │
+│  ─────────────────────────────────  │
+│  Contract: 78% complete             │
+│                    [View Contract]  │
+│  ─────────────────────────────────  │
+│                                     │
+│  ┌─────────────────────────────────┐│
+│  │ Type a message...          [⏎] ││
+│  └─────────────────────────────────┘│
+│                                     │
+│  [Cancel]           [Finalize →]   │
+│                                     │
+└─────────────────────────────────────┘
+```
+
+---
+
+#### 2.9 Technical Implementation
+
+**Data Flow:**
+```typescript
+// Discovery conversation
+interface DiscoverySession {
+  id: string;
+  status: 'active' | 'draft' | 'finalized';
+  messages: Message[];
+  extractedContract: PartialContract;
+  confidence: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Message {
+  id: string;
+  role: 'user' | 'coo' | 'system';
+  content: string;
+  timestamp: string;
+  attachments?: Attachment[];
+  quickReplies?: string[];
+}
+
+// API endpoints
+POST /api/discovery/start         → Create new session
+POST /api/discovery/{id}/message  → Send message, get response
+GET  /api/discovery/{id}          → Get session state
+PUT  /api/discovery/{id}/contract → Update contract directly
+POST /api/discovery/{id}/finalize → Create project from contract
+GET  /api/discovery/drafts        → List saved drafts
+
+// WebSocket for streaming responses
+ws.on('coo.typing', showTypingIndicator)
+ws.on('coo.message.chunk', appendToMessage)
+ws.on('contract.updated', updateExtractionPanel)
+```
+
+**COO Integration:**
+- Messages sent to `COOAgent.run_discovery()`
+- Contract extraction via `COOAgent._extract_contract()`
+- Streaming responses for better UX
+- Retry logic for failed messages
+
+---
+
+### 3. Project Detail (Molecule View)
+
+**Purpose:** Deep dive into a specific project's progress and status. This is the "war room" view for any given project - showing contract fulfillment, workflow progress, active workers, and real-time activity.
+
+---
+
+#### 3.1 Project Detail Layout Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ← Projects          USER AUTHENTICATION SYSTEM              [⋮] [Share]   │
+│                      MOL-A1B2C3D4  ● Active  Started: Jan 5, 2026          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ HEADER BAR ────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Priority: [P1 - HIGH ▼]    Owner: VP Engineering    [Pause] [Archive] ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │  [📋 Overview]  [🔀 Workflow]  [👥 Workers]  [📜 Activity]  [🚪 Gates]  ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ╔═════════════════════════════════════════════════════════════════════════╗│
+│  ║                                                                         ║│
+│  ║                         TAB CONTENT AREA                                ║│
+│  ║                                                                         ║│
+│  ║                    (See subsections below for each tab)                 ║│
+│  ║                                                                         ║│
+│  ╚═════════════════════════════════════════════════════════════════════════╝│
+│                                                                             │
+│  ┌─ QUICK STATS BAR (Always Visible) ──────────────────────────────────────┐│
+│  │  Progress: 67%  │  Workers: 3 active  │  Gates: 1 pending  │  ETA: 4h  ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 3.2 Overview Tab - Contract & Progress
+
+The default view showing the "Success Contract" and overall progress:
+
+```
+┌─ OVERVIEW TAB ──────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ SUCCESS CONTRACT ──────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  📋 OBJECTIVE                                               [Edit]     ││
+│  │  ─────────────────────────────────────────────────────────────────     ││
+│  │  Enable users to securely access the application with                  ││
+│  │  industry-standard authentication and session management.              ││
+│  │                                                                         ││
+│  │  ✓ SUCCESS CRITERIA                                 Progress: 2/5      ││
+│  │  ─────────────────────────────────────────────────────────────────     ││
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐   ││
+│  │  │ ☑ Users can register with email/password                       │   ││
+│  │  │   Completed by: FE-01 at 2:15 PM                    [View PR]  │   ││
+│  │  └─────────────────────────────────────────────────────────────────┘   ││
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐   ││
+│  │  │ ☑ Users can log in with credentials                            │   ││
+│  │  │   Completed by: FE-01 at 3:42 PM                    [View PR]  │   ││
+│  │  └─────────────────────────────────────────────────────────────────┘   ││
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐   ││
+│  │  │ ◉ Email verification works end-to-end            ← IN PROGRESS │   ││
+│  │  │   Assigned to: BE-02 • Started 45m ago              [View →]   │   ││
+│  │  └─────────────────────────────────────────────────────────────────┘   ││
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐   ││
+│  │  │ ☐ Password reset flow functional                                │   ││
+│  │  │   Blocked by: Email verification                   ⚠ BLOCKED   │   ││
+│  │  └─────────────────────────────────────────────────────────────────┘   ││
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────┐   ││
+│  │  │ ☐ Test coverage ≥ 90%                                           │   ││
+│  │  │   Will be verified by: QA Worker                    PENDING    │   ││
+│  │  └─────────────────────────────────────────────────────────────────┘   ││
+│  │                                                                         ││
+│  │  🚧 SCOPE BOUNDARIES                                                   ││
+│  │  ─────────────────────────────────────────────────────────────────     ││
+│  │  In scope: Basic auth, email verification, password reset              ││
+│  │  Out of scope: OAuth, 2FA, biometrics                                  ││
+│  │                                                                         ││
+│  │  ⚠️ CONSTRAINTS                                                        ││
+│  │  ─────────────────────────────────────────────────────────────────     ││
+│  │  • Must use existing user database schema                              ││
+│  │  • No external auth providers in v1                                    ││
+│  │  • Session timeout: 24 hours max                                       ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ PROGRESS SUMMARY ──────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Overall: ████████████████████████████░░░░░░░░░░░░  67%                ││
+│  │                                                                         ││
+│  │  By Phase:                                                              ││
+│  │  Research   ████████████████████████████████████████  100%  ✓          ││
+│  │  Design     ████████████████████████████████████████  100%  ✓          ││
+│  │  Build      ████████████████████████████░░░░░░░░░░░░   67%  ◉          ││
+│  │  QA         ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ○          ││
+│  │  Deploy     ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ○          ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Success Criteria States:**
+| State | Icon | Background | Description |
+|-------|------|------------|-------------|
+| Completed | ☑ | Light green | Criterion met and verified |
+| In Progress | ◉ | Light blue | Currently being worked on |
+| Blocked | ☐ + ⚠ | Light red | Waiting on dependency |
+| Pending | ☐ | Light gray | Not yet started |
+
+---
+
+#### 3.3 Workflow Tab - Visual Pipeline
+
+Interactive workflow visualization showing the project's journey through phases:
+
+```
+┌─ WORKFLOW TAB ──────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ PIPELINE VIEW ─────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │        ┌──────────┐      ┌──────────┐      ┌──────────┐                ││
+│  │        │          │      │          │      │          │                ││
+│  │   ●────│ RESEARCH │─────▶│  DESIGN  │─────▶│  BUILD   │                ││
+│  │        │          │      │          │      │          │                ││
+│  │        │    ✓     │      │    ✓     │      │   67%    │                ││
+│  │        │  2 days  │      │  1 day   │      │  ◉ Now   │                ││
+│  │        └──────────┘      └──────────┘      └────┬─────┘                ││
+│  │                                                  │                      ││
+│  │                          ┌───────────────────────┘                      ││
+│  │                          │                                              ││
+│  │                          ▼                                              ││
+│  │                    ┌──────────┐      ┌──────────┐                      ││
+│  │                    │          │      │          │                      ││
+│  │               ────▶│    QA    │─────▶│  DEPLOY  │────▶ ●               ││
+│  │                    │          │      │          │                      ││
+│  │                    │    ○     │      │    ○     │                      ││
+│  │                    │ Pending  │      │ Pending  │                      ││
+│  │                    └──────────┘      └──────────┘                      ││
+│  │                                                                         ││
+│  │                              [Zoom +] [Zoom -] [Fit]                   ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ SELECTED PHASE: BUILD ─────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Status: IN PROGRESS                      Started: Jan 6, 2:00 PM      ││
+│  │  Duration: 3h 45m (avg for this phase: 6h)                             ││
+│  │                                                                         ││
+│  │  ┌─ Checkpoints ────────────────────────────────────────────────────┐  ││
+│  │  │                                                                   │  ││
+│  │  │  ✓ 2:15 PM   Registration form component                         │  ││
+│  │  │              FE-01 • 15 files changed • [View Diff]              │  ││
+│  │  │                                                                   │  ││
+│  │  │  ✓ 3:42 PM   Login form component                                │  ││
+│  │  │              FE-01 • 8 files changed • [View Diff]               │  ││
+│  │  │                                                                   │  ││
+│  │  │  ◉ 4:30 PM   Session management                     ← CURRENT    │  ││
+│  │  │              BE-02 • In progress...                              │  ││
+│  │  │              ████████████░░░░░░░░  ~60% • ETA: 45 min            │  ││
+│  │  │                                                                   │  ││
+│  │  │  ○ Pending   Email service integration                           │  ││
+│  │  │  ○ Pending   Password reset endpoints                            │  ││
+│  │  │                                                                   │  ││
+│  │  └───────────────────────────────────────────────────────────────────┘  ││
+│  │                                                                         ││
+│  │  ┌─ Phase Gate ─────────────────────────────────────────────────────┐  ││
+│  │  │  🚪 Security Review required before QA phase                     │  ││
+│  │  │     Auto-triggers at: 90% build completion                       │  ││
+│  │  │     Reviewer: CEO (you)                          [Preview Gate] │  ││
+│  │  └───────────────────────────────────────────────────────────────────┘  ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Pipeline Node Interactions:**
+- **Click node:** Select and show details in panel below
+- **Double-click:** Expand to show all checkpoints inline
+- **Hover:** Show quick stats tooltip
+- **Drag between nodes:** (Admin) Reorder phases
+
+**Pipeline Node States:**
+```
+COMPLETED          IN PROGRESS        PENDING            BLOCKED
+┌──────────┐       ┌──────────┐       ┌──────────┐       ┌──────────┐
+│    ✓     │       │   ◉ 67%  │       │    ○     │       │    ⚠     │
+│ 2 days   │       │   Now    │       │ Pending  │       │ Blocked  │
+└──────────┘       └──────────┘       └──────────┘       └──────────┘
+ Green border       Blue border        Gray border        Red border
+ Green fill         Animated pulse     Dashed border      Red glow
+```
+
+---
+
+#### 3.4 Workers Tab - Assigned Agents
+
+View and manage agents working on this project:
+
+```
+┌─ WORKERS TAB ───────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ ASSIGNED WORKERS ──────────────────────────────────────────────────────┐│
+│  │  [Filter: All ▼]  [Sort: Activity ▼]                    [+ Assign More] ││
+│  ├─────────────────────────────────────────────────────────────────────────┤│
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ██  FE-01 (Frontend Worker)                         ● ACTIVE    │ ││
+│  │  │  ██                                                               │ ││
+│  │  │      Department: Engineering > Frontend                           │ ││
+│  │  │      Current Task: Session management UI                          │ ││
+│  │  │      On this project: 3h 45m                                      │ ││
+│  │  │      Checkpoints completed: 2                                     │ ││
+│  │  │                                                                   │ ││
+│  │  │      ████████████████████████░░░░░░░░  ~75% current task          │ ││
+│  │  │                                                                   │ ││
+│  │  │      [View Output] [View in Org Chart] [Reassign] [Message]      │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ██  BE-02 (Backend Worker)                          ● ACTIVE    │ ││
+│  │  │  ██                                                               │ ││
+│  │  │      Department: Engineering > Backend                            │ ││
+│  │  │      Current Task: Email verification endpoints                   │ ││
+│  │  │      On this project: 45m                                         │ ││
+│  │  │      Checkpoints completed: 0                                     │ ││
+│  │  │                                                                   │ ││
+│  │  │      ██████░░░░░░░░░░░░░░░░░░░░░░░░░░  ~20% current task          │ ││
+│  │  │                                                                   │ ││
+│  │  │      [View Output] [View in Org Chart] [Reassign] [Message]      │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ██  QA-01 (QA Worker)                               ○ STANDBY   │ ││
+│  │  │  ██                                                               │ ││
+│  │  │      Department: Quality Assurance                                │ ││
+│  │  │      Status: Waiting for build phase completion                   │ ││
+│  │  │      Scheduled to start: When build reaches 90%                   │ ││
+│  │  │                                                                   │ ││
+│  │  │      [View in Org Chart] [Unassign]                              │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ WORKER HISTORY ────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Previously worked on this project:                                    ││
+│  │                                                                         ││
+│  │  • RESEARCH-01 - Research phase (completed 2 days ago)                 ││
+│  │  • DESIGN-01 - Design phase (completed 1 day ago)                      ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Worker Card States:**
+| State | Badge | Indicator |
+|-------|-------|-----------|
+| Active | ● ACTIVE | Green, pulsing border |
+| Standby | ○ STANDBY | Gray, dashed border |
+| Blocked | ⚠ BLOCKED | Red, static border |
+| Completed | ✓ DONE | Green checkmark |
+
+---
+
+#### 3.5 Activity Tab - Real-Time Log
+
+Comprehensive activity feed for this project:
+
+```
+┌─ ACTIVITY TAB ──────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ FILTERS ───────────────────────────────────────────────────────────────┐│
+│  │  [All Types ▼]  [All Workers ▼]  [All Phases ▼]  [🔍 Search...]        ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ LIVE FEED ──────────────────────────────────────────────────── [⏸] ───┐│
+│  │                                                                         ││
+│  │  ● LIVE                                                                 ││
+│  │                                                                         ││
+│  │  ┌─ NOW ────────────────────────────────────────────────────────────┐  ││
+│  │  │  🔵 BE-02 is working on: Email verification endpoints           │  ││
+│  │  │     Progress: ██████░░░░░░░░░░  ~20%                             │  ││
+│  │  │     Current file: src/services/email.ts                         │  ││
+│  │  │                                                     [Watch →]   │  ││
+│  │  └───────────────────────────────────────────────────────────────────┘  ││
+│  │                                                                         ││
+│  │  ─────────────── 5:45 PM ───────────────                               ││
+│  │                                                                         ││
+│  │  📋 FE-01 completed checkpoint: "Login form component"                 ││
+│  │     8 files changed, +342 -12 lines                                    ││
+│  │     [View Diff] [View PR]                                              ││
+│  │                                                                         ││
+│  │  💬 FE-01: "Login form complete. Used existing design system           ││
+│  │      components. Ready for session management work."                   ││
+│  │                                                                         ││
+│  │  ─────────────── 4:30 PM ───────────────                               ││
+│  │                                                                         ││
+│  │  🔄 BE-02 assigned to project                                          ││
+│  │     Assigned by: VP Engineering (auto-delegation)                      ││
+│  │     Task: Email verification endpoints                                 ││
+│  │                                                                         ││
+│  │  📋 FE-01 completed checkpoint: "Registration form component"          ││
+│  │     15 files changed, +523 -8 lines                                    ││
+│  │     [View Diff] [View PR]                                              ││
+│  │                                                                         ││
+│  │  ─────────────── 3:15 PM ───────────────                               ││
+│  │                                                                         ││
+│  │  ▶️ FE-01 started working on Build phase                               ││
+│  │     First task: Registration form                                      ││
+│  │                                                                         ││
+│  │  🚪 Gate passed: Design Review                                         ││
+│  │     Approved by: Design Director                                       ││
+│  │     Comment: "Clean implementation, approved for build"                ││
+│  │     [View Gate Details]                                                ││
+│  │                                                                         ││
+│  │  ─────────────── 2:00 PM ───────────────                               ││
+│  │                                                                         ││
+│  │  🚪 Gate submitted: Design Review                                      ││
+│  │     Submitted by: DESIGN-01                                            ││
+│  │     Artifacts: 3 mockups, 1 spec document                              ││
+│  │     [View Submission]                                                  ││
+│  │                                                                         ││
+│  │                                                                         ││
+│  │                              [Load More ↓]                              ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Activity Types:**
+| Icon | Type | Description |
+|------|------|-------------|
+| 📋 | Checkpoint | Worker completed a unit of work |
+| 💬 | Message | Worker communication/status update |
+| 🔄 | Assignment | Worker assigned/unassigned |
+| ▶️ | Start | Phase or task started |
+| ⏸ | Pause | Work paused |
+| 🚪 | Gate | Gate submitted/approved/rejected |
+| ⚠️ | Alert | Issue or blocker raised |
+| ✅ | Complete | Phase or project completed |
+
+---
+
+#### 3.6 Gates Tab - Project Approvals
+
+View all gates related to this project:
+
+```
+┌─ GATES TAB ─────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ GATE TIMELINE ─────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Research ──▶ [Design Review] ──▶ Build ──▶ [Security Review] ──▶ QA   ││
+│  │                    ✓                            ◉ NEXT                  ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ UPCOMING ──────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🚪 Security Review                              ◉ TRIGGERS SOON  │ ││
+│  │  │                                                                   │ ││
+│  │  │  Type: CEO Approval Required                                      │ ││
+│  │  │  Triggers at: Build phase 90% (currently 67%)                     │ ││
+│  │  │  ETA: ~45 minutes                                                 │ ││
+│  │  │                                                                   │ ││
+│  │  │  What you'll review:                                              │ ││
+│  │  │  • Security audit report                                          │ ││
+│  │  │  • Authentication flow diagrams                                   │ ││
+│  │  │  • Test coverage report                                           │ ││
+│  │  │                                                                   │ ││
+│  │  │  [Preview Artifacts] [Configure Gate]                            │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🚪 Final Approval                                    ○ PENDING   │ ││
+│  │  │                                                                   │ ││
+│  │  │  Type: CEO Approval Required                                      │ ││
+│  │  │  Triggers at: QA phase 100%                                       │ ││
+│  │  │                                                                   │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ COMPLETED ─────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ✓ Design Review                                      APPROVED   │ ││
+│  │  │                                                                   │ ││
+│  │  │  Approved by: Design Director                                     │ ││
+│  │  │  Date: Jan 6, 2026 3:15 PM                                        │ ││
+│  │  │  Duration: 12 minutes                                             │ ││
+│  │  │  Comment: "Clean implementation, matches brand guidelines"        │ ││
+│  │  │                                                                   │ ││
+│  │  │  [View Full Details]                                             │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 3.7 Live Worker Output Viewer
+
+Modal for watching a worker in real-time:
+
+```
+┌─ LIVE OUTPUT: FE-01 ─────────────────────────────────────────────────── [×] ┐
+│                                                                             │
+│  ┌─ WORKER INFO ───────────────────────────────────────────────────────────┐│
+│  │  FE-01 (Frontend Worker)  ● ACTIVE                                      ││
+│  │  Task: Session management UI                                            ││
+│  │  Working on: User Authentication System (MOL-A1B2C3D4)                  ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ CURRENT THINKING ──────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  "I'm implementing the session context provider. Need to:               ││
+│  │   1. Create AuthContext with user state                                 ││
+│  │   2. Add login/logout methods                                           ││
+│  │   3. Persist session to localStorage                                    ││
+│  │   4. Add route protection HOC                                           ││
+│  │                                                                         ││
+│  │  Currently working on step 2..."                                        ││
+│  │                                                                         ││
+│  │  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ (typing...)          ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ FILES BEING EDITED ────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  📄 src/contexts/AuthContext.tsx          ◉ Currently editing          ││
+│  │  📄 src/hooks/useAuth.ts                  ✓ Created                     ││
+│  │  📄 src/components/ProtectedRoute.tsx     ○ Pending                     ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ LIVE CODE DIFF ────────────────────────────────────────────────────────┐│
+│  │  src/contexts/AuthContext.tsx                                           ││
+│  │  ─────────────────────────────────────────────────────────────────────  ││
+│  │  + export const AuthProvider: React.FC = ({ children }) => {           ││
+│  │  +   const [user, setUser] = useState<User | null>(null);              ││
+│  │  +   const [loading, setLoading] = useState(true);                     ││
+│  │  +                                                                      ││
+│  │  +   const login = async (email: string, password: string) => {        ││
+│  │  +     const response = await authAPI.login(email, password);          ││
+│  │  │     ░░░░░░░░░░ (writing...)                                         ││
+│  │  │                                                                      ││
+│  │  │                                                                      ││
+│  │  │                                               [View Full File]      ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  [Pause Worker] [Send Message] [Reassign Task]           [Close]           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Live Output Features:**
+- Real-time streaming of worker thought process
+- Live code diff as files are edited
+- File tree of touched files
+- Ability to pause, message, or reassign mid-task
+
+---
+
+#### 3.8 Project Actions & Controls
+
+```
+┌─ PROJECT ACTIONS ───────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ QUICK ACTIONS ─────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  [▶ Resume]     Resume paused project                                  ││
+│  │  [⏸ Pause]      Pause all work (workers finish current task)           ││
+│  │  [⏹ Stop]       Stop immediately (may lose in-progress work)           ││
+│  │  [🔄 Restart]   Restart from a specific phase                          ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ RESOURCE MANAGEMENT ───────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  [+ Add Worker]     Assign additional workers to speed up              ││
+│  │  [↔ Reassign]       Move workers between tasks                         ││
+│  │  [📊 Prioritize]    Change project priority (affects scheduling)       ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ ADVANCED ──────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  [📝 Edit Contract]    Modify success criteria (triggers re-plan)     ││
+│  │  [🚪 Add Gate]         Insert approval gate at any point               ││
+│  │  [📤 Export]           Export project data (JSON, PDF report)          ││
+│  │  [🗑 Archive]          Archive completed/cancelled project              ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 3.9 Project States
+
+```
+┌─ PROJECT STATE INDICATORS ──────────────────────────────────────────────────┐
+│                                                                             │
+│  ACTIVE                          PAUSED                                     │
+│  ┌────────────────────────┐      ┌────────────────────────┐                │
+│  │ ● Active               │      │ ⏸ Paused               │                │
+│  │ MOL-A1B2C3D4          │      │ MOL-A1B2C3D4          │                │
+│  │ 3 workers active       │      │ Paused by CEO          │                │
+│  └────────────────────────┘      └────────────────────────┘                │
+│   Green accent, pulsing          Yellow accent, static                      │
+│                                                                             │
+│  BLOCKED                         COMPLETED                                  │
+│  ┌────────────────────────┐      ┌────────────────────────┐                │
+│  │ ⚠ Blocked              │      │ ✓ Completed            │                │
+│  │ MOL-A1B2C3D4          │      │ MOL-A1B2C3D4          │                │
+│  │ Waiting: CEO approval  │      │ All criteria met       │                │
+│  └────────────────────────┘      └────────────────────────┘                │
+│   Red accent, attention          Green filled, checkmark                    │
+│                                                                             │
+│  FAILED                          ARCHIVED                                   │
+│  ┌────────────────────────┐      ┌────────────────────────┐                │
+│  │ ✕ Failed               │      │ 📦 Archived            │                │
+│  │ MOL-A1B2C3D4          │      │ MOL-A1B2C3D4          │                │
+│  │ See failure report     │      │ Jan 5, 2026           │                │
+│  └────────────────────────┘      └────────────────────────┘                │
+│   Red filled, X icon             Gray, muted                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 3.10 Mobile Project View
+
+```
+┌─────────────────────────────────────────┐
+│  ← Projects                        [⋮]  │
+├─────────────────────────────────────────┤
+│                                         │
+│  USER AUTHENTICATION SYSTEM             │
+│  ● Active   P1-HIGH                     │
+│  ────────────────────────────────────── │
+│                                         │
+│  Progress                               │
+│  ████████████████████░░░░░░░░  67%     │
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │ [Overview] [Flow] [Team] [Log]     ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─ CONTRACT ──────────────────────────┐│
+│  │                                     ││
+│  │  Objective:                         ││
+│  │  Enable users to securely access    ││
+│  │  the application                    ││
+│  │                                     ││
+│  │  Success Criteria: 2/5 ✓            ││
+│  │  ☑ Users can register               ││
+│  │  ☑ Users can log in                 ││
+│  │  ◉ Email verification...            ││
+│  │  ☐ Password reset                   ││
+│  │  ☐ 90% test coverage                ││
+│  │                                     ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─ ACTIVE WORKERS ────────────────────┐│
+│  │                                     ││
+│  │  ██ FE-01        ● Session UI       ││
+│  │  ██ BE-02        ● Email service    ││
+│  │  ██ QA-01        ○ Standby          ││
+│  │                                     ││
+│  │                    [View All →]     ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─ RECENT ────────────────────────────┐│
+│  │                                     ││
+│  │  📋 Login form done      5m ago     ││
+│  │  🔄 BE-02 assigned      30m ago     ││
+│  │  🚪 Design approved      1h ago     ││
+│  │                                     ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  [⏸ Pause]  [💬 Message]  [⋮ More] ││
+│  └─────────────────────────────────────┘│
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**Mobile Adaptations:**
+- Tabs become horizontally scrollable
+- Contract criteria stacked vertically
+- Worker cards simplified to single line
+- Activity feed shows less detail
+- Actions in bottom sticky bar
+
+---
+
+#### 3.11 Technical Implementation Notes
+
+**Data Model:**
+```typescript
+interface ProjectDetail {
+  molecule: {
+    id: string;
+    name: string;
+    status: 'active' | 'paused' | 'blocked' | 'completed' | 'failed' | 'archived';
+    priority: 'P1' | 'P2' | 'P3';
+    createdAt: string;
+    updatedAt: string;
+    owner: string;
+  };
+  contract: {
+    objective: string;
+    successCriteria: SuccessCriterion[];
+    scope: { inScope: string[]; outOfScope: string[] };
+    constraints: string[];
+  };
+  workflow: {
+    phases: Phase[];
+    currentPhaseIndex: number;
+    overallProgress: number;
+  };
+  workers: AssignedWorker[];
+  gates: GateStatus[];
+  activity: ActivityEvent[];
+  stats: {
+    timeElapsed: number;
+    estimatedRemaining: number;
+    checkpointsCompleted: number;
+    checkpointsTotal: number;
+  };
+}
+
+interface Phase {
+  id: string;
+  name: string;
+  status: 'completed' | 'in_progress' | 'pending' | 'blocked';
+  progress: number;  // 0-100
+  startedAt?: string;
+  completedAt?: string;
+  checkpoints: Checkpoint[];
+  gate?: GateRequirement;
+}
+
+interface Checkpoint {
+  id: string;
+  description: string;
+  status: 'completed' | 'in_progress' | 'pending';
+  completedBy?: string;
+  completedAt?: string;
+  artifacts?: Artifact[];
+}
+
+interface AssignedWorker {
+  agentId: string;
+  name: string;
+  department: string;
+  status: 'active' | 'standby' | 'blocked';
+  currentTask?: string;
+  progress?: number;
+  assignedAt: string;
+  checkpointsCompleted: number;
+}
+```
+
+**API Endpoints:**
+```
+GET  /api/projects/{id}                    → Full project detail
+GET  /api/projects/{id}/workflow           → Workflow/phases only
+GET  /api/projects/{id}/workers            → Assigned workers
+GET  /api/projects/{id}/activity           → Activity feed (paginated)
+GET  /api/projects/{id}/gates              → Related gates
+
+POST /api/projects/{id}/pause              → Pause project
+POST /api/projects/{id}/resume             → Resume project
+POST /api/projects/{id}/reassign           → Reassign workers
+PUT  /api/projects/{id}/contract           → Update contract
+PUT  /api/projects/{id}/priority           → Change priority
+
+WS   /api/projects/{id}/stream             → Real-time updates
+```
+
+**WebSocket Events:**
+```typescript
+// Subscribe to project updates
+ws.subscribe('project:{id}', {
+  'checkpoint.completed': (data) => updateCheckpoint(data),
+  'worker.progress': (data) => updateWorkerProgress(data),
+  'phase.changed': (data) => updatePhase(data),
+  'gate.triggered': (data) => showGateNotification(data),
+  'activity.new': (data) => prependActivity(data)
+});
+
+// Watch specific worker
+ws.subscribe('worker:{agentId}:output', {
+  'thinking': (data) => updateThinkingDisplay(data),
+  'file.changed': (data) => updateFileDiff(data),
+  'file.created': (data) => addToFileTree(data)
+});
+```
+
+---
+
+### 4. Agents / Org Chart - Interactive Graph Visualization
+
+**Purpose:** Real-time visualization of the AI corporation as a living, breathing organization. Watch work flow through the hierarchy, see which departments are active, and drill down to individual workers.
+
+---
+
+#### 4.1 Graph Overview
+
+The organization is displayed as an interactive node graph where:
+- **Nodes** = Agents (CEO, COO, VPs, Directors, Workers)
+- **Edges** = Reporting relationships and active message flow
+- **Clusters** = Departments (visually grouped)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ORGANIZATION                    [Search: ______] [Filter ▼] [View ▼] [⚙]  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │                                                                         │ │
+│ │                           ╭─────────╮                                   │ │
+│ │                           │░░CEO░░░░│  ← You (always at top/center)     │ │
+│ │                           ╰────┬────╯                                   │ │
+│ │                                │                                        │ │
+│ │                           ╭────┴────╮                                   │ │
+│ │                           │▓▓COO▓▓▓▓│  ← Bright = active                │ │
+│ │                           ╰────┬────╯                                   │ │
+│ │              ┌─────────────────┼─────────────────┐                      │ │
+│ │              │                 │                 │                      │ │
+│ │    ╭─────────┴─────────╮ ╭────┴────╮ ╭─────────┴─────────╮             │ │
+│ │    │    ENGINEERING    │ │ PRODUCT │ │     QUALITY       │             │ │
+│ │    │   ████████████    │ │ ▓▓▓▓▓▓  │ │    ░░░░░░░░       │             │ │
+│ │    │   14 agents       │ │ 6 agents│ │    8 agents       │             │ │
+│ │    │   ⚡ HIGH ACTIVITY │ │ ● active│ │    ○ idle         │             │ │
+│ │    ╰───────────────────╯ ╰─────────╯ ╰───────────────────╯             │ │
+│ │              ↑                                                          │ │
+│ │         Click to expand                                                 │ │
+│ │                                                                         │ │
+│ │  ┌─────────────────────────────────────┐                               │ │
+│ │  │ Mini-map                        [-] │                               │ │
+│ │  │  ┌───┐                              │                               │ │
+│ │  │  │ ▪ │ ← You are here               │                               │ │
+│ │  │  └───┘                              │                               │ │
+│ │  └─────────────────────────────────────┘                               │ │
+│ │                                                                         │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  [─] [+] Zoom    [◎] Reset View    [▶] Play Activity    [⏸] Live: ON      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 4.2 Activity Visualization (The "Glow" System)
+
+Nodes and clusters visually indicate activity level through brightness/glow:
+
+```
+ACTIVITY LEVELS:
+
+████████  INTENSE    - Multiple workers active, high message volume
+▓▓▓▓▓▓▓▓  ACTIVE     - Work in progress, normal activity
+▒▒▒▒▒▒▒▒  LIGHT      - Some activity, mostly idle
+░░░░░░░░  DORMANT    - No current activity
+────────  OFFLINE    - Agent/department disabled
+
+COLOR CODING:
+
+🟢 Green glow    = Healthy, progressing well
+🔵 Blue glow     = Busy, processing work
+🟡 Yellow glow   = Waiting (blocked or pending approval)
+🔴 Red pulse     = Error or needs attention
+⚪ Gray          = Idle, available for work
+```
+
+**Animation Details:**
+- Active nodes have a subtle **pulsing glow** (CSS animation, 2s cycle)
+- Message flow shown as **animated particles** along edges
+- Work items appear as **small dots** moving from delegator to delegatee
+- Completed work triggers a brief **success flash** (green ripple)
+
+---
+
+#### 4.3 Canvas Interactions
+
+**Navigation:**
+| Action | Desktop | Mobile |
+|--------|---------|--------|
+| Pan | Click + drag on empty space | One-finger drag |
+| Zoom in | Scroll up / `+` key | Pinch out |
+| Zoom out | Scroll down / `-` key | Pinch in |
+| Reset view | Double-click empty space / `R` key | Double-tap |
+| Select node | Single click | Tap |
+| Expand cluster | Double-click department | Double-tap |
+| Context menu | Right-click node | Long press |
+
+**Zoom Levels:**
+```
+Level 1 (Far)    - See entire org, departments as clusters, no names
+Level 2 (Medium) - Department names visible, VP nodes visible
+Level 3 (Close)  - All agent names visible, status indicators
+Level 4 (Detail) - Individual work items visible on nodes
+```
+
+**Keyboard Shortcuts:**
+- `1-5` - Jump to zoom level
+- `E` - Expand selected department
+- `C` - Collapse all departments
+- `F` - Find/search agents
+- `Space` - Pause/resume live updates
+- Arrow keys - Pan view
+
+---
+
+#### 4.4 Department Cluster (Collapsed View)
+
+When zoomed out, departments appear as unified clusters:
+
+```
+╭──────────────────────────────────╮
+│         ENGINEERING              │
+│  ┌─────────────────────────────┐ │
+│  │  ████████████████░░░░░░░░  │ │  ← Activity bar
+│  │  73% active                 │ │
+│  └─────────────────────────────┘ │
+│                                  │
+│  VP: vp_engineering     ●       │  ← VP status dot
+│  Directors: 4           ● ● ● ○ │  ← Director status dots
+│  Workers: 8         ●●●●●●○○    │  ← Worker status dots
+│                                  │
+│  Current Focus:                  │
+│  • User Auth System (3 workers) │
+│  • API Refactor (2 workers)     │
+│                                  │
+│  Queue: 12 items                 │
+│  ──────────────────────────────  │
+│  [Expand] [View Queue] [+ Hire] │
+╰──────────────────────────────────╯
+```
+
+**Cluster Visual States:**
+- **Border glow intensity** = overall activity level
+- **Border color** = health status (green/yellow/red)
+- **Internal "sparks"** = messages being processed (animated)
+
+---
+
+#### 4.5 Expanded Department View
+
+Double-click a department to expand it in place:
+
+```
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  ENGINEERING                                                    [Collapse ×] │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│                              ╭──────────────╮                                │
+│                              │▓▓VP Eng▓▓▓▓▓▓│                                │
+│                              │ Sarah Chen   │                                │
+│                              │ ● Delegating │                                │
+│                              ╰──────┬───────╯                                │
+│                    ┌────────────────┼────────────────┐                       │
+│                    │                │                │                       │
+│           ╭────────┴────────╮ ╭─────┴─────╮ ╭───────┴────────╮              │
+│           │▓▓▓FE Director▓▓▓│ │ BE Director│ │DevOps Director │              │
+│           │   Mike Jones    │ │ Ana Garcia │ │  Chris Lee     │              │
+│           │  ● Reviewing    │ │ ● Planning │ │    ○ Idle      │              │
+│           ╰────────┬────────╯ ╰─────┬─────╯ ╰───────┬────────╯              │
+│                    │                │                │                       │
+│        ┌───────────┼───────────┐    │          ┌────┴────┐                  │
+│        │           │           │    │          │         │                  │
+│   ╭────┴────╮ ╭────┴────╮ ╭────┴────╮    ╭────┴────╮ ╭────┴────╮           │
+│   │▓▓▓▓▓▓▓▓▓│ │▓▓▓▓▓▓▓▓▓│ │░░░░░░░░░│    │▓▓▓▓▓▓▓▓▓│ │░░░░░░░░░│           │
+│   │ FE-01   │ │ FE-02   │ │ FE-03   │    │ BE-01   │ │ BE-02   │           │
+│   │●Building│ │●Testing │ │○ Idle   │    │●Coding  │ │○ Idle   │           │
+│   │Login UI │ │Forms    │ │         │    │API v2   │ │         │           │
+│   ╰─────────╯ ╰─────────╯ ╰─────────╯    ╰─────────╯ ╰─────────╯           │
+│       ↑                                                                      │
+│   Click for detail panel                                                     │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════    │
+│  MESSAGE FLOW (live):                                                        │
+│  → VP delegated "Session Management" to FE Director                   2s ago │
+│  → FE-01 completed "Login Form Component"                            45s ago │
+│  → BE-01 requested review from BE Director                            1m ago │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+---
+
+#### 4.6 Individual Agent Detail Panel
+
+Click any agent to open a detail panel (slide-in from right):
+
+```
+┌─────────────────────────────────────────┐
+│  FRONTEND WORKER 01              [× Close]
+├─────────────────────────────────────────┤
+│                                         │
+│  ╭─────────╮                            │
+│  │  ▓▓▓▓▓  │  frontend_worker_01        │
+│  │  ▓▓▓▓▓  │  Engineering > Frontend    │
+│  ╰─────────╯                            │
+│                                         │
+│  STATUS        ● ACTIVE                 │
+│  HEALTH        ● Healthy                │
+│  UPTIME        2h 34m                   │
+│                                         │
+├─ CURRENT WORK ──────────────────────────┤
+│                                         │
+│  📦 Building: Login Form Component      │
+│     Project: User Auth System           │
+│     Started: 23 minutes ago             │
+│     Progress: ████████░░░░ 67%          │
+│                                         │
+│     Checkpoints:                        │
+│     ✓ Form layout complete              │
+│     ✓ Validation logic added            │
+│     ◉ Styling in progress               │
+│     ○ Integration tests                 │
+│                                         │
+│  [View Full Output] [Pause] [Reassign]  │
+│                                         │
+├─ QUEUE (2 items) ───────────────────────┤
+│                                         │
+│  1. Password Reset Form      P2  ↑ ↓    │
+│  2. Profile Edit Component   P3  ↑ ↓    │
+│                                         │
+│  [+ Add Work] [Clear Queue]             │
+│                                         │
+├─ CAPABILITIES ──────────────────────────┤
+│                                         │
+│  Skills:                                │
+│  • frontend-design                      │
+│  • webapp-testing                       │
+│                                         │
+│  Capabilities:                          │
+│  • React/TypeScript                     │
+│  • CSS/Tailwind                         │
+│  • Unit Testing                         │
+│                                         │
+├─ RECENT ACTIVITY ───────────────────────┤
+│                                         │
+│  14:32  Completed: Header component     │
+│  14:18  Started: Login form             │
+│  13:45  Received: Work from FE Director │
+│  13:30  Completed: Nav component        │
+│                                         │
+│                          [View All →]   │
+│                                         │
+├─ COMMUNICATION ─────────────────────────┤
+│                                         │
+│  Reports to: fe_director                │
+│  Last message: 12m ago                  │
+│                                         │
+│  [View Thread] [Send Message]           │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+---
+
+#### 4.7 Live Message Flow Visualization
+
+Toggle "Show Message Flow" to see real-time communication:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Message Flow Visualization                                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│              COO                                                │
+│               │                                                 │
+│               │ ══════════▶  "New project: Dashboard"           │
+│               ▼              (delegation)                       │
+│           VP Eng ─────────────────────────────┐                 │
+│               │                               │                 │
+│               │ ════▶ "Break into tasks"      │                 │
+│               ▼                               ▼                 │
+│          FE Director                    BE Director             │
+│               │                               │                 │
+│    ┌──────────┼──────────┐                   │                 │
+│    │          │          │                   │                 │
+│    ▼          ▼          ▼                   ▼                 │
+│  FE-01     FE-02      FE-03              BE-01                 │
+│    │                                         │                 │
+│    │ ◀════════════════════════════════════▶ │                 │
+│    │    (peer request: "Need API spec")     │                 │
+│                                                                 │
+│  Edge Legend:                                                   │
+│  ════▶  Delegation (downchain)                                 │
+│  ────▶  Status update (upchain)                                │
+│  ◀──▶  Peer communication                                      │
+│  ≋≋≋▶  Broadcast                                               │
+│                                                                 │
+│  [Speed: 1x ▼] [Filter: All ▼] [Pause] [Clear History]        │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Message Animation:**
+- Messages appear as **animated dots** traveling along edges
+- Dot color indicates message type (delegation=blue, status=green, escalation=red)
+- Dot size indicates priority (larger = higher priority)
+- Trail effect shows message history
+
+---
+
+#### 4.8 Work Flow Overlay
+
+Toggle "Show Work Flow" to visualize how work items move through the org:
+
+```
+╭─────────────────────────────────────────────────────────────────╮
+│  Work Item: "User Authentication System"                    [×] │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Flow Path (animated):                                          │
+│                                                                 │
+│  CEO ──▶ COO ──▶ VP Eng ──┬──▶ FE Director ──▶ FE-01           │
+│   ✓       ✓       ✓       │        ✓            ◉ ← current    │
+│                           │                                     │
+│                           └──▶ BE Director ──▶ BE-01           │
+│                                    ✓            ✓               │
+│                                                                 │
+│  Timeline:                                                      │
+│  ├─────┼─────┼─────┼─────┼─────┼─────┤                         │
+│  0h   CEO   COO   VP   Split   FE    Now                       │
+│       2m    15m   1h   1.5h   2h                                │
+│                                                                 │
+│  Total delegation time: 2h 34m                                  │
+│  Currently: 3 workers active on this project                    │
+│                                                                 │
+╰─────────────────────────────────────────────────────────────────╯
+```
+
+---
+
+#### 4.9 View Modes
+
+**A. Hierarchy View (Default)**
+Traditional org chart, top-down tree layout.
+
+**B. Galaxy View**
+CEO at center, departments orbit around, workers orbit departments.
+Great for seeing overall activity distribution.
+
+```
+                    ·  ·
+                 ·        ·
+              ·    ○ ○      ·         ← Quality (dim, idle)
+           ·      QUAL        ·
+          ·                    ·
+         ·    ● ●               ·
+        ·    PROD    ╭───╮       ·    ← Product (moderate)
+       ·              │CEO│        ·
+       ·              ╰───╯        ·
+       ·       ●●●●●              ·
+        ·      ENG               ·    ← Engineering (bright, active)
+         ·    ●●●●              ·
+          ·                    ·
+           ·                  ·
+              ·            ·
+                 ·      ·
+                    ··
+```
+
+**C. Capability View**
+Group agents by skills rather than hierarchy. See all frontend-capable agents together.
+
+**D. Activity Heatmap**
+Color-coded heatmap overlay showing where work is concentrated.
+
+**E. Timeline View**
+Horizontal timeline showing agent activity over time (last hour/day/week).
+
+---
+
+#### 4.10 Search & Filter
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🔍 Search: frontend                                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Matching Agents (5):                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ ● frontend_worker_01   Engineering   Building login form   ││
+│  │ ● frontend_worker_02   Engineering   Testing components    ││
+│  │ ○ frontend_worker_03   Engineering   Idle                  ││
+│  │ ● fe_director          Engineering   Reviewing PR          ││
+│  │ ○ ux_designer_01       Product       Idle                  ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+│  Filters:                                                       │
+│  [×] Department: All                                            │
+│  [×] Status: Active only                                        │
+│  [×] Capability: frontend-design                                │
+│                                                                 │
+│  [Clear All] [Apply to View]                                    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 4.11 Real-Time Activity Feed (Overlay)
+
+Toggleable overlay showing live activity:
+
+```
+┌─ LIVE ACTIVITY ─────────────────────────────────────┐
+│                                              [Hide] │
+│                                                     │
+│ ● FE-01 checkpoint: "Login form 67% complete"  NOW │
+│ ● BE-01 completed: "API endpoint created"     12s │
+│ → VP Eng delegated to FE Director             28s │
+│ ● FE-02 started: "Form validation"            45s │
+│ ← FE Director reported status to VP Eng      1m  │
+│ ⚠ QA-01 escalated: "Test environment down"   2m  │
+│                                                     │
+│ ─────────────────────────────────────────────────  │
+│ Activity rate: 12 events/min   [Pause] [Filter]   │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 4.12 Hire Agent Modal
+
+From org chart, click "+ Hire" to add new agents:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  HIRE NEW AGENT                                          [×]    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Agent Type:  ○ VP  ○ Director  ● Worker                       │
+│                                                                 │
+│  Department:  [Engineering          ▼]                          │
+│                                                                 │
+│  Reports To:  [FE Director          ▼]                          │
+│                                                                 │
+│  Worker Type: [Frontend             ▼]                          │
+│                                                                 │
+│  ─────────────────────────────────────────────────────────────  │
+│                                                                 │
+│  Preview:                                                       │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  Name: frontend_worker_04                                   ││
+│  │  Department: Engineering                                    ││
+│  │  Reports to: fe_director                                    ││
+│  │  Skills: frontend-design, webapp-testing                    ││
+│  │  Capabilities: React, TypeScript, CSS                       ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+│  Current team size: 3 workers                                   │
+│  Recommended max: 5 workers per director                        │
+│                                                                 │
+│                                    [Cancel]  [Hire Agent →]    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 4.13 Technical Implementation Notes
+
+**Recommended Libraries:**
+- **Graph rendering:** D3.js, Cytoscape.js, or React Flow
+- **Canvas/WebGL:** For smooth animations with many nodes
+- **State management:** Real-time updates via WebSocket
+
+**Performance Considerations:**
+- Virtualize nodes when zoomed out (don't render 100+ individual workers)
+- Use level-of-detail (LOD) rendering
+- Batch animation frames
+- Throttle real-time updates (max 1/second for smooth UX)
+
+**Accessibility:**
+- Provide list/table view as alternative
+- Keyboard navigation for all nodes
+- Screen reader announcements for activity
+- High contrast mode for status indicators
+
+**Data Sources:**
+```typescript
+// Real-time WebSocket events
+ws.on('agent.status', updateNodeGlow)
+ws.on('message.sent', animateMessageFlow)
+ws.on('work.checkpoint', updateProgress)
+ws.on('work.completed', flashSuccess)
+
+// Polling fallback (every 5s)
+GET /api/agents              → node states
+GET /api/agents/{id}/queue   → queue depths
+GET /api/messages/recent     → message flow
+GET /api/metrics/activity    → activity levels
+```
+
+---
+
+#### 4.14 Mobile Adaptation
+
+On mobile, the full graph is simplified:
+
+```
+┌─────────────────────────────────────────┐
+│  ORGANIZATION                    [☰]   │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │ ENGINEERING          ██████░░  73%  ││
+│  │ 14 agents • 10 active               ││
+│  │                              [View] ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │ PRODUCT              ████░░░░  45%  ││
+│  │ 6 agents • 3 active                 ││
+│  │                              [View] ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │ QUALITY              ██░░░░░░  20%  ││
+│  │ 8 agents • 2 active                 ││
+│  │                              [View] ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ─────────────────────────────────────  │
+│  ● 12 agents working now               │
+│  ○ 16 agents idle                       │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+Tap a department to see list of agents, tap agent for detail panel.
+
+---
+
+### 5. Gates / Approvals
+
+**Purpose:** The CEO's quality control center. Review gate submissions, approve or reject with feedback, and maintain oversight of all quality checkpoints across projects.
+
+---
+
+#### 5.1 Gates Overview Layout
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  QUALITY GATES                                    [🔍 Search] [⚙️ Configure] │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ QUICK STATS ───────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐││
+│  │  │      2       │  │      5       │  │     12       │  │      3       │││
+│  │  │   PENDING    │  │   TODAY      │  │   THIS WEEK  │  │   REJECTED   │││
+│  │  │  Your review │  │  Processed   │  │  Processed   │  │  This month  │││
+│  │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │  [🔴 Pending (2)]  [✓ Approved]  [✗ Rejected]  [All]    [Filter ▼]     ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ╔═════════════════════════════════════════════════════════════════════════╗│
+│  ║                                                                         ║│
+│  ║                         GATE QUEUE CONTENT                              ║│
+│  ║                                                                         ║│
+│  ╚═════════════════════════════════════════════════════════════════════════╝│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 5.2 Pending Gates Queue
+
+The primary view showing gates awaiting CEO review:
+
+```
+┌─ PENDING YOUR APPROVAL ─────────────────────────────────────────────────────┐
+│                                                                             │
+│  Sort by: [Oldest First ▼]  Priority: [All ▼]  Type: [All ▼]               │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │                                                          ⚠ URGENT    │ │
+│  │  🔒 SECURITY REVIEW                                     2h waiting   │ │
+│  │  ─────────────────────────────────────────────────────────────────── │ │
+│  │                                                                       │ │
+│  │  Project: User Authentication System                    [View Proj →]│ │
+│  │  Submitted by: Security Director • Jan 6, 2026 2:15 PM              │ │
+│  │  Phase: Build → QA (blocking transition)                             │ │
+│  │                                                                       │ │
+│  │  ┌─ CRITERIA CHECKLIST ─────────────────────────────────────────────┐│ │
+│  │  │                                                                   ││ │
+│  │  │  ☑ No SQL injection vulnerabilities found                        ││ │
+│  │  │    Scanned: 47 queries across 12 files                           ││ │
+│  │  │                                                                   ││ │
+│  │  │  ☑ Passwords properly hashed (bcrypt, cost factor 12)            ││ │
+│  │  │    Verified in: src/services/auth.ts:45                          ││ │
+│  │  │                                                                   ││ │
+│  │  │  ☑ Session tokens use cryptographically secure random            ││ │
+│  │  │    Using: crypto.randomBytes(32)                                 ││ │
+│  │  │                                                                   ││ │
+│  │  │  ⚠ Rate limiting implemented                          PARTIAL   ││ │
+│  │  │    Login: ✓ (5 attempts/min)                                     ││ │
+│  │  │    Registration: ✗ Not implemented                               ││ │
+│  │  │    Password reset: ✗ Not implemented                             ││ │
+│  │  │                                                                   ││ │
+│  │  │  ☑ HTTPS enforced in production                                  ││ │
+│  │  │    Verified: strict-transport-security header present            ││ │
+│  │  │                                                                   ││ │
+│  │  └───────────────────────────────────────────────────────────────────┘│ │
+│  │                                                                       │ │
+│  │  ┌─ SUBMITTER NOTES ────────────────────────────────────────────────┐│ │
+│  │  │                                                                   ││ │
+│  │  │  "Rate limiting partially implemented. Login endpoint protected  ││ │
+│  │  │   but registration and password reset are not. Recommend         ││ │
+│  │  │   proceeding with conditional approval - can add remaining       ││ │
+│  │  │   rate limiting in v1.1 before public launch."                   ││ │
+│  │  │                                                                   ││ │
+│  │  │  — Security Director, Jan 6 2:15 PM                              ││ │
+│  │  │                                                                   ││ │
+│  │  └───────────────────────────────────────────────────────────────────┘│ │
+│  │                                                                       │ │
+│  │  ┌─ ARTIFACTS ──────────────────────────────────────────────────────┐│ │
+│  │  │                                                                   ││ │
+│  │  │  📄 security_audit_report.pdf            [View] [Download]       ││ │
+│  │  │  📊 vulnerability_scan_results.json      [View] [Download]       ││ │
+│  │  │  📝 authentication_flow_diagram.png      [View] [Download]       ││ │
+│  │  │                                                                   ││ │
+│  │  └───────────────────────────────────────────────────────────────────┘│ │
+│  │                                                                       │ │
+│  │         [View Full Report]  [Request Changes]  [Reject]  [Approve →] │ │
+│  │                                                                       │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │                                                                       │ │
+│  │  🎨 DESIGN REVIEW                                        45m waiting │ │
+│  │  ─────────────────────────────────────────────────────────────────── │ │
+│  │                                                                       │ │
+│  │  Project: Dashboard UI Redesign                                       │ │
+│  │  Submitted by: Design Director • Jan 6, 2026 4:30 PM                 │ │
+│  │  Phase: Design → Build                                                │ │
+│  │                                                                       │ │
+│  │  Criteria: 5/5 passing    Artifacts: 3 mockups, 1 style guide        │ │
+│  │                                                                       │ │
+│  │                                              [Expand ▼] [Approve →]  │ │
+│  │                                                                       │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Urgency Indicators:**
+| Wait Time | Badge | Visual |
+|-----------|-------|--------|
+| < 30 min | None | Normal |
+| 30min - 2h | ⚠ | Yellow border |
+| 2h - 4h | ⚠ URGENT | Orange border, pulse |
+| > 4h | 🔴 CRITICAL | Red border, strong pulse |
+
+---
+
+#### 5.3 Gate Review Modal
+
+Full-screen review experience for detailed gate assessment:
+
+```
+┌─ REVIEWING: SECURITY REVIEW ────────────────────────────────────────── [×] ┐
+│                                                                             │
+│  ┌─ HEADER ────────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Project: User Authentication System                    [View Project →]││
+│  │  Gate Type: Security Review                                             ││
+│  │  Submitted: Jan 6, 2026 2:15 PM (2 hours ago)                          ││
+│  │  Submitter: Security Director                                           ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │  [📋 Criteria]  [📎 Artifacts]  [💬 Discussion]  [📜 History]           ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ CRITERIA TAB ──────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Overall: 4/5 criteria passing                           80% ████████░ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │ ☑ No SQL injection vulnerabilities                      PASSED   │ ││
+│  │  │                                                                   │ ││
+│  │  │ Evidence:                                                         │ ││
+│  │  │ • Static analysis with Semgrep: 0 findings                       │ ││
+│  │  │ • Dynamic testing with SQLMap: 0 vulnerabilities                 │ ││
+│  │  │ • Manual code review: All queries parameterized                  │ ││
+│  │  │                                                                   │ ││
+│  │  │ Files reviewed: 12  |  Queries analyzed: 47                      │ ││
+│  │  │                                                                   │ ││
+│  │  │                                                  [View Details ▼] │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │ ⚠ Rate limiting implemented                            PARTIAL   │ ││
+│  │  │                                                                   │ ││
+│  │  │ Status breakdown:                                                 │ ││
+│  │  │ ✓ Login endpoint: 5 attempts per minute per IP                   │ ││
+│  │  │ ✗ Registration: No rate limiting                                 │ ││
+│  │  │ ✗ Password reset: No rate limiting                               │ ││
+│  │  │                                                                   │ ││
+│  │  │ Risk assessment: MEDIUM                                          │ ││
+│  │  │ Without rate limiting on registration, vulnerable to:            │ ││
+│  │  │ • Email enumeration attacks                                      │ ││
+│  │  │ • Resource exhaustion                                            │ ││
+│  │  │                                                                   │ ││
+│  │  │ Recommendation: Approve with conditions (implement before launch)│ ││
+│  │  │                                                                   │ ││
+│  │  │                                                  [View Details ▼] │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ... (more criteria) ...                                                ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ YOUR DECISION ─────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Add a comment (optional):                                          │││
+│  │  │                                                                     │││
+│  │  │ Approved with condition: Rate limiting for registration and       │││
+│  │  │ password reset must be implemented before public launch.          │││
+│  │  │ Tracking as tech debt item #TD-0042.                               │││
+│  │  │                                                                     │││
+│  │  │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │                                                                         ││
+│  │  ┌───────────┐  ┌─────────────────┐  ┌──────────────────────────────┐  ││
+│  │  │           │  │                 │  │                              │  ││
+│  │  │  REJECT   │  │ REQUEST CHANGES │  │  APPROVE                     │  ││
+│  │  │           │  │                 │  │  ☐ With conditions           │  ││
+│  │  │           │  │                 │  │                              │  ││
+│  │  └───────────┘  └─────────────────┘  └──────────────────────────────┘  ││
+│  │   Blocks work    Sends back for      Allows work to proceed            ││
+│  │                  revision                                               ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 5.4 Artifacts Viewer
+
+View and interact with submitted gate artifacts:
+
+```
+┌─ ARTIFACTS TAB ─────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ FILE LIST ─────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  📄 security_audit_report.pdf                              2.3 MB      ││
+│  │     Uploaded: Jan 6, 2:14 PM                                           ││
+│  │                                                    ● VIEWING           ││
+│  │                                                                         ││
+│  │  📊 vulnerability_scan_results.json                        156 KB      ││
+│  │     Uploaded: Jan 6, 2:14 PM                                           ││
+│  │                                                    [View]              ││
+│  │                                                                         ││
+│  │  📝 authentication_flow_diagram.png                        892 KB      ││
+│  │     Uploaded: Jan 6, 2:12 PM                                           ││
+│  │                                                    [View]              ││
+│  │                                                                         ││
+│  │  📁 test_coverage_report/                                  12 files    ││
+│  │     Uploaded: Jan 6, 2:10 PM                                           ││
+│  │                                                    [Expand ▼]          ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ PREVIEW ───────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │               security_audit_report.pdf                             │││
+│  │  │                      Page 1 of 12                                   │││
+│  │  │  ─────────────────────────────────────────────────────────────────  │││
+│  │  │                                                                     │││
+│  │  │                    SECURITY AUDIT REPORT                            │││
+│  │  │                                                                     │││
+│  │  │              User Authentication System v1.0                        │││
+│  │  │                                                                     │││
+│  │  │  Executive Summary:                                                 │││
+│  │  │  This report covers the security audit conducted on the            │││
+│  │  │  authentication module implemented for Project MOL-A1B2C3D4.       │││
+│  │  │                                                                     │││
+│  │  │  Overall Risk Rating: LOW with caveats                             │││
+│  │  │                                                                     │││
+│  │  │  Key Findings:                                                      │││
+│  │  │  • No critical vulnerabilities detected                            │││
+│  │  │  • Rate limiting partially implemented (see Section 4)             │││
+│  │  │  • All OWASP Top 10 items addressed except A05:2021               │││
+│  │  │                                                                     │││
+│  │  │                                                                     │││
+│  │  │  ◀ Prev                                           Next ▶           │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │  [⬇ Download]  [🔗 Open in New Tab]  [📎 Add Annotation]               ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 5.5 Discussion Thread
+
+Communicate with the submitting agent about the gate:
+
+```
+┌─ DISCUSSION TAB ────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ THREAD ────────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🔒 Security Director                            Jan 6, 2:15 PM  │ ││
+│  │  │                                                                   │ ││
+│  │  │  Submitting security review for User Auth. All critical items    │ ││
+│  │  │  pass. Rate limiting is partially implemented - login is         │ ││
+│  │  │  protected but registration and password reset are not.          │ ││
+│  │  │                                                                   │ ││
+│  │  │  Recommendation: Approve with conditions. The missing rate       │ ││
+│  │  │  limiting is medium risk and can be addressed in v1.1 before     │ ││
+│  │  │  public launch.                                                   │ ││
+│  │  │                                                                   │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  👤 CEO (You)                                    Jan 6, 3:45 PM  │ ││
+│  │  │                                                                   │ ││
+│  │  │  What's the risk if we launch internal beta without the          │ ││
+│  │  │  registration rate limiting?                                      │ ││
+│  │  │                                                                   │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🔒 Security Director                            Jan 6, 3:52 PM  │ ││
+│  │  │                                                                   │ ││
+│  │  │  For internal beta with trusted users, risk is minimal:          │ ││
+│  │  │  • Email enumeration: Low concern with internal users            │ ││
+│  │  │  • Resource exhaustion: Limited blast radius                     │ ││
+│  │  │                                                                   │ ││
+│  │  │  I'd say safe to proceed for internal beta. Must add before      │ ││
+│  │  │  opening to external users.                                       │ ││
+│  │  │                                                                   │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ REPLY ─────────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Type a message...                                                  │││
+│  │  │                                                                     │││
+│  │  │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ [Send]│││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 5.6 Gate History
+
+Track all decisions made for this gate type or project:
+
+```
+┌─ HISTORY TAB ───────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ THIS GATE'S HISTORY ───────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  This is the first security review for this project.                   ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ SIMILAR GATES (Security Reviews) ──────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ✓ APPROVED    Payment Processing Security          3 days ago   │ ││
+│  │  │                                                                   │ ││
+│  │  │  Project: Payment System v2                                       │ ││
+│  │  │  Criteria: 6/6 passing                                            │ ││
+│  │  │  Your comment: "Excellent work. All security requirements met."  │ ││
+│  │  │                                                                   │ ││
+│  │  │                                                    [View Details] │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ✗ REJECTED    API Security Review                  1 week ago   │ ││
+│  │  │                                                                   │ ││
+│  │  │  Project: Public API v3                                           │ ││
+│  │  │  Criteria: 3/6 passing                                            │ ││
+│  │  │  Your comment: "Missing authentication on 3 endpoints. Rework."  │ ││
+│  │  │                                                                   │ ││
+│  │  │  Resolution: Re-submitted and approved after fixes                │ ││
+│  │  │                                                                   │ ││
+│  │  │                                                    [View Details] │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 5.7 Decision Outcomes
+
+Visual feedback after making a decision:
+
+```
+APPROVAL SUCCESS:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                              ✓ APPROVED                                     │
+│                                                                             │
+│                    Security Review - User Auth System                       │
+│                                                                             │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  What happens next:                                                         │
+│                                                                             │
+│  • Project advances to QA phase                                            │
+│  • QA-01 will be automatically assigned                                    │
+│  • Estimated time to next gate: 2 hours                                    │
+│                                                                             │
+│  Your conditions have been logged:                                          │
+│  "Rate limiting for registration and password reset must be implemented    │
+│   before public launch. Tracking as tech debt item #TD-0042."              │
+│                                                                             │
+│                    [View Project]  [Review Next Gate]  [Done]               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+REJECTION OUTCOME:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                              ✗ REJECTED                                     │
+│                                                                             │
+│                    Security Review - User Auth System                       │
+│                                                                             │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  What happens next:                                                         │
+│                                                                             │
+│  • Project returns to Build phase for fixes                                │
+│  • BE-02 notified with your feedback                                       │
+│  • Gate will be re-submitted after fixes                                   │
+│                                                                             │
+│  Your feedback:                                                             │
+│  "Rate limiting must be fully implemented before security approval.        │
+│   Cannot proceed with partial implementation."                              │
+│                                                                             │
+│                    [View Project]  [Review Next Gate]  [Done]               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 5.8 Gate Types & Icons
+
+```
+┌─ GATE TYPE REFERENCE ───────────────────────────────────────────────────────┐
+│                                                                             │
+│  PHASE GATES (Required for phase transitions):                              │
+│                                                                             │
+│  📚 RESEARCH REVIEW                                                         │
+│     Validates research findings before design begins                        │
+│     Typical criteria: Competitive analysis, user research, feasibility     │
+│                                                                             │
+│  🎨 DESIGN REVIEW                                                           │
+│     Validates designs before implementation                                 │
+│     Typical criteria: UX flows, visual design, accessibility               │
+│                                                                             │
+│  🔨 BUILD REVIEW                                                            │
+│     Validates implementation before QA                                      │
+│     Typical criteria: Code quality, architecture, documentation            │
+│                                                                             │
+│  ✅ QA REVIEW                                                               │
+│     Validates testing before deployment                                     │
+│     Typical criteria: Test coverage, performance, regression               │
+│                                                                             │
+│  🔒 SECURITY REVIEW                                                         │
+│     Validates security before sensitive phases                              │
+│     Typical criteria: Vulnerability scan, auth review, data protection     │
+│                                                                             │
+│  🚀 DEPLOYMENT REVIEW                                                       │
+│     Final approval before production deployment                             │
+│     Typical criteria: Rollback plan, monitoring, stakeholder sign-off      │
+│                                                                             │
+│  CUSTOM GATES (User-defined):                                               │
+│                                                                             │
+│  ⚙️ CUSTOM                                                                  │
+│     User-defined gates for specific requirements                            │
+│     Examples: Legal review, compliance check, budget approval               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 5.9 Approved/Rejected History Lists
+
+```
+┌─ APPROVED GATES ────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  [Filter: All Types ▼]  [Date Range: This Week ▼]  [🔍 Search...]          │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │  ✓ Design Review                                     Today, 3:15 PM  │ │
+│  │    Dashboard UI Redesign                                              │ │
+│  │    "Clean and modern. Approved for build."                            │ │
+│  │                                                           [View →]    │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │  ✓ QA Review                                        Yesterday 5:30 PM │ │
+│  │    API Refactor v2                                                    │ │
+│  │    "All tests passing. Performance improved 40%."                     │ │
+│  │                                                           [View →]    │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ... more items ...                                                         │
+│                                                                             │
+│  Showing 1-10 of 23 approved gates                          [Load More ↓]  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ REJECTED GATES ────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │  ✗ Security Review                                     Jan 3, 2:00 PM │ │
+│  │    Payment Processing Module                              RESOLVED   │ │
+│  │    "Missing encryption for stored card data."                         │ │
+│  │    → Re-submitted Jan 4, approved after fixes                        │ │
+│  │                                                           [View →]    │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │  ✗ Design Review                                      Dec 28, 11:00 AM │ │
+│  │    Mobile App Onboarding                                 UNRESOLVED  │ │
+│  │    "Accessibility issues. Need WCAG 2.1 AA compliance."              │ │
+│  │    → Pending re-submission                                           │ │
+│  │                                                           [View →]    │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 5.10 Mobile Gates View
+
+```
+┌─────────────────────────────────────────┐
+│  QUALITY GATES                     [⋮]  │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  🔴 2 Pending Your Approval         ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │ [Pending] [Approved] [Rejected]     ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  🔒 SECURITY REVIEW      ⚠ URGENT  ││
+│  │  ─────────────────────────────────  ││
+│  │                                     ││
+│  │  User Auth System                   ││
+│  │  Submitted 2h ago                   ││
+│  │                                     ││
+│  │  Criteria: 4/5 passing              ││
+│  │  ⚠ Rate limiting partial           ││
+│  │                                     ││
+│  │  ┌─────────────────────────────────┐││
+│  │  │ [View Details]  [Quick Approve] │││
+│  │  └─────────────────────────────────┘││
+│  │                                     ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  🎨 DESIGN REVIEW                   ││
+│  │  ─────────────────────────────────  ││
+│  │                                     ││
+│  │  Dashboard UI                       ││
+│  │  Submitted 45m ago                  ││
+│  │                                     ││
+│  │  Criteria: 5/5 passing ✓            ││
+│  │                                     ││
+│  │  ┌─────────────────────────────────┐││
+│  │  │ [View Details]  [Quick Approve] │││
+│  │  └─────────────────────────────────┘││
+│  │                                     ││
+│  └─────────────────────────────────────┘│
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**Mobile Adaptations:**
+- Condensed gate cards showing key info only
+- "Quick Approve" for gates with all criteria passing
+- Swipe gestures: Left to reject, right to approve
+- Full review requires tapping into detail view
+
+---
+
+#### 5.11 Technical Implementation Notes
+
+**Data Model:**
+```typescript
+interface GateSubmission {
+  id: string;
+  type: 'research' | 'design' | 'build' | 'qa' | 'security' | 'deployment' | 'custom';
+  status: 'pending' | 'approved' | 'rejected' | 'withdrawn';
+  projectId: string;
+  projectName: string;
+  submittedBy: string;
+  submittedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  criteria: GateCriterion[];
+  artifacts: Artifact[];
+  discussion: DiscussionMessage[];
+  decision?: {
+    outcome: 'approved' | 'rejected' | 'approved_with_conditions';
+    comment: string;
+    conditions?: string[];
+  };
+  urgency: 'normal' | 'urgent' | 'critical';
+  blocksPhase: string;  // Which phase is blocked
+}
+
+interface GateCriterion {
+  id: string;
+  description: string;
+  status: 'passed' | 'failed' | 'partial' | 'not_evaluated';
+  evidence?: string;
+  details?: string;
+}
+
+interface Artifact {
+  id: string;
+  name: string;
+  type: 'pdf' | 'image' | 'json' | 'text' | 'folder';
+  size: number;
+  uploadedAt: string;
+  url: string;
+}
+
+interface DiscussionMessage {
+  id: string;
+  author: string;
+  authorRole: string;
+  content: string;
+  timestamp: string;
+}
+```
+
+**API Endpoints:**
+```
+GET  /api/gates                           → List gates (filterable)
+GET  /api/gates/pending                   → Pending CEO review
+GET  /api/gates/{id}                      → Gate detail
+GET  /api/gates/{id}/artifacts            → Artifact list
+GET  /api/gates/{id}/artifacts/{aid}      → Download artifact
+GET  /api/gates/{id}/discussion           → Discussion thread
+
+POST /api/gates/{id}/approve              → Approve gate
+POST /api/gates/{id}/reject               → Reject gate
+POST /api/gates/{id}/request-changes      → Request changes
+POST /api/gates/{id}/discussion           → Add discussion message
+```
+
+**WebSocket Events:**
+```typescript
+ws.subscribe('gates', {
+  'gate.submitted': (data) => addToPendingQueue(data),
+  'gate.updated': (data) => updateGateCard(data),
+  'gate.discussion': (data) => appendMessage(data)
+});
+
+// When reviewing a specific gate
+ws.subscribe('gate:{id}', {
+  'discussion.new': (data) => appendToThread(data),
+  'criteria.updated': (data) => refreshCriteria(data)
+});
+```
+
+---
+
+### 6. Settings / Configuration
+
+**Purpose:** The administrative control panel for configuring how the AI corporation operates. Manage departments, skills, templates, integrations, and system-wide preferences.
+
+---
+
+#### 6.1 Settings Layout Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SETTINGS                                                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ NAVIGATION ─────────┐  ┌─ CONTENT AREA ────────────────────────────────┐│
+│  │                      │  │                                               ││
+│  │  ⚙️  GENERAL         │  │                                               ││
+│  │      Corporation     │  │                                               ││
+│  │      Preferences     │  │         (Selected section content)            ││
+│  │                      │  │                                               ││
+│  │  🏢 ORGANIZATION     │  │                                               ││
+│  │      Departments     │  │                                               ││
+│  │      Hierarchy       │  │                                               ││
+│  │      Agent Limits    │  │                                               ││
+│  │                      │  │                                               ││
+│  │  🎯 CAPABILITIES     │  │                                               ││
+│  │      Skills          │  │                                               ││
+│  │      Templates       │  │                                               ││
+│  │                      │  │                                               ││
+│  │  🔌 INTEGRATIONS     │  │                                               ││
+│  │      Git Provider    │  │                                               ││
+│  │      APIs            │  │                                               ││
+│  │      Webhooks        │  │                                               ││
+│  │                      │  │                                               ││
+│  │  🔒 SECURITY         │  │                                               ││
+│  │      Gates Config    │  │                                               ││
+│  │      Permissions     │  │                                               ││
+│  │                      │  │                                               ││
+│  │  📊 ADVANCED         │  │                                               ││
+│  │      Performance     │  │                                               ││
+│  │      Logs            │  │                                               ││
+│  │      Export/Import   │  │                                               ││
+│  │                      │  │                                               ││
+│  └──────────────────────┘  └───────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.2 General Settings
+
+Corporation-wide preferences and configuration:
+
+```
+┌─ GENERAL SETTINGS ──────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ CORPORATION IDENTITY ──────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Corporation Name:                                                      ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Acme AI Corp                                                        │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │  Industry Template:                                                     ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Software Development                                            [▼] │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │  Description:                                                           ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ An AI-powered software development organization focused on         │││
+│  │  │ building modern web applications.                                   │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ DEFAULTS ──────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Default Project Priority:                                              ││
+│  │  ○ P1 - High   ● P2 - Medium   ○ P3 - Low                              ││
+│  │                                                                         ││
+│  │  Default Workflow Template:                                             ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Standard (Research → Design → Build → QA → Deploy)              [▼] │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │  Auto-assign Workers:                                                   ││
+│  │  [✓] Automatically assign available workers to new projects            ││
+│  │                                                                         ││
+│  │  Checkpoint Frequency:                                                  ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Every major subtask                                             [▼] │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ NOTIFICATIONS ─────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Notify me when:                                                        ││
+│  │  [✓] Gate requires my approval                                         ││
+│  │  [✓] Project completes                                                 ││
+│  │  [✓] Worker encounters blocker                                         ││
+│  │  [ ] Checkpoint completed                                              ││
+│  │  [ ] Agent status changes                                              ││
+│  │                                                                         ││
+│  │  Notification method:                                                   ││
+│  │  [✓] In-app notifications                                              ││
+│  │  [ ] Email (not configured)                               [Configure]  ││
+│  │  [ ] Slack webhook                                        [Configure]  ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│                                                    [Cancel]  [Save Changes] │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.3 Department Management
+
+Configure organizational structure and staffing:
+
+```
+┌─ DEPARTMENTS ───────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ DEPARTMENT LIST ───────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  [+ Add Department]                      [Import Template]              ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ☑ Engineering                                          ● ACTIVE │ ││
+│  │  │     VP + 3 Directors + 6 Workers (9 total)                        │ ││
+│  │  │     Skills: frontend, backend, devops                             │ ││
+│  │  │                              [Edit] [Hire] [Disable] [Delete]    │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ☑ Product                                              ● ACTIVE │ ││
+│  │  │     VP + 2 Directors + 4 Workers (7 total)                        │ ││
+│  │  │     Skills: product-management, ux-research                       │ ││
+│  │  │                              [Edit] [Hire] [Disable] [Delete]    │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ☑ Quality Assurance                                    ● ACTIVE │ ││
+│  │  │     VP + 1 Director + 3 Workers (5 total)                         │ ││
+│  │  │     Skills: testing, automation, security-audit                   │ ││
+│  │  │                              [Edit] [Hire] [Disable] [Delete]    │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ☐ Research                                            ○ DISABLED │ ││
+│  │  │     No agents assigned                                            │ ││
+│  │  │     Skills: market-research, competitive-analysis                 │ ││
+│  │  │                              [Edit] [Enable] [Delete]            │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ SELECTED: ENGINEERING ─────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌─ STRUCTURE ──────────────────────────────────────────────────────┐  ││
+│  │  │                                                                   │  ││
+│  │  │  VP of Engineering                                                │  ││
+│  │  │     └── Frontend Director (2 workers)                             │  ││
+│  │  │     └── Backend Director (2 workers)                              │  ││
+│  │  │     └── DevOps Director (2 workers)                               │  ││
+│  │  │                                                                   │  ││
+│  │  │  Total: 9 agents                                  [Modify ▼]     │  ││
+│  │  │                                                                   │  ││
+│  │  └───────────────────────────────────────────────────────────────────┘  ││
+│  │                                                                         ││
+│  │  ┌─ SKILLS ─────────────────────────────────────────────────────────┐  ││
+│  │  │                                                                   │  ││
+│  │  │  Assigned skills for this department:                            │  ││
+│  │  │                                                                   │  ││
+│  │  │  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐  │  ││
+│  │  │  │ frontend-design  │ │ backend-api      │ │ devops-aws       │  │  ││
+│  │  │  │              [×] │ │              [×] │ │              [×] │  │  ││
+│  │  │  └──────────────────┘ └──────────────────┘ └──────────────────┘  │  ││
+│  │  │                                                                   │  ││
+│  │  │  ┌──────────────────┐ ┌──────────────────┐                       │  ││
+│  │  │  │ webapp-testing   │ │ database-design  │                       │  ││
+│  │  │  │              [×] │ │              [×] │                       │  ││
+│  │  │  └──────────────────┘ └──────────────────┘                       │  ││
+│  │  │                                                                   │  ││
+│  │  │                                           [+ Add Skill]          │  ││
+│  │  │                                                                   │  ││
+│  │  └───────────────────────────────────────────────────────────────────┘  ││
+│  │                                                                         ││
+│  │  ┌─ SETTINGS ───────────────────────────────────────────────────────┐  ││
+│  │  │                                                                   │  ││
+│  │  │  Work delegation mode:                                            │  ││
+│  │  │  ○ VP delegates all   ● Directors manage   ○ Direct to workers   │  ││
+│  │  │                                                                   │  ││
+│  │  │  Max concurrent projects per worker:                              │  ││
+│  │  │  ┌─────┐                                                          │  ││
+│  │  │  │  1  │  [▲] [▼]                                                 │  ││
+│  │  │  └─────┘                                                          │  ││
+│  │  │                                                                   │  ││
+│  │  └───────────────────────────────────────────────────────────────────┘  ││
+│  │                                                                         ││
+│  │                                                [Cancel]  [Save Changes] ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.4 Hire Agents Modal
+
+Add new agents to the organization:
+
+```
+┌─ HIRE NEW AGENTS ────────────────────────────────────────────────────── [×] ┐
+│                                                                             │
+│  ┌─ QUICK HIRE ────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Department:                                                            ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Engineering                                                     [▼] │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │  Role:                                                                  ││
+│  │  ○ VP (1 per department)                                               ││
+│  │  ○ Director (manages workers)                                          ││
+│  │  ● Worker (executes tasks)                                             ││
+│  │                                                                         ││
+│  │  Number to hire:                                                        ││
+│  │  ┌─────┐                                                                ││
+│  │  │  2  │  [▲] [▼]                                                       ││
+│  │  └─────┘                                                                ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ AGENT PREVIEW ─────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Will create:                                                           ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ██ FE-03 (Frontend Worker)                                       │ ││
+│  │  │  ██                                                               │ ││
+│  │  │     Reports to: Frontend Director                                 │ ││
+│  │  │     Skills: frontend-design, webapp-testing                       │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  ██ FE-04 (Frontend Worker)                                       │ ││
+│  │  │  ██                                                               │ ││
+│  │  │     Reports to: Frontend Director                                 │ ││
+│  │  │     Skills: frontend-design, webapp-testing                       │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ COST ESTIMATE ─────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Additional API costs: ~$0.15/hour per worker (varies by task)         ││
+│  │  More workers = faster completion but higher cost                      ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│                                                    [Cancel]  [Hire Agents]  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.5 Skills Management
+
+Configure the skill registry and capability mappings:
+
+```
+┌─ SKILLS ────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ SKILL REGISTRY ────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  [🔍 Search skills...]          [+ Create Skill]  [Import from Template]││
+│  │                                                                         ││
+│  │  Filter: [All ▼]  [Development ▼]  [Design ▼]  [QA ▼]  [DevOps ▼]      ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🛠️ frontend-design                                    ACTIVE    │ ││
+│  │  │                                                                   │ ││
+│  │  │  Description: Build modern web UIs with React, Vue, etc.         │ ││
+│  │  │  Assigned to: Engineering (Frontend Director, FE-01, FE-02)      │ ││
+│  │  │  Usage: 12 projects this month                                   │ ││
+│  │  │                                                                   │ ││
+│  │  │  Capabilities:                                                    │ ││
+│  │  │  • React development    • CSS/Tailwind    • Responsive design    │ ││
+│  │  │  • State management     • Testing (Jest)  • Accessibility        │ ││
+│  │  │                                                                   │ ││
+│  │  │                                           [Edit] [Disable] [Delete]│ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🛠️ backend-api                                        ACTIVE    │ ││
+│  │  │                                                                   │ ││
+│  │  │  Description: Build REST APIs with Node.js, Python, Go           │ ││
+│  │  │  Assigned to: Engineering (Backend Director, BE-01, BE-02)       │ ││
+│  │  │  Usage: 8 projects this month                                    │ ││
+│  │  │                                                                   │ ││
+│  │  │                                           [Edit] [Disable] [Delete]│ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🛠️ security-audit                                     ACTIVE    │ ││
+│  │  │                                                                   │ ││
+│  │  │  Description: Security reviews, vulnerability scanning           │ ││
+│  │  │  Assigned to: Quality Assurance (Security Director)              │ ││
+│  │  │  Usage: 5 projects this month                                    │ ││
+│  │  │                                                                   │ ││
+│  │  │                                           [Edit] [Disable] [Delete]│ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ... more skills ...                                                    ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.6 Create/Edit Skill Modal
+
+```
+┌─ CREATE NEW SKILL ───────────────────────────────────────────────────── [×] ┐
+│                                                                             │
+│  ┌─ BASIC INFO ────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Skill ID (unique identifier):                                          ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ mobile-development                                                  │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │  Display Name:                                                          ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Mobile App Development                                              │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │  Category:                                                              ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Development                                                     [▼] │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │  Description:                                                           ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Build native and cross-platform mobile applications using React    │││
+│  │  │ Native, Flutter, or native iOS/Android development.                │││
+│  │  │                                                                     │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ CAPABILITIES ──────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Define what this skill enables:                                        ││
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ • React Native development                                      [×] │││
+│  │  │ • Flutter development                                           [×] │││
+│  │  │ • iOS (Swift/Objective-C)                                       [×] │││
+│  │  │ • Android (Kotlin/Java)                                         [×] │││
+│  │  │ • Mobile UI/UX patterns                                         [×] │││
+│  │  │ • App store deployment                                          [×] │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │ Add capability...                                          [+ Add] │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ ASSIGNMENT ────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Assign this skill to:                                                  ││
+│  │                                                                         ││
+│  │  ☐ Engineering Department                                               ││
+│  │     ☐ All agents   ☐ Directors only   ☐ Workers only                   ││
+│  │                                                                         ││
+│  │  ☐ Product Department                                                   ││
+│  │  ☐ Quality Assurance Department                                         ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│                                                    [Cancel]  [Create Skill] │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.7 Workflow Templates
+
+Configure reusable workflow patterns:
+
+```
+┌─ WORKFLOW TEMPLATES ────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ AVAILABLE TEMPLATES ───────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  [+ Create Template]                                                    ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  📋 Standard Development                              ★ DEFAULT   │ ││
+│  │  │                                                                   │ ││
+│  │  │  Research → Design → Build → QA → Deploy                         │ ││
+│  │  │                                                                   │ ││
+│  │  │  Gates: Design Review, Security Review, Final Approval           │ ││
+│  │  │  Used by: 23 projects                                            │ ││
+│  │  │                                                                   │ ││
+│  │  │                           [View] [Edit] [Duplicate] [Set Default] │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  📋 Bug Fix (Fast Track)                                          │ ││
+│  │  │                                                                   │ ││
+│  │  │  Diagnose → Fix → QA                                              │ ││
+│  │  │                                                                   │ ││
+│  │  │  Gates: None (auto-approve)                                       │ ││
+│  │  │  Used by: 8 projects                                              │ ││
+│  │  │                                                                   │ ││
+│  │  │                           [View] [Edit] [Duplicate] [Set Default] │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  📋 Research Only                                                 │ ││
+│  │  │                                                                   │ ││
+│  │  │  Research → Document                                              │ ││
+│  │  │                                                                   │ ││
+│  │  │  Gates: Research Review                                           │ ││
+│  │  │  Used by: 5 projects                                              │ ││
+│  │  │                                                                   │ ││
+│  │  │                           [View] [Edit] [Duplicate] [Set Default] │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.8 Template Editor
+
+```
+┌─ EDIT TEMPLATE: Standard Development ────────────────────────────────── [×] ┐
+│                                                                             │
+│  ┌─ PHASES ────────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Drag to reorder phases:                                                ││
+│  │                                                                         ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │  ≡  1. RESEARCH                                              [⋮]  │││
+│  │  │     Default assignee: Research Worker Pool                         │││
+│  │  │     Gate after: None                                               │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                           ↓                                             ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │  ≡  2. DESIGN                                                [⋮]  │││
+│  │  │     Default assignee: Design Director                              │││
+│  │  │     Gate after: Design Review (CEO approval)                       │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                           ↓                                             ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │  ≡  3. BUILD                                                 [⋮]  │││
+│  │  │     Default assignee: Engineering Worker Pool                      │││
+│  │  │     Gate after: Security Review (CEO approval)                     │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                           ↓                                             ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │  ≡  4. QA                                                    [⋮]  │││
+│  │  │     Default assignee: QA Worker Pool                               │││
+│  │  │     Gate after: Final Approval (CEO approval)                      │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                           ↓                                             ││
+│  │  ┌─────────────────────────────────────────────────────────────────────┐││
+│  │  │  ≡  5. DEPLOY                                                [⋮]  │││
+│  │  │     Default assignee: DevOps Director                              │││
+│  │  │     Gate after: None                                               │││
+│  │  └─────────────────────────────────────────────────────────────────────┘││
+│  │                                                                         ││
+│  │                                                        [+ Add Phase]   ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│                                                    [Cancel]  [Save Template] │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.9 Integrations
+
+Configure external service connections:
+
+```
+┌─ INTEGRATIONS ──────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ GIT PROVIDER ──────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🔗 GitHub                                          ● CONNECTED   │ ││
+│  │  │                                                                   │ ││
+│  │  │  Repository: acme-corp/main-app                                   │ ││
+│  │  │  Branch strategy: Feature branches → main                         │ ││
+│  │  │  Auto-create PRs: ✓ Enabled                                       │ ││
+│  │  │  Connected: Jan 1, 2026                                           │ ││
+│  │  │                                                                   │ ││
+│  │  │                               [Test Connection] [Disconnect]      │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  Other providers:                                                       ││
+│  │  ○ GitLab        [Connect]                                             ││
+│  │  ○ Bitbucket     [Connect]                                             ││
+│  │  ○ Azure DevOps  [Connect]                                             ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ EXTERNAL APIS ─────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  [+ Add API Key]                                                        ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🔑 OpenAI API                                      ● CONFIGURED  │ ││
+│  │  │     Key: sk-...7x3f (hidden)                                      │ ││
+│  │  │     Last used: 2 hours ago                                        │ ││
+│  │  │                                              [Edit] [Revoke]      │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🔑 Anthropic API                                   ● CONFIGURED  │ ││
+│  │  │     Key: sk-ant-...8k2 (hidden)                                   │ ││
+│  │  │     Last used: 5 minutes ago                                      │ ││
+│  │  │                                              [Edit] [Revoke]      │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ WEBHOOKS ──────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  [+ Add Webhook]                                                        ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🔔 Slack Notifications                             ● ACTIVE      │ ││
+│  │  │                                                                   │ ││
+│  │  │  URL: https://hooks.slack.com/services/T.../B.../...             │ ││
+│  │  │  Events: gate.pending, project.complete, agent.error             │ ││
+│  │  │                                                                   │ ││
+│  │  │                                   [Test] [Edit] [Disable] [Delete]│ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.10 Gate Configuration
+
+Configure approval gates and their rules:
+
+```
+┌─ GATE CONFIGURATION ────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ GATE RULES ────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🚪 Security Review                                               │ ││
+│  │  │                                                                   │ ││
+│  │  │  Approval required: CEO only                                      │ ││
+│  │  │  Trigger: Before QA phase on all projects                        │ ││
+│  │  │  Auto-approve: Never (always manual)                              │ ││
+│  │  │  Timeout: 24 hours (then escalate)                                │ ││
+│  │  │                                                                   │ ││
+│  │  │  Required criteria:                                               │ ││
+│  │  │  ☑ Vulnerability scan passed                                      │ ││
+│  │  │  ☑ Authentication review                                          │ ││
+│  │  │  ☑ Data protection check                                          │ ││
+│  │  │                                                                   │ ││
+│  │  │                                                          [Edit]   │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  ┌───────────────────────────────────────────────────────────────────┐ ││
+│  │  │  🚪 Design Review                                                 │ ││
+│  │  │                                                                   │ ││
+│  │  │  Approval required: Design Director OR CEO                        │ ││
+│  │  │  Trigger: After Design phase                                     │ ││
+│  │  │  Auto-approve: If all criteria pass and < 2 hour wait             │ ││
+│  │  │  Timeout: 8 hours                                                 │ ││
+│  │  │                                                                   │ ││
+│  │  │                                                          [Edit]   │ ││
+│  │  └───────────────────────────────────────────────────────────────────┘ ││
+│  │                                                                         ││
+│  │  [+ Add Gate Rule]                                                      ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ AUTO-APPROVE SETTINGS ─────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  [✓] Enable auto-approve for low-risk gates                            ││
+│  │                                                                         ││
+│  │  Auto-approve when:                                                     ││
+│  │  ☑ All criteria pass                                                   ││
+│  │  ☑ No security-related changes                                         ││
+│  │  ☑ Project priority is P3 (Low)                                        ││
+│  │                                                                         ││
+│  │  Never auto-approve:                                                    ││
+│  │  ☑ Security gates                                                      ││
+│  │  ☑ Production deployments                                              ││
+│  │  ☑ Projects marked "requires human review"                             ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.11 Advanced Settings
+
+Performance tuning, logging, and data management:
+
+```
+┌─ ADVANCED SETTINGS ─────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─ PERFORMANCE ───────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Max concurrent agent sessions:                                         ││
+│  │  ┌─────┐                                                                ││
+│  │  │  10 │  [▲] [▼]          (Higher = faster but more API costs)        ││
+│  │  └─────┘                                                                ││
+│  │                                                                         ││
+│  │  Agent thinking timeout:                                                ││
+│  │  ┌─────┐                                                                ││
+│  │  │  5  │ minutes           (Restart agent if no progress)              ││
+│  │  └─────┘                                                                ││
+│  │                                                                         ││
+│  │  Checkpoint interval:                                                   ││
+│  │  ○ After each subtask   ● Every 15 minutes   ○ On phase completion     ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ LOGGING ───────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Log level:                                                             ││
+│  │  ○ Error only   ○ Warning   ● Info   ○ Debug   ○ Trace                 ││
+│  │                                                                         ││
+│  │  Retain logs for:                                                       ││
+│  │  ┌─────┐                                                                ││
+│  │  │  30 │ days                                                          ││
+│  │  └─────┘                                                                ││
+│  │                                                                         ││
+│  │  [View Logs]  [Export Logs]  [Clear Old Logs]                          ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ DATA MANAGEMENT ───────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  [📤 Export Configuration]    Export all settings as JSON              ││
+│  │  [📥 Import Configuration]    Import settings from file                ││
+│  │  [🔄 Reset to Defaults]       ⚠️ Requires confirmation                 ││
+│  │                                                                         ││
+│  │  ─────────────────────────────────────────────────────────────────────  ││
+│  │                                                                         ││
+│  │  [📦 Export All Data]         Export projects, agents, history         ││
+│  │  [🗑️ Delete All Data]         ⚠️ Irreversible, requires confirmation   ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 6.12 Mobile Settings View
+
+```
+┌─────────────────────────────────────────┐
+│  SETTINGS                          [×]  │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  ⚙️  General                    [→] ││
+│  │  Corporation settings               ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  🏢 Departments                 [→] ││
+│  │  3 active, 2 disabled               ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  🎯 Skills                      [→] ││
+│  │  12 skills configured               ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  📋 Templates                   [→] ││
+│  │  3 workflow templates               ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  🔌 Integrations                [→] ││
+│  │  GitHub connected                   ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  🚪 Gates                       [→] ││
+│  │  6 gate rules configured            ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ┌─────────────────────────────────────┐│
+│  │  📊 Advanced                    [→] ││
+│  │  Performance, logs, export          ││
+│  └─────────────────────────────────────┘│
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**Mobile Adaptations:**
+- Full-width navigation cards
+- Settings sections as drill-down pages
+- Simplified forms with larger touch targets
+- Critical actions require confirmation modals
+
+---
+
+#### 6.13 Technical Implementation Notes
+
+**Data Model:**
+```typescript
+interface CorporationSettings {
+  identity: {
+    name: string;
+    industry: string;
+    description: string;
+  };
+  defaults: {
+    projectPriority: 'P1' | 'P2' | 'P3';
+    workflowTemplate: string;
+    autoAssignWorkers: boolean;
+    checkpointFrequency: 'subtask' | 'interval' | 'phase';
+  };
+  notifications: {
+    inApp: boolean;
+    email?: { enabled: boolean; address: string };
+    slack?: { enabled: boolean; webhookUrl: string };
+    events: NotificationEvent[];
+  };
+  performance: {
+    maxConcurrentSessions: number;
+    agentTimeout: number;  // minutes
+    checkpointInterval: number;  // minutes
+  };
+  logging: {
+    level: 'error' | 'warning' | 'info' | 'debug' | 'trace';
+    retentionDays: number;
+  };
+}
+
+interface Department {
+  id: string;
+  name: string;
+  enabled: boolean;
+  structure: {
+    vpId?: string;
+    directors: DirectorConfig[];
+  };
+  skills: string[];
+  delegationMode: 'vp' | 'directors' | 'direct';
+  maxConcurrentProjectsPerWorker: number;
+}
+
+interface Skill {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  capabilities: string[];
+  assignedTo: {
+    departmentId: string;
+    scope: 'all' | 'directors' | 'workers';
+  }[];
+  usage: { projectCount: number; lastUsed: string };
+}
+
+interface WorkflowTemplate {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  phases: PhaseConfig[];
+  usageCount: number;
+}
+
+interface PhaseConfig {
+  name: string;
+  order: number;
+  defaultAssignee: string;  // agent pool or role
+  gateAfter?: {
+    type: string;
+    approvers: string[];
+    criteria: string[];
+    autoApprove: boolean;
+    timeout: number;
+  };
+}
+```
+
+**API Endpoints:**
+```
+GET  /api/settings                        → All settings
+PUT  /api/settings                        → Update settings
+GET  /api/settings/departments            → List departments
+POST /api/settings/departments            → Create department
+PUT  /api/settings/departments/{id}       → Update department
+DELETE /api/settings/departments/{id}     → Delete department
+
+GET  /api/settings/skills                 → List skills
+POST /api/settings/skills                 → Create skill
+PUT  /api/settings/skills/{id}            → Update skill
+DELETE /api/settings/skills/{id}          → Delete skill
+
+GET  /api/settings/templates              → List workflow templates
+POST /api/settings/templates              → Create template
+PUT  /api/settings/templates/{id}         → Update template
+DELETE /api/settings/templates/{id}       → Delete template
+
+GET  /api/settings/integrations           → List integrations
+POST /api/settings/integrations/{type}    → Connect integration
+DELETE /api/settings/integrations/{type}  → Disconnect
+
+POST /api/settings/export                 → Export configuration
+POST /api/settings/import                 → Import configuration
+```
+
+---
+
+### 8. Integrations Hub - Connected Intelligence
+
+**Purpose:** The nervous system that connects AI Corp to the outside world. Integrations provide context IN (information that enriches agent understanding) and actions OUT (ways agents can affect external systems). Everything flows through the unified system - integrations extend capabilities without breaking the corporate hierarchy.
+
+**Design Philosophy:** Integrations are not separate tools - they're extensions of AI Corp's senses and hands. The UI should make integrations feel native, not bolted-on.
+
+---
+
+#### 8.1 Layout Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  AI CORP → Integrations Hub                    [🔍 Search] [👤 CEO ▼]      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ INTEGRATION STATUS ─────────────────────────────────────────────────┐  │
+│  │  ● 8 CONNECTED    ○ 3 AVAILABLE    ⚠ 1 NEEDS ATTENTION              │  │
+│  │  Last sync: All healthy • Context index: 12,847 items                │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ [All] [Context Sources] [Action Channels] [CEO Direct] [Available]     ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  📥 CONTEXT SOURCES                                                    ║ │
+│  ║  Information that enriches agent understanding                         ║ │
+│  ╠═══════════════════════════════════════════════════════════════════════╣ │
+│  ║                                                                        ║ │
+│  ║  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐          ║ │
+│  ║  │  📧 Gmail       │ │  📁 Google Drive│ │  📄 Notion      │          ║ │
+│  ║  │  ────────────── │ │  ────────────── │ │  ────────────── │          ║ │
+│  ║  │  ● Connected    │ │  ● Connected    │ │  ● Connected    │          ║ │
+│  ║  │  2,341 emails   │ │  847 files      │ │  156 pages      │          ║ │
+│  ║  │  indexed        │ │  indexed        │ │  indexed        │          ║ │
+│  ║  │                 │ │                 │ │                 │          ║ │
+│  ║  │  [Configure]    │ │  [Configure]    │ │  [Configure]    │          ║ │
+│  ║  └─────────────────┘ └─────────────────┘ └─────────────────┘          ║ │
+│  ║                                                                        ║ │
+│  ║  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐          ║ │
+│  ║  │  📅 Calendar    │ │  💬 Slack       │ │  🔗 Confluence  │          ║ │
+│  ║  │  ────────────── │ │  ────────────── │ │  ────────────── │          ║ │
+│  ║  │  ● Connected    │ │  ○ Available    │ │  ○ Available    │          ║ │
+│  ║  │  Next 30 days   │ │                 │ │                 │          ║ │
+│  ║  │  visible        │ │  [+ Connect]    │ │  [+ Connect]    │          ║ │
+│  ║  │                 │ │                 │ │                 │          ║ │
+│  ║  │  [Configure]    │ │                 │ │                 │          ║ │
+│  ║  └─────────────────┘ └─────────────────┘ └─────────────────┘          ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  📤 ACTION CHANNELS                                                    ║ │
+│  ║  Ways agents can affect external systems (with approval)               ║ │
+│  ╠═══════════════════════════════════════════════════════════════════════╣ │
+│  ║                                                                        ║ │
+│  ║  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐          ║ │
+│  ║  │  🐙 GitHub      │ │  📋 Linear      │ │  🚀 Vercel      │          ║ │
+│  ║  │  ────────────── │ │  ────────────── │ │  ────────────── │          ║ │
+│  ║  │  ● Connected    │ │  ● Connected    │ │  ○ Available    │          ║ │
+│  ║  │  Can: PR, Issue │ │  Can: Create,   │ │                 │          ║ │
+│  ║  │  Gate: Deploy   │ │  Update issues  │ │  [+ Connect]    │          ║ │
+│  ║  │                 │ │  Gate: None     │ │                 │          ║ │
+│  ║  │  [Configure]    │ │  [Configure]    │ │                 │          ║ │
+│  ║  └─────────────────┘ └─────────────────┘ └─────────────────┘          ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  👤 CEO DIRECT CHANNELS                                                ║ │
+│  ║  Priority communication lines to you                                   ║ │
+│  ╠═══════════════════════════════════════════════════════════════════════╣ │
+│  ║                                                                        ║ │
+│  ║  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐          ║ │
+│  ║  │  📱 SMS         │ │  📧 Email       │ │  🔔 Push        │          ║ │
+│  ║  │  ────────────── │ │  ────────────── │ │  ────────────── │          ║ │
+│  ║  │  ● Connected    │ │  ● Connected    │ │  ○ Not Setup    │          ║ │
+│  ║  │  +1 (555) ***-89│ │  ceo@corp.com   │ │                 │          ║ │
+│  ║  │  Emergency only │ │  Daily digest   │ │  [+ Setup]      │          ║ │
+│  ║  │                 │ │                 │ │                 │          ║ │
+│  ║  │  [Configure]    │ │  [Configure]    │ │                 │          ║ │
+│  ║  └─────────────────┘ └─────────────────┘ └─────────────────┘          ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 8.2 Context Sources - Configuration Modal
+
+Context sources provide information that enriches agent understanding during Discovery and Contract phases.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Configure: Gmail Integration                                    [×]        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ CONNECTION ─────────────────────────────────────────────────────────┐  │
+│  │  Status: ● Connected as ceo@company.com                              │  │
+│  │  Last sync: 2 minutes ago                                            │  │
+│  │  [Reconnect] [Disconnect]                                            │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ WHAT TO INDEX ──────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Email Sources:                                                       │  │
+│  │  [✓] Inbox                    [✓] Sent                               │  │
+│  │  [✓] Starred                  [ ] Spam                               │  │
+│  │  [✓] Important                [ ] Trash                              │  │
+│  │                                                                       │  │
+│  │  Labels to include:                                                   │  │
+│  │  ┌───────────────────────────────────────────────────────────────┐   │  │
+│  │  │ [✓] Work  [✓] Projects  [✓] Clients  [ ] Personal  [+ Add]   │   │  │
+│  │  └───────────────────────────────────────────────────────────────┘   │  │
+│  │                                                                       │  │
+│  │  Time Range:                                                          │  │
+│  │  ( ) All time                                                         │  │
+│  │  (•) Last [  90  ▼] days                                             │  │
+│  │  ( ) Custom range: [________] to [________]                          │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ AGENT ACCESS ───────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Who can query this data:                                             │  │
+│  │  (•) All agents (through hierarchy)                                   │  │
+│  │  ( ) Executive level only (COO, VPs)                                  │  │
+│  │  ( ) Specific departments: [Select...]                                │  │
+│  │                                                                       │  │
+│  │  Context visibility:                                                  │  │
+│  │  [✓] Allow agents to see email subjects                              │  │
+│  │  [✓] Allow agents to see email bodies (summaries)                    │  │
+│  │  [✓] Allow agents to see sender/recipient                            │  │
+│  │  [ ] Allow agents to see attachments                                 │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ SYNC SETTINGS ──────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Sync frequency: [ Every 15 minutes ▼]                               │  │
+│  │  [✓] Real-time sync for starred emails                               │  │
+│  │                                                                       │  │
+│  │  Currently indexed: 2,341 emails (847 MB)                            │  │
+│  │  [Re-index All] [Clear Index]                                        │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ USAGE STATS ────────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Queries this week: 47                                                │  │
+│  │  Most active agent: Research Director                                 │  │
+│  │  Common topics: "client requirements", "project deadlines"           │  │
+│  │  [View Query Log]                                                     │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│                                              [Cancel]  [Save Changes]       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 8.3 Action Channels - Configuration Modal
+
+Action channels define how agents can affect external systems, always with appropriate gates.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Configure: GitHub Integration                                   [×]        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ CONNECTION ─────────────────────────────────────────────────────────┐  │
+│  │  Status: ● Connected via OAuth                                       │  │
+│  │  Organization: my-company                                            │  │
+│  │  [Reconnect] [Disconnect]                                            │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ REPOSITORIES ───────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Select repositories AI Corp can access:                             │  │
+│  │                                                                       │  │
+│  │  [✓] my-company/main-app           ★ Primary                        │  │
+│  │  [✓] my-company/api-service                                          │  │
+│  │  [✓] my-company/shared-libs                                          │  │
+│  │  [ ] my-company/infrastructure     🔒 Admin only                     │  │
+│  │  [ ] my-company/secrets            🚫 Never                          │  │
+│  │                                                                       │  │
+│  │  [+ Add Repository]                                                   │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ ALLOWED ACTIONS ────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Read Actions (no approval needed):                                   │  │
+│  │  [✓] View code and files                                             │  │
+│  │  [✓] View issues and PRs                                             │  │
+│  │  [✓] View CI/CD status                                               │  │
+│  │                                                                       │  │
+│  │  Write Actions (configurable approval):                               │  │
+│  │  ┌───────────────────────────────────────────────────────────────┐   │  │
+│  │  │ Action              │ Approval Required │ Gate Type           │   │  │
+│  │  ├───────────────────────────────────────────────────────────────┤   │  │
+│  │  │ Create branch       │ [ ]               │ -                   │   │  │
+│  │  │ Create PR           │ [ ]               │ -                   │   │  │
+│  │  │ Commit to branch    │ [ ]               │ -                   │   │  │
+│  │  │ Merge PR            │ [✓]               │ [Code Review ▼]     │   │  │
+│  │  │ Create issue        │ [ ]               │ -                   │   │  │
+│  │  │ Close issue         │ [✓]               │ [Quick Approve ▼]   │   │  │
+│  │  │ Deploy              │ [✓]               │ [Deployment ▼]      │   │  │
+│  │  │ Modify workflows    │ [✓]               │ [Security ▼]        │   │  │
+│  │  └───────────────────────────────────────────────────────────────┘   │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ BRANCH PROTECTION ──────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Protected branches (agents cannot directly modify):                  │  │
+│  │  [✓] main              [✓] production                                │  │
+│  │  [✓] release/*         [ ] develop                                   │  │
+│  │                                                                       │  │
+│  │  For protected branches, agents must:                                 │  │
+│  │  (•) Create PR and request human merge                               │  │
+│  │  ( ) Create PR and auto-merge after gate approval                    │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ ACTIVITY LOG ───────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Recent actions by AI Corp:                                           │  │
+│  │  • PR #234 created by BE-01         Today, 2:34 PM    [View]         │  │
+│  │  • Issue #89 created by QA-01       Today, 11:20 AM   [View]         │  │
+│  │  • Branch feature/auth created      Yesterday         [View]         │  │
+│  │                                                                       │  │
+│  │  [View Full Activity Log]                                             │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│                                              [Cancel]  [Save Changes]       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 8.4 CEO Direct Channels - Configuration
+
+Direct communication lines for urgent matters and summaries.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Configure: CEO Communication Channels                           [×]        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  These channels allow AI Corp to reach you directly outside the UI.        │
+│  Use sparingly - the system respects your attention.                        │
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  📱 SMS / TEXT MESSAGE                                                 ║ │
+│  ╠═══════════════════════════════════════════════════════════════════════╣ │
+│  ║                                                                        ║ │
+│  ║  Status: ● Configured                                                  ║ │
+│  ║  Phone: +1 (555) 123-4567  [Change]                                   ║ │
+│  ║                                                                        ║ │
+│  ║  When to use SMS:                                                      ║ │
+│  ║  [✓] Critical gate blocked > 4 hours                                  ║ │
+│  ║  [✓] System health emergency                                          ║ │
+│  ║  [✓] Security alert                                                   ║ │
+│  ║  [ ] Project completion                                               ║ │
+│  ║  [ ] Daily summary                                                    ║ │
+│  ║                                                                        ║ │
+│  ║  Quiet hours: [10:00 PM] to [7:00 AM]  [✓] Enabled                   ║ │
+│  ║  (Emergency security alerts bypass quiet hours)                       ║ │
+│  ║                                                                        ║ │
+│  ║  [Send Test Message]                                                   ║ │
+│  ║                                                                        ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  📧 EMAIL                                                              ║ │
+│  ╠═══════════════════════════════════════════════════════════════════════╣ │
+│  ║                                                                        ║ │
+│  ║  Status: ● Configured                                                  ║ │
+│  ║  Email: ceo@mycompany.com  [Change]                                   ║ │
+│  ║                                                                        ║ │
+│  ║  Email preferences:                                                    ║ │
+│  ║                                                                        ║ │
+│  ║  Daily Digest: [✓] Enabled  Time: [8:00 AM ▼]                        ║ │
+│  ║  ┌─────────────────────────────────────────────────────────────────┐  ║ │
+│  ║  │ Include in digest:                                              │  ║ │
+│  ║  │ [✓] Projects completed    [✓] Gates awaiting approval          │  ║ │
+│  ║  │ [✓] Worker performance    [✓] System health summary            │  ║ │
+│  ║  │ [✓] Upcoming deadlines    [ ] Detailed activity log            │  ║ │
+│  ║  └─────────────────────────────────────────────────────────────────┘  ║ │
+│  ║                                                                        ║ │
+│  ║  Instant notifications:                                                ║ │
+│  ║  [✓] Gate requires approval                                           ║ │
+│  ║  [✓] Project blocked                                                  ║ │
+│  ║  [✓] Agent needs clarification                                        ║ │
+│  ║  [ ] Task completed                                                   ║ │
+│  ║                                                                        ║ │
+│  ║  [Send Test Email]                                                     ║ │
+│  ║                                                                        ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+│  ╔═══════════════════════════════════════════════════════════════════════╗ │
+│  ║  🔔 PUSH NOTIFICATIONS (Mobile App)                                    ║ │
+│  ╠═══════════════════════════════════════════════════════════════════════╣ │
+│  ║                                                                        ║ │
+│  ║  Status: ○ Not configured                                             ║ │
+│  ║                                                                        ║ │
+│  ║  To enable push notifications:                                         ║ │
+│  ║  1. Download AI Corp mobile app                                        ║ │
+│  ║  2. Sign in with your account                                          ║ │
+│  ║  3. Enable notifications in app settings                               ║ │
+│  ║                                                                        ║ │
+│  ║  [Download iOS App]  [Download Android App]                            ║ │
+│  ║                                                                        ║ │
+│  ╚═══════════════════════════════════════════════════════════════════════╝ │
+│                                                                             │
+│  ┌─ COMMUNICATION HISTORY ──────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Recent messages sent to you:                                         │  │
+│  │  📧 Daily Digest                   Today, 8:00 AM                    │  │
+│  │  📧 Gate approval needed: Auth     Yesterday, 3:45 PM                │  │
+│  │  📱 URGENT: Security review        Jan 4, 11:30 AM                   │  │
+│  │                                                                       │  │
+│  │  [View All Communication History]                                     │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│                                              [Cancel]  [Save Changes]       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 8.5 Add New Integration Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Add Integration                                                 [×]        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ 🔍 Search integrations...                                           │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─ POPULAR ────────────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  📧 Gmail          📁 Google Drive    📅 Google Calendar             │  │
+│  │  🐙 GitHub         📋 Linear          💬 Slack                       │  │
+│  │  📄 Notion         🔗 Confluence      🚀 Vercel                      │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ BY CATEGORY ────────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  📥 Context Sources (Read)                               [View All]   │  │
+│  │  ├─ Email: Gmail, Outlook, ProtonMail                                │  │
+│  │  ├─ Files: Google Drive, Dropbox, OneDrive, Box                      │  │
+│  │  ├─ Docs: Notion, Confluence, Coda, Google Docs                      │  │
+│  │  ├─ Calendar: Google Calendar, Outlook Calendar, Calendly            │  │
+│  │  └─ Communication: Slack, Discord, Teams (read-only)                 │  │
+│  │                                                                       │  │
+│  │  📤 Action Channels (Write)                              [View All]   │  │
+│  │  ├─ Code: GitHub, GitLab, Bitbucket                                  │  │
+│  │  ├─ Issues: Linear, Jira, Asana, Monday                              │  │
+│  │  ├─ Deploy: Vercel, Netlify, AWS, Railway                            │  │
+│  │  ├─ Communication: Slack, Discord, Teams (post)                      │  │
+│  │  └─ Automation: Zapier, Make, n8n (trigger)                          │  │
+│  │                                                                       │  │
+│  │  👤 CEO Direct                                           [View All]   │  │
+│  │  ├─ SMS: Twilio, MessageBird                                         │  │
+│  │  ├─ Email: SendGrid, AWS SES, Custom SMTP                            │  │
+│  │  └─ Push: iOS, Android, Web Push                                     │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ CUSTOM INTEGRATION ─────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Can't find what you need?                                            │  │
+│  │                                                                       │  │
+│  │  [+ Add Webhook]        Receive data via webhook                     │  │
+│  │  [+ Add API]            Connect to any REST API                      │  │
+│  │  [+ Add OAuth App]      Connect OAuth-enabled service                │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 8.6 Context Index View
+
+Shows what information is available to agents from all connected integrations.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Context Index                                    [🔍 Search] [⟳ Refresh]  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  The unified knowledge base your agents can query.                          │
+│  Total items: 12,847 • Last updated: 2 minutes ago                          │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ [All Sources] [📧 Email] [📁 Files] [📄 Docs] [📅 Calendar]           ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ INDEXED CONTENT ────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  📧 Gmail                                           2,341 items       │  │
+│  │  ├─ Client communications                              847            │  │
+│  │  ├─ Project discussions                                523            │  │
+│  │  ├─ Team updates                                       412            │  │
+│  │  └─ Other                                              559            │  │
+│  │                                                                       │  │
+│  │  📁 Google Drive                                      847 items       │  │
+│  │  ├─ Design documents                                   234            │  │
+│  │  ├─ Technical specs                                    189            │  │
+│  │  ├─ Meeting notes                                      156            │  │
+│  │  └─ Other files                                        268            │  │
+│  │                                                                       │  │
+│  │  📄 Notion                                            156 items       │  │
+│  │  ├─ Product roadmap                                     12            │  │
+│  │  ├─ Engineering wiki                                    89            │  │
+│  │  └─ Team documentation                                  55            │  │
+│  │                                                                       │  │
+│  │  📅 Calendar                                          Events synced   │  │
+│  │  └─ Next 30 days visible to agents                                   │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ RECENT QUERIES BY AGENTS ───────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Query                          Agent           Source      Time      │  │
+│  │  ─────────────────────────────────────────────────────────────────── │  │
+│  │  "client auth requirements"     Research Dir    Email       2m ago   │  │
+│  │  "API design decisions"         VP Engineering  Drive       15m ago  │  │
+│  │  "deployment schedule"          DevOps Lead     Calendar    1h ago   │  │
+│  │  "security compliance"          Security Dir    Notion      2h ago   │  │
+│  │                                                                       │  │
+│  │  [View All Queries]                                                   │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ INDEX HEALTH ───────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  ● Gmail: Synced 2m ago         ● Drive: Synced 5m ago               │  │
+│  │  ● Notion: Synced 1h ago        ● Calendar: Real-time                │  │
+│  │                                                                       │  │
+│  │  Storage used: 2.3 GB of 10 GB                                       │  │
+│  │  ████████░░░░░░░░░░░░░░░░░░░░░░░░░ 23%                               │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 8.7 Integration in Agent Context
+
+How integrations appear when agents use them (visible in agent detail/activity).
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Agent Activity: Research Director                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ CURRENT TASK ───────────────────────────────────────────────────────┐  │
+│  │  Researching authentication requirements for Project: User Auth      │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ CONTEXT USED ───────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  The agent queried the following context sources:                     │  │
+│  │                                                                       │  │
+│  │  📧 Email Query: "client authentication requirements"                │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │  │
+│  │  │ Found 3 relevant emails:                                        │ │  │
+│  │  │                                                                  │ │  │
+│  │  │ 1. "Re: Auth Requirements" - From: client@acme.com              │ │  │
+│  │  │    "We need SSO support with SAML 2.0..."                       │ │  │
+│  │  │                                                                  │ │  │
+│  │  │ 2. "Security Requirements Doc" - From: security@acme.com        │ │  │
+│  │  │    "MFA required for all admin accounts..."                     │ │  │
+│  │  │                                                                  │ │  │
+│  │  │ 3. "Timeline Discussion" - From: pm@acme.com                    │ │  │
+│  │  │    "Auth system needed by end of Q1..."                         │ │  │
+│  │  │                                                        [Expand] │ │  │
+│  │  └─────────────────────────────────────────────────────────────────┘ │  │
+│  │                                                                       │  │
+│  │  📁 Drive Query: "authentication design"                             │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │  │
+│  │  │ Found 2 relevant documents:                                     │ │  │
+│  │  │                                                                  │ │  │
+│  │  │ 1. "Auth_System_Design_v2.docx"                                 │ │  │
+│  │  │    Previous auth system design from 2024...                     │ │  │
+│  │  │                                                                  │ │  │
+│  │  │ 2. "Security_Compliance_Checklist.xlsx"                         │ │  │
+│  │  │    SOC2 requirements for authentication...                      │ │  │
+│  │  │                                                        [Expand] │ │  │
+│  │  └─────────────────────────────────────────────────────────────────┘ │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ AGENT'S SYNTHESIS ──────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Based on context from 3 emails and 2 documents, I've identified:    │  │
+│  │                                                                       │  │
+│  │  Key Requirements:                                                    │  │
+│  │  • SSO with SAML 2.0 support (client email, Jan 3)                   │  │
+│  │  • MFA for admin accounts (security requirement)                     │  │
+│  │  • SOC2 compliance needed (from compliance checklist)                │  │
+│  │  • Deadline: End of Q1 (PM email, Dec 28)                            │  │
+│  │                                                                       │  │
+│  │  Previous Work:                                                       │  │
+│  │  • 2024 design doc shows JWT-based approach that could be extended   │  │
+│  │                                                                       │  │
+│  │  Recommended approach: Extend existing JWT system, add SAML layer... │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 8.8 Integration Actions in Workflow
+
+How action channel integrations appear in project workflows.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Project: User Auth System                                                  │
+│  ──────────────────────────────────────────────────────────────────────────│
+│                                                                             │
+│  ┌─ WORKFLOW PHASE: Implementation ─────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  ┌─ Step 3: Create GitHub PR ────────────────────────────────────┐   │  │
+│  │  │                                                                │   │  │
+│  │  │  Status: ✓ Completed                                          │   │  │
+│  │  │  Agent: BE-01 (Backend Worker)                                │   │  │
+│  │  │                                                                │   │  │
+│  │  │  ┌─ INTEGRATION ACTION ─────────────────────────────────────┐ │   │  │
+│  │  │  │  🐙 GitHub: Pull Request Created                         │ │   │  │
+│  │  │  │                                                           │ │   │  │
+│  │  │  │  Repository: my-company/main-app                         │ │   │  │
+│  │  │  │  PR #234: "feat: Add user authentication module"         │ │   │  │
+│  │  │  │  Branch: feature/user-auth → main                        │ │   │  │
+│  │  │  │                                                           │ │   │  │
+│  │  │  │  Files changed: 12  Additions: +847  Deletions: -23      │ │   │  │
+│  │  │  │                                                           │ │   │  │
+│  │  │  │  [View on GitHub ↗]                                       │ │   │  │
+│  │  │  └───────────────────────────────────────────────────────────┘ │   │  │
+│  │  │                                                                │   │  │
+│  │  └────────────────────────────────────────────────────────────────┘   │  │
+│  │                                                                       │  │
+│  │  ┌─ Step 4: Merge to Main ───────────────────────────────────────┐   │  │
+│  │  │                                                                │   │  │
+│  │  │  Status: ⏸ Awaiting Gate Approval                             │   │  │
+│  │  │                                                                │   │  │
+│  │  │  ┌─ GATE REQUIRED ──────────────────────────────────────────┐ │   │  │
+│  │  │  │  🔒 Code Review Gate                                      │ │   │  │
+│  │  │  │                                                           │ │   │  │
+│  │  │  │  This action requires approval because:                   │ │   │  │
+│  │  │  │  • "Merge PR" action is gated in GitHub integration       │ │   │  │
+│  │  │  │  • Target branch "main" is protected                      │ │   │  │
+│  │  │  │                                                           │ │   │  │
+│  │  │  │  [Review PR] [Approve & Merge] [Reject]                   │ │   │  │
+│  │  │  └───────────────────────────────────────────────────────────┘ │   │  │
+│  │  │                                                                │   │  │
+│  │  └────────────────────────────────────────────────────────────────┘   │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 8.9 Mobile View
+
+```
+┌─────────────────────────┐
+│  ≡  Integrations   👤   │
+├─────────────────────────┤
+│                         │
+│  ● 8 Connected          │
+│  ⚠ 1 Needs Attention   │
+│                         │
+│  ┌─────────────────────┐│
+│  │ 📥 Context Sources  ││
+│  │    ▼                ││
+│  └─────────────────────┘│
+│                         │
+│  ┌─────────────────────┐│
+│  │ 📧 Gmail       ●    ││
+│  │ 2,341 indexed       ││
+│  │            [Config] ││
+│  └─────────────────────┘│
+│                         │
+│  ┌─────────────────────┐│
+│  │ 📁 Drive       ●    ││
+│  │ 847 indexed         ││
+│  │            [Config] ││
+│  └─────────────────────┘│
+│                         │
+│  ┌─────────────────────┐│
+│  │ 📄 Notion      ●    ││
+│  │ 156 indexed         ││
+│  │            [Config] ││
+│  └─────────────────────┘│
+│                         │
+│  ┌─────────────────────┐│
+│  │ 📤 Action Channels  ││
+│  │    ▶                ││
+│  └─────────────────────┘│
+│                         │
+│  ┌─────────────────────┐│
+│  │ 👤 CEO Direct       ││
+│  │    ▶                ││
+│  └─────────────────────┘│
+│                         │
+│  [+ Add Integration]    │
+│                         │
+├─────────────────────────┤
+│ 🏠  📋  🔍  ⚙️  👤      │
+└─────────────────────────┘
+```
+
+---
+
+#### 8.10 Technical Implementation
+
+##### TypeScript Interfaces
+
+```typescript
+// Integration system types
+interface Integration {
+  id: string;
+  name: string;
+  type: 'context_source' | 'action_channel' | 'ceo_direct';
+  provider: string;  // 'gmail', 'github', 'twilio', etc.
+  status: 'connected' | 'disconnected' | 'error' | 'pending';
+  config: IntegrationConfig;
+  stats: IntegrationStats;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface IntegrationConfig {
+  // Context source config
+  indexSettings?: {
+    sources: string[];
+    labels?: string[];
+    timeRange: 'all' | 'days' | 'custom';
+    timeRangeDays?: number;
+    customRange?: { start: string; end: string };
+  };
+
+  // Action channel config
+  actionSettings?: {
+    allowedActions: ActionPermission[];
+    protectedResources: string[];
+  };
+
+  // CEO direct config
+  notificationSettings?: {
+    triggers: NotificationTrigger[];
+    quietHours?: { start: string; end: string; enabled: boolean };
+  };
+
+  // Access control
+  agentAccess: 'all' | 'executive' | 'specific';
+  allowedDepartments?: string[];
+
+  // Sync settings
+  syncFrequency: 'realtime' | 'minutes' | 'hourly' | 'daily';
+  syncIntervalMinutes?: number;
+}
+
+interface ActionPermission {
+  action: string;
+  requiresApproval: boolean;
+  gateType?: string;
+}
+
+interface NotificationTrigger {
+  event: string;
+  enabled: boolean;
+  threshold?: number;  // e.g., hours before triggering
+}
+
+interface IntegrationStats {
+  itemsIndexed?: number;
+  storageUsed?: number;
+  queriesThisWeek?: number;
+  actionsThisWeek?: number;
+  lastSyncAt?: string;
+  lastActionAt?: string;
+}
+
+// Context index types
+interface ContextItem {
+  id: string;
+  integrationId: string;
+  source: string;
+  type: 'email' | 'file' | 'document' | 'event' | 'message';
+  title: string;
+  summary: string;
+  content?: string;
+  metadata: Record<string, any>;
+  indexedAt: string;
+  relevanceScore?: number;
+}
+
+interface ContextQuery {
+  id: string;
+  agentId: string;
+  query: string;
+  sources: string[];
+  results: ContextItem[];
+  timestamp: string;
+}
+
+// Integration action types
+interface IntegrationAction {
+  id: string;
+  integrationId: string;
+  type: string;
+  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'failed';
+  agentId: string;
+  projectId?: string;
+  payload: Record<string, any>;
+  result?: Record<string, any>;
+  gateId?: string;  // If requires approval
+  createdAt: string;
+  completedAt?: string;
+}
+
+// CEO communication types
+interface CEONotification {
+  id: string;
+  channel: 'sms' | 'email' | 'push';
+  type: string;
+  subject?: string;
+  body: string;
+  priority: 'normal' | 'urgent' | 'emergency';
+  status: 'queued' | 'sent' | 'delivered' | 'failed';
+  sentAt?: string;
+  metadata: Record<string, any>;
+}
+```
+
+##### API Endpoints
+
+```
+# Integrations
+GET    /api/integrations                    → List all integrations
+GET    /api/integrations/:id                → Get integration details
+POST   /api/integrations                    → Add new integration
+PUT    /api/integrations/:id                → Update integration config
+DELETE /api/integrations/:id                → Remove integration
+POST   /api/integrations/:id/reconnect      → Reconnect integration
+POST   /api/integrations/:id/sync           → Trigger manual sync
+GET    /api/integrations/:id/stats          → Get integration statistics
+GET    /api/integrations/:id/activity       → Get integration activity log
+
+# OAuth flow
+GET    /api/integrations/oauth/:provider    → Start OAuth flow
+GET    /api/integrations/oauth/callback     → OAuth callback handler
+
+# Context index
+GET    /api/context                         → List indexed content
+GET    /api/context/search                  → Search context index
+GET    /api/context/queries                 → List recent agent queries
+GET    /api/context/stats                   → Context index statistics
+POST   /api/context/reindex                 → Trigger reindexing
+
+# Integration actions
+GET    /api/integration-actions             → List integration actions
+GET    /api/integration-actions/:id         → Get action details
+POST   /api/integration-actions/:id/approve → Approve gated action
+POST   /api/integration-actions/:id/reject  → Reject gated action
+
+# CEO notifications
+GET    /api/ceo-notifications               → List CEO notifications
+POST   /api/ceo-notifications/test          → Send test notification
+PUT    /api/ceo-notifications/preferences   → Update notification prefs
+
+# Available integrations catalog
+GET    /api/integrations/catalog            → List available integrations
+GET    /api/integrations/catalog/:provider  → Get provider details
+```
+
+##### WebSocket Events
+
+```typescript
+// Integration events
+interface IntegrationEvent {
+  type: 'integration.connected' | 'integration.disconnected' |
+        'integration.error' | 'integration.synced';
+  integrationId: string;
+  data: any;
+}
+
+// Context events
+interface ContextEvent {
+  type: 'context.query' | 'context.indexed' | 'context.updated';
+  integrationId?: string;
+  agentId?: string;
+  data: any;
+}
+
+// Action events
+interface ActionEvent {
+  type: 'action.requested' | 'action.approved' |
+        'action.rejected' | 'action.completed' | 'action.failed';
+  actionId: string;
+  integrationId: string;
+  data: any;
+}
+```
+
+---
+
+## Global UI Patterns & Component Library
+
+This section defines reusable patterns, components, and interactions that appear across multiple screens.
+
+---
+
+### 7.1 Navigation & Layout
+
+#### Global Header
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🏢 AI CORP                                                                 │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  [Dashboard] [Discovery] [Projects] [Agents] [Gates] [Integrations] [Settings]│
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ 🔍 Search projects, agents, gates...                            [⌘K]   ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│                                 [🔔 3] [❓ Help] [👤 CEO ▼]                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Navigation States:**
+- **Default**: Tab name in regular weight
+- **Active**: Tab highlighted with accent color, underline indicator
+- **Hover**: Subtle background highlight
+- **Badge**: Red dot/number for pending actions (e.g., Gates)
+
+#### Sidebar (Collapsed/Expanded)
+```
+EXPANDED                           COLLAPSED
+┌────────────────────┐             ┌────┐
+│ 🏢 AI CORP        │             │ 🏢 │
+│                    │             │    │
+│ 📊 Dashboard       │             │ 📊 │
+│ 🆕 Discovery       │             │ 🆕 │
+│ 📁 Projects        │             │ 📁 │
+│   └─ Active (3)    │             │    │
+│   └─ Completed     │             │    │
+│   └─ Archived      │             │    │
+│ 👥 Agents          │             │ 👥 │
+│ 🚪 Gates  🔴 2     │             │ 🚪2│
+│ ⚙️ Settings        │             │ ⚙️ │
+│                    │             │    │
+│ ─────────────────  │             │ ── │
+│                    │             │    │
+│ 💬 Get Help        │             │ 💬 │
+│ 📖 Documentation   │             │ 📖 │
+│                    │             │    │
+│              [≪]   │             │ [≫]│
+└────────────────────┘             └────┘
+```
+
+---
+
+### 7.2 Status Indicators
+
+Consistent status indicators used throughout the application:
+
+```
+┌─ STATUS INDICATOR REFERENCE ────────────────────────────────────────────────┐
+│                                                                             │
+│  AGENT/SYSTEM STATUS:                                                       │
+│                                                                             │
+│  ● Active/Healthy (green)    Agent is running and responsive               │
+│  ◐ Busy/Working (blue)       Agent is processing a task                    │
+│  ○ Idle/Available (gray)     Agent is ready for work                       │
+│  ◌ Offline (dim gray)        Agent is not running                          │
+│  ⚠ Warning (yellow)          Agent has non-critical issues                 │
+│  ✗ Error/Failed (red)        Agent has critical issues                     │
+│                                                                             │
+│  PROJECT/TASK STATUS:                                                       │
+│                                                                             │
+│  ◉ In Progress (blue)        Currently being worked on                     │
+│  ✓ Complete (green)          Successfully finished                         │
+│  ○ Pending (gray)            Not yet started                               │
+│  ⏸ Paused (yellow)           Temporarily stopped                           │
+│  ⚠ Blocked (orange)          Waiting on dependency/approval                │
+│  ✗ Failed (red)              Could not complete                            │
+│                                                                             │
+│  GATE STATUS:                                                               │
+│                                                                             │
+│  🔴 Pending (red badge)      Awaiting your review                          │
+│  🟡 In Review (yellow)       Being reviewed                                │
+│  ✓ Approved (green)          Passed gate                                   │
+│  ✗ Rejected (red)            Did not pass gate                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Status Badge Component:**
+```
+┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
+│ ● Active │   │ ◐ Busy   │   │ ○ Idle   │   │ ✗ Error  │
+└──────────┘   └──────────┘   └──────────┘   └──────────┘
+ Green bg       Blue bg        Gray bg        Red bg
+ White text     White text     Dark text      White text
+```
+
+---
+
+### 7.3 Progress Indicators
+
+#### Linear Progress Bar
+```
+DETERMINATE:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ████████████████████████████████░░░░░░░░░░░░░░░  67%                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+WITH LABEL:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Build Phase                                                                │
+│  ████████████████████████████████░░░░░░░░░░░░░░░  67% complete             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+SEGMENTED (Multi-phase):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ███████████│████████│████░░░░│░░░░░░░░│░░░░░░░░                           │
+│  Research    Design   Build    QA        Deploy                             │
+│  Complete    Complete In Prog  Pending   Pending                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+INDETERMINATE (Loading):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ░░░░░▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  Analyzing...            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Step Indicators
+```
+HORIZONTAL:
+   (1)━━━━━━(2)━━━━━━(3)━━━━━━(4)━━━━━━(5)
+   ●         ●        ◉        ○        ○
+Research  Design   Build     QA     Deploy
+
+VERTICAL (Timeline):
+   ● Research ─────────────── Complete
+   │
+   ● Design ───────────────── Complete
+   │
+   ◉ Build ────────────────── In Progress (67%)
+   │
+   ○ QA ───────────────────── Pending
+   │
+   ○ Deploy ───────────────── Pending
+```
+
+---
+
+### 7.4 Cards & Containers
+
+#### Metric Card
+```
+┌──────────────────────┐   ┌──────────────────────┐
+│   ████████████████   │   │        ⚠ 3           │
+│        12/15         │   │      PENDING         │
+│   Agents Healthy     │   │     APPROVALS        │
+│    ● All systems go  │   │    [Review →]        │
+│      [View All →]    │   │                      │
+└──────────────────────┘   └──────────────────────┘
+     Normal state              Alert state
+     (subtle border)           (yellow accent)
+```
+
+#### Entity Card (Agent/Project)
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ██  Agent Name (Role)                                        ● ACTIVE     │
+│  ██                                                                         │
+│      Department: Engineering > Frontend                                     │
+│      Current: Working on User Auth System                                   │
+│      Queue: 2 items                                                         │
+│                                                                             │
+│      ████████████████████████████████░░░░░░░░  75% current task            │
+│                                                                             │
+│      [View] [Message] [Reassign]                                ⋮          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Expandable Card
+```
+COLLAPSED:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  📁 User Auth System                    67% ████████░░░░     [Expand ▼]    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+EXPANDED:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  📁 User Auth System                    67% ████████░░░░     [Collapse ▲]  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Objective: Enable secure user authentication                               │
+│  Current Phase: Build (3 workers active)                                    │
+│  Next Gate: Security Review (triggers at 90%)                              │
+│                                                                             │
+│  Recent Activity:                                                           │
+│  • FE-01 completed login form (5m ago)                                     │
+│  • BE-02 started email service (20m ago)                                   │
+│                                                                             │
+│  [View Full Details] [Pause] [Reassign]                                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.5 Activity Feeds
+
+#### Standard Activity Item
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  📋 FE-01 completed checkpoint: "Login form component"          5 min ago  │
+│      8 files changed, +342 -12 lines                                        │
+│      [View Diff] [View PR]                                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Activity Types Visual Reference
+```
+📋  Checkpoint completed       (blue icon)
+💬  Message/Comment            (gray icon)
+🔄  Assignment change          (purple icon)
+▶️  Work started               (green icon)
+⏸  Work paused                (yellow icon)
+🚪  Gate action                (orange icon)
+⚠️  Alert/Warning              (red icon)
+✅  Phase/Project completed    (green icon)
+✗  Failure/Error              (red icon)
+👤  User action (CEO)          (special icon)
+```
+
+#### Live Activity Badge
+```
+┌────────────┐
+│ ● LIVE     │  ← Green pulsing dot
+└────────────┘
+```
+
+---
+
+### 7.6 Modals & Dialogs
+
+#### Standard Modal Structure
+```
+┌─ MODAL TITLE ────────────────────────────────────────────────────────── [×] ┐
+│                                                                             │
+│  ┌─ CONTENT AREA ──────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  │  Modal content goes here. Can include forms, information,              ││
+│  │  or any other content.                                                  ││
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│                                              [Cancel]  [Primary Action]     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Confirmation Dialog
+```
+┌─ Confirm Action ─────────────────────────────────────────────────────── [×] ┐
+│                                                                             │
+│                              ⚠️                                             │
+│                                                                             │
+│                    Are you sure you want to                                 │
+│                    archive this project?                                    │
+│                                                                             │
+│  This will:                                                                 │
+│  • Stop all active workers                                                  │
+│  • Move project to archived state                                           │
+│  • Preserve all history                                                     │
+│                                                                             │
+│  This action can be undone.                                                 │
+│                                                                             │
+│                                              [Cancel]  [Archive Project]    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Destructive Action Dialog
+```
+┌─ Delete All Data ────────────────────────────────────────────────────── [×] ┐
+│                                                                             │
+│                              🗑️                                             │
+│                                                                             │
+│                   This action cannot be undone!                             │
+│                                                                             │
+│  You are about to delete:                                                   │
+│  • 15 projects                                                              │
+│  • 45 agents                                                                │
+│  • All historical data                                                      │
+│                                                                             │
+│  Type "DELETE" to confirm:                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                                                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│                                              [Cancel]  [Delete Forever]     │
+│                                                 (gray)    (red, disabled)   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.7 Notifications & Alerts
+
+#### Toast Notifications
+```
+SUCCESS:                              ERROR:
+┌────────────────────────────────┐   ┌────────────────────────────────┐
+│ ✓ Gate approved successfully   │   │ ✗ Failed to assign worker      │
+│   Project advances to QA       │   │   Retry or contact support     │
+│                          [×]   │   │                          [×]   │
+└────────────────────────────────┘   └────────────────────────────────┘
+  (Green left border)                  (Red left border)
+
+INFO:                                 WARNING:
+┌────────────────────────────────┐   ┌────────────────────────────────┐
+│ ℹ️ New gate pending review      │   │ ⚠️ API rate limit approaching   │
+│   Security Review - Auth        │   │   80% of quota used            │
+│                          [×]   │   │                          [×]   │
+└────────────────────────────────┘   └────────────────────────────────┘
+  (Blue left border)                   (Yellow left border)
+```
+
+**Toast Positioning:** Top-right corner, stack from top
+**Auto-dismiss:** Success/Info after 5s, Error/Warning persist until dismissed
+
+#### Persistent Alert Banner
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ⚠️ 2 gates require your approval. Work is blocked.              [Review →] │
+└─────────────────────────────────────────────────────────────────────────────┘
+  (Yellow background, appears below header, dismissible after action)
+```
+
+#### Empty State
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                                 📭                                          │
+│                                                                             │
+│                          No projects yet                                    │
+│                                                                             │
+│            Start your first project by clicking Discovery                   │
+│                   and describing what you want to build.                   │
+│                                                                             │
+│                         [Start New Project →]                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.8 Forms & Inputs
+
+#### Text Input
+```
+┌─ Label ────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ Input value                                                             ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│  Helper text appears here                                                   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ERROR STATE:
+┌─ Label ────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ Invalid input                                            (red border)  ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│  ✗ This field is required                                   (red text)    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Select/Dropdown
+```
+CLOSED:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Engineering                                                             [▼] │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+OPEN:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Engineering                                                             [▲] │
+├─────────────────────────────────────────────────────────────────────────────┤
+│   Engineering                                                          ●   │
+│   Product                                                              ○   │
+│   Quality Assurance                                                    ○   │
+│   Research (disabled)                                                  ○   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Checkbox & Radio
+```
+CHECKBOX:
+☐ Unchecked
+☑ Checked
+☐ Indeterminate (for "select all" with partial selection)
+
+RADIO:
+○ Unselected
+● Selected
+```
+
+---
+
+### 7.9 Buttons
+
+```
+┌─ BUTTON HIERARCHY ──────────────────────────────────────────────────────────┐
+│                                                                             │
+│  PRIMARY:                                                                   │
+│  ┌────────────────────┐    Main action, one per view                       │
+│  │   Create Project   │    Solid accent color, white text                  │
+│  └────────────────────┘                                                    │
+│                                                                             │
+│  SECONDARY:                                                                 │
+│  ┌────────────────────┐    Supporting actions                              │
+│  │       Cancel       │    Bordered, accent color text                     │
+│  └────────────────────┘                                                    │
+│                                                                             │
+│  TERTIARY:                                                                  │
+│  ┌────────────────────┐    Minor actions, links                            │
+│  │     Learn More     │    Text only, accent color                         │
+│  └────────────────────┘                                                    │
+│                                                                             │
+│  DESTRUCTIVE:                                                               │
+│  ┌────────────────────┐    Dangerous actions                               │
+│  │       Delete       │    Red background or border                        │
+│  └────────────────────┘                                                    │
+│                                                                             │
+│  ICON BUTTONS:                                                              │
+│  [⚙️]  [📤]  [🗑️]  [⋮]    Actions represented by icons                     │
+│                                                                             │
+│  BUTTON STATES:                                                             │
+│  • Default                                                                  │
+│  • Hover (slightly darker)                                                  │
+│  • Active/Pressed (darker still)                                           │
+│  • Disabled (50% opacity, no hover)                                        │
+│  • Loading (spinner replaces text)                                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.10 Tables & Lists
+
+#### Data Table
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  [☐]  Name             Status    Progress    Workers    Actions            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  [☐]  User Auth        ● Active  ██████░ 67%    3       [View] [⋮]        │
+│  [☐]  API Refactor     ⚠ Blocked ████░░░ 50%    2       [View] [⋮]        │
+│  [☐]  Dashboard UI     ● Active  ██░░░░░ 15%    1       [View] [⋮]        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Showing 1-3 of 12                          [◀ Prev] [1] [2] [3] [Next ▶] │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Table Features:**
+- Sortable columns (click header)
+- Bulk selection (checkbox column)
+- Row actions (kebab menu)
+- Pagination
+- Filterable (search bar above)
+
+---
+
+### 7.11 Loading States
+
+```
+SKELETON LOADER (for content areas):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░                                              │
+│  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░                        │
+│  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░                                 │
+│  ▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░                                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+  (Animated shimmer effect from left to right)
+
+SPINNER (for buttons/small areas):
+   ◠ (rotating)
+
+FULL PAGE LOADER:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                                                                             │
+│                                   ⟳                                         │
+│                           Loading agents...                                 │
+│                                                                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.12 Keyboard Shortcuts
+
+```
+┌─ KEYBOARD SHORTCUTS ────────────────────────────────────────────────────────┐
+│                                                                             │
+│  GLOBAL:                                                                    │
+│  ⌘/Ctrl + K          Open command palette / search                        │
+│  ⌘/Ctrl + N          New project (Discovery)                              │
+│  ⌘/Ctrl + /          Open keyboard shortcuts help                         │
+│  Esc                 Close modal / cancel                                  │
+│                                                                             │
+│  NAVIGATION:                                                                │
+│  G then D            Go to Dashboard                                       │
+│  G then P            Go to Projects                                        │
+│  G then A            Go to Agents (Org Chart)                             │
+│  G then G            Go to Gates                                           │
+│  G then S            Go to Settings                                        │
+│                                                                             │
+│  ORG CHART:                                                                 │
+│  Arrow keys          Pan canvas                                            │
+│  +/-                 Zoom in/out                                           │
+│  0                   Reset zoom                                            │
+│  F                   Fit to screen                                         │
+│  Space + drag        Pan (alternative)                                     │
+│                                                                             │
+│  GATES:                                                                     │
+│  A                   Approve selected gate                                 │
+│  R                   Reject selected gate                                  │
+│  J/K                 Next/Previous gate                                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.13 Command Palette
+
+Quick access to any action or navigation:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ 🔍 Type a command or search...                                         ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  RECENT                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │  📁 User Authentication System              Go to project              ││
+│  │  🚪 Security Review                         Review gate                ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ACTIONS                                                                    │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │  🆕 New Project                             Start Discovery            ││
+│  │  👥 View Org Chart                          Go to Agents               ││
+│  │  ⚙️ Open Settings                           Go to Settings             ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  Tip: Press ↑↓ to navigate, Enter to select, Esc to close                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.14 Responsive Breakpoints
+
+```
+┌─ BREAKPOINTS ───────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  MOBILE (< 640px):                                                          │
+│  • Single column layout                                                     │
+│  • Bottom navigation bar                                                    │
+│  • Hamburger menu for secondary nav                                        │
+│  • Cards stack vertically                                                   │
+│  • Tables become card lists                                                 │
+│                                                                             │
+│  TABLET (640px - 1024px):                                                   │
+│  • Two column layout where appropriate                                      │
+│  • Collapsible sidebar                                                      │
+│  • Reduced padding/margins                                                  │
+│                                                                             │
+│  DESKTOP (1024px - 1440px):                                                 │
+│  • Full multi-column layouts                                                │
+│  • Persistent sidebar                                                       │
+│  • Standard spacing                                                         │
+│                                                                             │
+│  LARGE DESKTOP (> 1440px):                                                  │
+│  • Max content width (1400px)                                               │
+│  • Centered with side margins                                               │
+│  • Optional: Show more columns                                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.15 Color System (Semantic)
+
+```
+┌─ COLOR TOKENS ──────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  PRIMARY/ACCENT:                                                            │
+│  Used for: Primary buttons, active tabs, links, focus rings               │
+│  Example: Brand blue (#2563EB)                                             │
+│                                                                             │
+│  SUCCESS:                                                                   │
+│  Used for: Completed states, success messages, healthy indicators          │
+│  Example: Green (#10B981)                                                  │
+│                                                                             │
+│  WARNING:                                                                   │
+│  Used for: Attention needed, blocked states, pending actions              │
+│  Example: Yellow/Amber (#F59E0B)                                           │
+│                                                                             │
+│  ERROR/DESTRUCTIVE:                                                         │
+│  Used for: Errors, failed states, destructive actions                     │
+│  Example: Red (#EF4444)                                                    │
+│                                                                             │
+│  NEUTRAL:                                                                   │
+│  Used for: Text, borders, backgrounds, disabled states                    │
+│  Scale: 50 (lightest) to 950 (darkest)                                    │
+│                                                                             │
+│  ACTIVITY GLOW (Org Chart):                                                 │
+│  Intense:  Blue (#3B82F6) at high opacity                                 │
+│  Active:   Blue (#3B82F6) at medium opacity                               │
+│  Moderate: Cyan (#06B6D4) at low opacity                                  │
+│  Low:      Gray (#9CA3AF) at very low opacity                             │
+│  Dormant:  No glow                                                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.16 Typography Scale
+
+```
+┌─ TYPOGRAPHY ────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  HEADINGS:                                                                  │
+│  H1: 2.25rem (36px)  Bold     Page titles                                  │
+│  H2: 1.875rem (30px) Semi     Section headers                              │
+│  H3: 1.5rem (24px)   Semi     Subsection headers                           │
+│  H4: 1.25rem (20px)  Medium   Card titles                                  │
+│  H5: 1.125rem (18px) Medium   Minor headings                               │
+│                                                                             │
+│  BODY:                                                                      │
+│  Regular: 1rem (16px)    Normal  Default body text                         │
+│  Small:   0.875rem (14px) Normal  Secondary text, labels                   │
+│  XSmall:  0.75rem (12px)  Normal  Captions, timestamps                     │
+│                                                                             │
+│  MONOSPACE:                                                                 │
+│  Code: 0.875rem (14px)    Normal  Code, IDs, technical values              │
+│                                                                             │
+│  LINE HEIGHT:                                                               │
+│  Tight:  1.25   (headings)                                                 │
+│  Normal: 1.5    (body text)                                                │
+│  Relaxed: 1.75  (long-form content)                                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 7.17 Accessibility Requirements
+
+```
+┌─ ACCESSIBILITY CHECKLIST ───────────────────────────────────────────────────┐
+│                                                                             │
+│  COLOR & CONTRAST:                                                          │
+│  ☐ All text meets WCAG 2.1 AA contrast (4.5:1 for normal, 3:1 for large)  │
+│  ☐ Color is not the only indicator of state (use icons/text too)          │
+│  ☐ Focus indicators visible (3:1 contrast)                                │
+│                                                                             │
+│  KEYBOARD NAVIGATION:                                                       │
+│  ☐ All interactive elements focusable                                     │
+│  ☐ Logical tab order                                                       │
+│  ☐ No keyboard traps                                                       │
+│  ☐ Skip links for main content                                            │
+│  ☐ Modal focus management (trap focus, return on close)                   │
+│                                                                             │
+│  SCREEN READERS:                                                            │
+│  ☐ Meaningful alt text for images                                          │
+│  ☐ ARIA labels for icon-only buttons                                       │
+│  ☐ Live regions for dynamic content                                        │
+│  ☐ Proper heading hierarchy                                                │
+│  ☐ Form labels associated with inputs                                     │
+│                                                                             │
+│  MOTION & ANIMATION:                                                        │
+│  ☐ Respect prefers-reduced-motion                                          │
+│  ☐ No auto-playing content without controls                               │
+│  ☐ Animation duration < 5 seconds (or user-controllable)                  │
+│                                                                             │
+│  INTERACTIVE ELEMENTS:                                                      │
+│  ☐ Minimum touch target 44×44px (mobile)                                  │
+│  ☐ Clear hover/focus states                                               │
+│  ☐ Error messages associated with form fields                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Data Models (for API Design)
+
+### Agent
+```typescript
+interface Agent {
+  id: string;              // "vp_engineering"
+  name: string;            // "VP of Engineering"
+  role: "coo" | "vp" | "director" | "worker";
+  department: string;      // "engineering"
+  status: "active" | "idle" | "busy" | "offline";
+  currentWork?: string;    // molecule_id
+  queueDepth: number;
+  capabilities: string[];
+  skills: string[];
+  reportsTo?: string;      // parent agent id
+}
+```
+
+### Molecule (Project)
+```typescript
+interface Molecule {
+  id: string;              // "MOL-A1B2C3D4"
+  name: string;
+  description: string;
+  status: "draft" | "pending" | "active" | "completed" | "failed";
+  progress: number;        // 0-100
+  createdAt: string;
+  createdBy: string;
+  contractId?: string;
+  steps: MoleculeStep[];
+  accountable: string;     // agent id
+}
+
+interface MoleculeStep {
+  id: string;
+  name: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  department: string;
+  assignedTo?: string;
+  dependsOn: string[];     // step ids
+  checkpoints: Checkpoint[];
+  isGate: boolean;
+  gateId?: string;
+}
+```
+
+### Contract
+```typescript
+interface Contract {
+  id: string;              // "CTR-20250106-001"
+  moleculeId: string;
+  objective: string;
+  criteria: Criterion[];
+  inScope: string[];
+  outOfScope: string[];
+  constraints: string[];
+  status: "draft" | "active" | "completed" | "amended";
+}
+
+interface Criterion {
+  id: string;
+  description: string;
+  met: boolean;
+  verifiedBy?: string;
+  verifiedAt?: string;
+}
+```
+
+### Gate Submission
+```typescript
+interface GateSubmission {
+  id: string;
+  gateId: string;
+  gateName: string;        // "Security Review"
+  moleculeId: string;
+  moleculeName: string;
+  submittedBy: string;
+  submittedAt: string;
+  status: "pending" | "approved" | "rejected";
+  criteria: GateCriterion[];
+  notes?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+}
+```
+
+### System Metrics
+```typescript
+interface SystemMetrics {
+  timestamp: string;
+  agents: {
+    total: number;
+    healthy: number;
+    busy: number;
+    idle: number;
+  };
+  projects: {
+    active: number;
+    completed: number;
+    pendingGates: number;
+  };
+  queues: {
+    totalDepth: number;
+    byDepartment: Record<string, number>;
+  };
+  alerts: Alert[];
+}
+```
+
+---
+
+## User Flows
+
+### Flow 1: Create New Project
+```
+Dashboard → [New Project] → Discovery Chat → Finalize Contract → Project Created
+                              ↑                    ↓
+                              └── Back to refine ──┘
+```
+
+### Flow 2: Monitor Project Progress
+```
+Dashboard → Click Project → Project Detail → View Steps/Checkpoints
+                                    ↓
+                              View Worker Output (modal)
+```
+
+### Flow 3: Approve Gate
+```
+Dashboard Alert → Gates Page → Review Submission → Approve/Reject
+       or
+Notification → Gates Page → ...
+```
+
+### Flow 4: Check Agent Status
+```
+Dashboard → Agents → Click Agent → View Details/Queue → Take Action
+```
+
+---
+
+## Real-time Requirements
+
+| View | Update Frequency | Data |
+|------|------------------|------|
+| Dashboard status | 5s | System health, agent counts |
+| Dashboard projects | 30s | Project progress |
+| Dashboard activity | Push | New activity items |
+| Project detail | 10s | Step status, checkpoints |
+| Agents | 10s | Agent status, queue depth |
+| Gates | Push | New submissions |
+
+**Recommended:** WebSocket connection for push updates, with polling fallback.
+
+---
+
+## Mobile Considerations
+
+**Priority Views for Mobile:**
+1. Dashboard (simplified)
+2. Gate Approvals (critical path)
+3. Project list (read-only)
+
+**Can Defer:**
+- Org chart (complex visualization)
+- Settings (infrequent use)
+- Discovery chat (better on desktop)
+
+---
+
+## Accessibility Requirements
+
+- WCAG 2.1 AA compliance
+- Keyboard navigation for all interactions
+- Screen reader support for status indicators
+- Color-blind friendly status colors (use icons + color)
+- Focus indicators for interactive elements
+
+---
+
+## Design Principles
+
+1. **CEO Perspective**: User is executive, not operator. Show outcomes, not implementation details.
+
+2. **Progressive Disclosure**: Dashboard → Project → Step → Detail. Don't overwhelm.
+
+3. **Status at a Glance**: Health indicators visible without clicking. Problems surface automatically.
+
+4. **Trust but Verify**: AI handles execution, but human approves gates and can intervene.
+
+5. **Activity Over Configuration**: Most time spent monitoring, not configuring. Optimize for that.
+
+---
+
+### 9. Preset System & Initialization
+
+**Purpose:** Configure and spawn new AI Corp instances from industry presets. This section covers the initialization flow and preset management that enables AI Corp to be deployed for any industry while maintaining consistent quality.
+
+---
+
+#### 9.1 Preset System Overview
+
+Presets are industry-specific configurations that define:
+- Organizational structure (hierarchy, roles, departments)
+- Workflows (standard processes for that industry)
+- Quality gates (approval checkpoints)
+- Skills and capabilities
+- Configuration defaults (branding, models, terminology)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PRESET ARCHITECTURE                                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ PRESET ─────────────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  preset.yaml (manifest)                                               │  │
+│  │  ├── org/                                                             │  │
+│  │  │   ├── hierarchy.yaml      # Reporting chains                       │  │
+│  │  │   ├── roles/              # Executive, VP, Director, Worker        │  │
+│  │  │   └── departments/        # Department definitions                 │  │
+│  │  ├── workflows/              # Industry-specific workflows            │  │
+│  │  ├── gates/                  # Quality gate definitions               │  │
+│  │  ├── skills/                 # AI skill packages                      │  │
+│  │  └── config/                                                          │  │
+│  │      ├── branding.yaml       # Identity, theme, terminology           │  │
+│  │      ├── models.yaml         # AI model assignments per role          │  │
+│  │      └── capabilities.yaml   # Capability definitions                 │  │
+│  │                                                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 9.2 Initialization Wizard
+
+First-time setup flow for new AI Corp instances:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CREATE YOUR AI CORPORATION                                    Step 1 of 3  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ SELECT INDUSTRY PRESET ─────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Choose a preset that best matches your industry:                     │  │
+│  │                                                                       │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │  │
+│  │  │  ⚡ SOFTWARE COMPANY                              [RECOMMENDED]  │ │  │
+│  │  │                                                                  │ │  │
+│  │  │  Full-featured software development corporation                  │ │  │
+│  │  │                                                                  │ │  │
+│  │  │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │ │  │
+│  │  │  Industry: Software    Complexity: ★★★★★    Team: 10-50        │ │  │
+│  │  │                                                                  │ │  │
+│  │  │  Includes:                                                       │ │  │
+│  │  │  • 5 departments (Engineering, Research, Product, Quality, Ops)  │ │  │
+│  │  │  • 12 director roles                                             │ │  │
+│  │  │  • Feature development & bug fix workflows                       │ │  │
+│  │  │  • Code review, QA, Security, Deployment gates                   │ │  │
+│  │  │                                                                  │ │  │
+│  │  └─────────────────────────────────────────────────────────────────┘ │  │
+│  │                                                                       │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │  │
+│  │  │  📋 BLANK TEMPLATE                                               │ │  │
+│  │  │                                                                  │ │  │
+│  │  │  Minimal starting point for custom industries                    │ │  │
+│  │  │                                                                  │ │  │
+│  │  │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │ │  │
+│  │  │  Industry: Generic     Complexity: ★           Team: 3-20       │ │  │
+│  │  │                                                                  │ │  │
+│  │  └─────────────────────────────────────────────────────────────────┘ │  │
+│  │                                                                       │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │  │
+│  │  │  🏢 MORE PRESETS COMING SOON                                     │ │  │
+│  │  │     Consulting, Legal, Marketing Agency, etc.                    │ │  │
+│  │  └─────────────────────────────────────────────────────────────────┘ │  │
+│  │                                                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│                                                              [Next →]       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Step 2: Customize Identity**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CREATE YOUR AI CORPORATION                                    Step 2 of 3  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ CUSTOMIZE YOUR CORPORATION ─────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Corporation Name: *                                                  │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │  │
+│  │  │ Acme Development Studio                                         │ │  │
+│  │  └─────────────────────────────────────────────────────────────────┘ │  │
+│  │                                                                       │  │
+│  │  Tagline:                                                             │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │  │
+│  │  │ Building the future, one sprint at a time                       │ │  │
+│  │  └─────────────────────────────────────────────────────────────────┘ │  │
+│  │                                                                       │  │
+│  │  Description:                                                         │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │  │
+│  │  │ An AI-powered software development organization focused on      │ │  │
+│  │  │ building modern web applications and APIs.                      │ │  │
+│  │  └─────────────────────────────────────────────────────────────────┘ │  │
+│  │                                                                       │  │
+│  │  ┌─ THEME (Optional) ────────────────────────────────────────────┐  │  │
+│  │  │                                                                │  │  │
+│  │  │  Primary Color:   [■ #2563eb]  Secondary: [■ #7c3aed]         │  │  │
+│  │  │                                                                │  │  │
+│  │  │  [○] Light mode default    [●] Dark mode default              │  │  │
+│  │  │                                                                │  │  │
+│  │  └────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│                                                    [← Back]   [Next →]      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Step 3: Review & Create**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CREATE YOUR AI CORPORATION                                    Step 3 of 3  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ REVIEW YOUR CONFIGURATION ──────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  ┌─ IDENTITY ─────────────────────────────────────────────────────┐  │  │
+│  │  │  Name:        Acme Development Studio                          │  │  │
+│  │  │  Preset:      Software Company                                 │  │  │
+│  │  │  Industry:    Software                                         │  │  │
+│  │  └────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                       │  │
+│  │  ┌─ ORGANIZATION ─────────────────────────────────────────────────┐  │  │
+│  │  │  Departments:    5 (Engineering, Research, Product, Quality,   │  │  │
+│  │  │                     Operations)                                 │  │  │
+│  │  │  Directors:      12 roles defined                              │  │  │
+│  │  │  Worker Pools:   8 pools configured                            │  │  │
+│  │  └────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                       │  │
+│  │  ┌─ WORKFLOWS & GATES ────────────────────────────────────────────┐  │  │
+│  │  │  Workflows:      Feature Development, Bug Fix                  │  │  │
+│  │  │  Quality Gates:  Code Review, QA, Security, Deployment         │  │  │
+│  │  └────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                       │  │
+│  │  ┌─ AI MODELS ────────────────────────────────────────────────────┐  │  │
+│  │  │  Executives:     Claude Opus 4.5                               │  │  │
+│  │  │  VPs/Directors:  Claude Opus 4.5                               │  │  │
+│  │  │  Workers:        Claude Sonnet 4                               │  │  │
+│  │  └────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ⚠️  This will create the .aicorp directory in your project.               │
+│                                                                             │
+│                                        [← Back]   [Create Corporation →]    │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 9.3 Preset Browser
+
+View and explore available presets:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PRESET BROWSER                                             [🔍 Search...] │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Filter by: [All ▼]  [Software ▼]  [Services ▼]  Complexity: [Any ▼]       │
+│                                                                             │
+│  ┌─ SOFTWARE-COMPANY ───────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  ⚡ Software Company                                     ★★★★★ (5/5)  │  │
+│  │                                                                       │  │
+│  │  Full-featured software development corporation with Engineering,     │  │
+│  │  Research, Product, Quality, and Operations departments.              │  │
+│  │                                                                       │  │
+│  │  ┌────────────────────────────────────────────────────────────────┐  │  │
+│  │  │ Industry: software  │  Team: 10-50  │  Tags: dev, engineering  │  │  │
+│  │  └────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                       │  │
+│  │  [View Details]                                       [Use Preset →]  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ _BLANK ─────────────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  📋 Blank Template                                       ★ (1/5)      │  │
+│  │                                                                       │  │
+│  │  Minimal starting point for creating custom industry presets.         │  │
+│  │  Contains basic COO → Manager → Worker hierarchy.                     │  │
+│  │                                                                       │  │
+│  │  ┌────────────────────────────────────────────────────────────────┐  │  │
+│  │  │ Industry: generic   │  Team: 3-20   │  Tags: template, starter │  │  │
+│  │  └────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                       │  │
+│  │  [View Details]                                       [Use Preset →]  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 9.4 Preset Detail View
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ← Back to Presets                                         [Use Preset →]  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ⚡ SOFTWARE COMPANY                                                        │
+│  ═══════════════════════════════════════════════════════════════════════   │
+│                                                                             │
+│  Full-featured software development corporation with Engineering,           │
+│  Research, Product, Quality, and Operations departments working             │
+│  together to deliver high-quality software products.                        │
+│                                                                             │
+│  ┌─ METADATA ───────────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  ID:           software-company                                       │  │
+│  │  Version:      1.0                                                    │  │
+│  │  Author:       AI Corp                                                │  │
+│  │  Industry:     Software                                               │  │
+│  │  Complexity:   ★★★★★ (5/5)                                           │  │
+│  │  Team Size:    10-50 agents (default: 25)                             │  │
+│  │  Tags:         software, development, engineering, startup, tech      │  │
+│  │                                                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ ORGANIZATION STRUCTURE ─────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  DEPARTMENTS (5):                                                     │  │
+│  │  ├── Engineering     VP + 4 Directors (Architecture, Frontend,       │  │
+│  │  │                   Backend, DevOps)                                 │  │
+│  │  ├── Research        VP + 2 Directors (Market, Technical)            │  │
+│  │  ├── Product         VP + 2 Directors (Product, Design)              │  │
+│  │  ├── Quality         VP + 2 Directors (QA, Security)                 │  │
+│  │  └── Operations      VP + 2 Directors (Project, Documentation)       │  │
+│  │                                                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ WORKFLOWS ──────────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  📋 Feature Development                                               │  │
+│  │     Research → Design → Build → Quality → Deploy                      │  │
+│  │     Gates: design_review, code_review, qa_gate, deployment_gate       │  │
+│  │                                                                       │  │
+│  │  🐛 Bug Fix                                                           │  │
+│  │     Triage → Investigate → Fix → Verify → Deploy                      │  │
+│  │     Gates: code_review, qa_gate                                       │  │
+│  │                                                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ QUALITY GATES ──────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  🔍 Code Review    → Tests pass, lint pass, manual review             │  │
+│  │  ✅ QA Gate        → Unit/integration/E2E tests, acceptance criteria  │  │
+│  │  🔒 Security Gate  → SAST, dependency scan, OWASP Top 10 review       │  │
+│  │  🚀 Deployment     → Staging verified, rollback plan, on-call ready   │  │
+│  │                                                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 9.5 Configuration Management (Updated Settings Section)
+
+The Settings section now reflects externalized configuration files:
+
+```
+┌─ CONFIGURATION ─────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  Configuration is organized into three files that can be exported/imported: │
+│                                                                             │
+│  ┌─ BRANDING (branding.yaml) ───────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Identity:                                                            │  │
+│  │    Name:        Acme Development Studio                               │  │
+│  │    Tagline:     Building the future                                   │  │
+│  │    Industry:    software                                              │  │
+│  │                                                                       │  │
+│  │  Theme:                                                               │  │
+│  │    Primary:     #2563eb    Secondary:  #7c3aed    Accent:  #10b981   │  │
+│  │    Dark mode:   [✓] Default                                           │  │
+│  │                                                                       │  │
+│  │  Terminology:                                                         │  │
+│  │    Project: "Project"   Task: "Task"   Gate: "Quality Gate"          │  │
+│  │                                                                       │  │
+│  │                                          [Edit Branding]              │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ MODELS (models.yaml) ───────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Role Assignments:                                                    │  │
+│  │  ┌────────────────┬─────────────────────┬───────────────────────────┐│  │
+│  │  │ Level          │ Model               │ Settings                  ││  │
+│  │  ├────────────────┼─────────────────────┼───────────────────────────┤│  │
+│  │  │ Executive      │ claude-opus-4-5     │ temp: 0.7, tokens: 16000  ││  │
+│  │  │ Vice President │ claude-opus-4-5     │ temp: 0.6, tokens: 12000  ││  │
+│  │  │ Director       │ claude-opus-4-5     │ temp: 0.5, tokens: 8000   ││  │
+│  │  │ Worker         │ claude-sonnet-4     │ temp: 0.3, tokens: 8000   ││  │
+│  │  └────────────────┴─────────────────────┴───────────────────────────┘│  │
+│  │                                                                       │  │
+│  │  Cost Optimization:                                                   │  │
+│  │    [✓] Enabled   Daily Budget: [Unlimited ▼]                         │  │
+│  │                                                                       │  │
+│  │                                          [Edit Models]                │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ CAPABILITIES (capabilities.yaml) ───────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  Categories: Programming, Frameworks, Infrastructure, Design,         │  │
+│  │              Quality, Management                                      │  │
+│  │                                                                       │  │
+│  │  Capabilities defined: 32                                             │  │
+│  │  Department profiles: 5                                               │  │
+│  │                                                                       │  │
+│  │                                          [Edit Capabilities]          │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│                                     [📤 Export All]  [📥 Import Config]   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 9.6 Technical Implementation Notes
+
+**TypeScript Interfaces:**
+
+```typescript
+interface Preset {
+  id: string;
+  name: string;
+  description: string;
+  metadata: PresetMetadata;
+  includes: PresetIncludes;
+  customization: PresetCustomization;
+}
+
+interface PresetMetadata {
+  industry: string;
+  version: string;
+  author: string;
+  tags: string[];
+  complexity: 1 | 2 | 3 | 4 | 5;
+  teamSize: {
+    min: number;
+    max: number;
+    default: number;
+  };
+}
+
+interface PresetIncludes {
+  org: {
+    hierarchy: string;
+    roles: string[];
+    departments: string[];
+  };
+  workflows: string[];
+  gates: string[];
+  skills: string[];
+  config: {
+    branding: string;
+    models: string;
+    capabilities: string;
+  };
+}
+
+interface PresetCustomization {
+  required: string[];   // Fields that must be customized
+  optional: string[];   // Fields that can be customized
+}
+
+interface BrandingConfig {
+  identity: {
+    name: string;
+    tagline: string;
+    industry: string;
+    legalName: string;
+    shortName: string;
+  };
+  description: string;
+  theme: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    darkModeDefault: boolean;
+    fontFamily: string;
+  };
+  terminology: Record<string, string>;
+  communication: {
+    selfReference: string;
+    greeting: string;
+    tone: 'professional' | 'casual' | 'formal';
+  };
+}
+
+interface ModelsConfig {
+  defaultModel: string;
+  roleModels: {
+    executive: ModelAssignment;
+    vicePresident: ModelAssignment;
+    director: ModelAssignment;
+    worker: ModelAssignment;
+  };
+  taskModels: Record<string, ModelAssignment>;
+  costOptimization: {
+    enabled: boolean;
+    dailyBudgetUsd: number | null;
+    cacheResponses: boolean;
+  };
+}
+
+interface ModelAssignment {
+  model: string;
+  maxTokens: number;
+  temperature: number;
+}
+
+interface CapabilitiesConfig {
+  categories: CapabilityCategory[];
+  capabilities: Capability[];
+  roleRequirements: Record<string, CapabilityRequirement>;
+  departmentCapabilities: Record<string, DepartmentCapabilityProfile>;
+}
+```
+
+**API Endpoints:**
+
+```
+# Preset Management
+GET    /api/presets                    → List all available presets
+GET    /api/presets/:id                → Get preset details
+GET    /api/presets/:id/preview        → Preview preset structure
+
+# Initialization
+POST   /api/init                       → Initialize new AI Corp from preset
+       Body: { presetId, name, customizations }
+
+# Configuration Files (externalized)
+GET    /api/config/branding            → Get branding configuration
+PUT    /api/config/branding            → Update branding configuration
+
+GET    /api/config/models              → Get models configuration
+PUT    /api/config/models              → Update models configuration
+
+GET    /api/config/capabilities        → Get capabilities configuration
+PUT    /api/config/capabilities        → Update capabilities configuration
+
+# Bulk operations
+POST   /api/config/export              → Export all configuration
+POST   /api/config/import              → Import configuration from file
+POST   /api/config/reset               → Reset to preset defaults
+```
+
+---
+
+#### 9.7 Future: Multi-Corp Management (Apex Vision)
+
+When the Apex multi-corp architecture is implemented, this section will expand to include:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  APEX CORP REGISTRY                                    [+ Spawn New Corp]  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─ OWNED CORPS ────────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  ● Acme Dev Studio         software      $12,450/mo     ▲ 23%        │  │
+│  │  ● DataViz Agency          software      $8,200/mo      ▲ 12%        │  │
+│  │                                                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ CUSTOMER CORPS ─────────────────────────────────────────────────────┐  │
+│  │                                                                       │  │
+│  │  ● Client X Legal          legal         Licensed       Active        │  │
+│  │  ● Client Y Consulting     consulting    Licensed       Active        │  │
+│  │                                                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  Communication: Hub-and-Spoke (all corps report to Apex)                   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Corp Registry Interface:**
+```typescript
+interface CorpRegistry {
+  corps: SpawnedCorp[];
+  totalRevenue: number;
+  totalCosts: number;
+}
+
+interface SpawnedCorp {
+  id: string;
+  name: string;
+  preset: string;
+  type: 'owned' | 'customer';
+  status: 'active' | 'paused' | 'shutdown';
+  metrics: {
+    revenue: number;
+    costs: number;
+    activeProjects: number;
+    satisfaction: number;
+  };
+  autonomyLevel: 'high' | 'medium' | 'low';
+  createdAt: string;
+}
+```
+
+---
+
+## Open Questions for Designers
+
+1. **Notification Strategy**: How aggressively should we notify? Desktop notifications? Email?
+
+2. **Dark Mode**: Priority for v1 or later?
+
+3. **Mobile**: Responsive web or native apps eventually?
+
+4. **Branding**: Corporate/professional or modern/startup feel?
+
+5. **Onboarding**: First-time user flow? Preset selection wizard? (See Section 9.2)
+
+6. **Multi-Corp Dashboard**: How to visualize multiple AI Corps in the Apex view?
+
+---
+
+## Next Steps
+
+1. **Review this spec** - Feedback from designers
+2. **Wireframes** - Low-fidelity for key screens
+3. **API Design** - Endpoints to support these views
+4. **Component Library** - Design system setup
+5. **Prototype** - Clickable prototype for validation
+
+---
+
+*Document Version: 1.0*
+*Last Updated: 2025-01-06*

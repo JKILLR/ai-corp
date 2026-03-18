@@ -1,0 +1,92 @@
+# Engineering Department Configuration
+# VP Engineering leads Architecture, Frontend, Backend, and DevOps teams
+
+department:
+  id: engineering
+  name: Engineering Department
+  head: vp_engineering
+  description: "Responsible for all technical implementation, system design, and infrastructure"
+
+mission: |
+  Build and maintain high-quality, scalable software systems.
+  Ensure technical excellence through proper architecture, code quality, and operational reliability.
+
+directors:
+  - id: dir_architecture
+    name: Architecture Director
+    focus: "System design, technical decisions, API contracts"
+    skills: []
+    responsibilities:
+      - Define system architecture and technical standards
+      - Make technology selection decisions
+      - Review and approve architectural changes
+      - Ensure scalability and maintainability
+
+  - id: dir_frontend
+    name: Frontend Director
+    focus: "UI/UX implementation, client-side development"
+    skills: [frontend-design]
+    responsibilities:
+      - Lead frontend implementation strategy
+      - Ensure UI consistency and accessibility
+      - Manage frontend worker pool
+      - Coordinate with Design Director on UX
+
+  - id: dir_backend
+    name: Backend Director
+    focus: "APIs, services, data layer, business logic"
+    skills: []
+    responsibilities:
+      - Design and implement backend services
+      - Manage data models and database design
+      - Ensure API quality and documentation
+      - Handle integrations and third-party services
+
+  - id: dir_devops
+    name: DevOps Director
+    focus: "Infrastructure, CI/CD, deployment, monitoring"
+    skills: [aws-skills, terraform-skills]
+    responsibilities:
+      - Manage cloud infrastructure
+      - Implement CI/CD pipelines
+      - Handle deployments and rollbacks
+      - Monitor system health and performance
+
+worker_pools:
+  - id: pool_frontend
+    name: Frontend Workers
+    director: dir_frontend
+    min_workers: 1
+    max_workers: 5
+    capabilities: [html, css, javascript, typescript, react, vue, angular]
+    skills: [frontend-design]
+
+  - id: pool_backend
+    name: Backend Workers
+    director: dir_backend
+    min_workers: 1
+    max_workers: 5
+    capabilities: [python, nodejs, go, rust, sql, nosql, api_design]
+    skills: []
+
+  - id: pool_devops
+    name: DevOps Workers
+    director: dir_devops
+    min_workers: 1
+    max_workers: 3
+    capabilities: [docker, kubernetes, terraform, aws, gcp, azure, ci_cd]
+    skills: [aws-skills, terraform-skills]
+
+quality_metrics:
+  - code_review_coverage: 100%
+  - test_coverage_minimum: 80%
+  - build_success_rate: 99%
+  - deployment_success_rate: 99%
+  - mean_time_to_recovery: 1h
+
+collaboration:
+  primary_partners: [quality, product]
+  consultation_required:
+    - security_review: dir_security
+    - ux_review: dir_design
+    - documentation: dir_documentation

@@ -1,0 +1,1494 @@
+# AI Corp Project State
+
+> **Last Updated:** 2026-01-14
+> **Current Phase:** Memory Intelligence Layer Complete
+> **Status:** ✅ Full Stack Complete + Memory Intelligence Layer (Phases 1-4)
+> **Next Action:** Continue Foundation Corp Dogfooding with intelligent memory
+
+---
+
+## Documentation Workflow
+
+**Master Documents (update with every change):**
+
+| Document | Purpose | When to Update |
+|----------|---------|----------------|
+| `STATE.md` | Implementation status | Every completed feature |
+| `ROADMAP.md` | Approved plans/priorities | New plans approved, plans completed |
+| `AI_CORP_ARCHITECTURE.md` | Technical architecture | Any architecture change (planned OR implemented) |
+
+**CRITICAL:** Keep `AI_CORP_ARCHITECTURE.md` current throughout development - update when designing, not just after implementing.
+
+**How to Update STATE.md:**
+1. Update "Last Updated" date
+2. Update "Current Phase" to reflect current work
+3. Add entry under "Recent Changes" with date header
+4. Update "Quick Status" table if status changed
+5. Update "Component Status" if modules added/changed
+6. Update "Next Actions" - mark completed items, add new ones
+
+**Archived Docs:** Historical design docs that are now implemented are in `docs/archive/`
+
+---
+
+## Quick Status
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **Molecule Step Integration** | ✅ Complete | VP/Director/Worker update step status; all depts have workers |
+| **API Layer** | ✅ Complete | FastAPI server with COO chat, delegation, dashboard, gates, WebSocket |
+| Core Infrastructure | ✅ Complete | Molecules, hooks, beads, channels, gates, pools |
+| Memory System | ✅ Complete | RLM-inspired context + SimpleMem adaptive retrieval + Memory Intelligence Layer (Phases 1-4) |
+| Agent Hierarchy | ✅ Complete | COO, VP, Director, Worker agents |
+| LLM Integration | ✅ Complete | Swappable backends (ClaudeCode, API, Mock) |
+| Parallel Execution | ✅ Complete | AgentExecutor, CorporationExecutor |
+| **Success Contracts** | ✅ Complete | Phase 1: Foundation with bead/gate integration |
+| **Discovery** | ✅ Complete | Phase 2: COO discovery conversation |
+| **Monitoring** | ✅ Complete | Phase 3: System monitoring |
+| **Knowledge Base** | ✅ Complete | Scoped document management + ingestion |
+| **Dashboard** | ✅ Complete | Phase 4: Terminal dashboard with live mode |
+| **Skills System** | ✅ Complete | Role-based skill discovery from SKILL.md files |
+| **Work Scheduler** | ✅ Complete | Capability matching, load balancing, dependency resolution |
+| **Executor Integration** | ✅ Complete | CorporationExecutor ↔ WorkScheduler ↔ SkillRegistry |
+| Tests | ✅ Complete | 770+ tests passing |
+| End-to-End Test | ✅ Complete | Full agent chain tested with real Claude CLI |
+| **Real Claude Testing** | ✅ Complete | CEO → COO → VP → Director → Worker → Claude CLI |
+| **Entity Graph** | ✅ Complete | Unified entity management (Mem0/Graphiti-inspired) |
+| **File Storage** | ✅ Complete | Internal storage + Google Drive integration |
+| **The Forge** | ✅ Complete | Intention incubation system |
+| **Platform Architecture** | ✅ Complete | Apex, Personal, Foundation services defined |
+| **Business Model** | ✅ Complete | Pricing, unit economics, token optimization |
+| **Learning System** | ✅ Complete | Phase 1: Distiller, Meta-Learner, Patterns, Ralph Mode |
+| **Evolution Daemon** | ✅ Complete | Phase 2: Background learning cycles + Context Synthesizer |
+| **Foundation Corp** | ✅ Bootstrapped | Structure, hierarchy, gates, templates ready |
+| **Depth-Based Context** | ✅ Complete | Agent-level depth defaults for Entity Graph |
+| **Async Gate Approvals** | ✅ Complete | Async evaluation, auto-approval policies |
+| **Orchestration Layer** | ✅ Complete | P2: Autonomous execution with hook refresh |
+| **Swarm Molecule Type** | ✅ Complete | P2: Parallel research with scatter→critique→converge |
+| **Composite Molecules** | ✅ Complete | P2: Chain molecule types (Swarm→Ralph→escalate) |
+
+---
+
+## Recent Changes
+
+### 2026-01-14: Memory Intelligence Layer Complete (Phases 1-4)
+
+**Goal:** Build a unified memory system that enables AI Corp to learn from experience and surface relevant context proactively.
+
+**Phase 1: Preference Learning**
+- `OrganizationalMemory.record_preference()` - Store user preferences with context and source
+- `OrganizationalMemory.get_preferences_for_context()` - Relevance-scored preference retrieval
+- Integrated into COO chat flow for personalized responses
+- Preferences include: context, value, reason, timestamp, source
+
+**Phase 2: Decision Tracking & Recall**
+- `OrganizationalMemory.record_decision()` - Store decisions with full context and outcomes
+- `OrganizationalMemory.find_related_decisions()` - Find relevant past decisions
+- `OrganizationalMemory.record_decision_outcome()` - Link outcomes to decisions for learning
+- Proactive surfacing of related decisions in chat flow
+
+**Phase 3: Conversation Summarization**
+- `ConversationSummarizer` - Intelligent multi-tier conversation compression
+- `_extract_key_points()` - Extract decisions, questions, action items, context
+- `_generate_summary()` - Tier-based summaries (brief/standard/detailed/comprehensive)
+- Automatic tier selection based on message count
+- Integration with chat flow for context-aware responses
+
+**Phase 4: Outcome-Based Learning**
+- `OrganizationalMemory.record_molecule_outcome()` - Record structured outcomes when molecules complete
+- `OrganizationalMemory.find_similar_past_work()` - Pattern matching with relevance scoring and deduplication
+- `OrganizationalMemory.get_lessons_for_task_type()` - Retrieve lessons by category
+- `OrganizationalMemory.aggregate_lessons_by_category()` - Aggregate success rates and blockers
+- `OrganizationalMemory.store_synthesized_insight()` - Upsert logic for Evolution Daemon insights
+- `MoleculeEngine.on_molecule_complete` - Callback for outcome recording
+- Integration with chat flow and delegation for proactive lesson surfacing
+- `EvolutionDaemon._synthesize_lessons_from_memory()` - Slow cycle synthesis
+
+**Key Integration Points:**
+```
+Molecule Completes → on_molecule_complete callback → record_molecule_outcome()
+                                                           ↓
+Chat/Delegation → find_similar_past_work() → format_lessons_for_context() → LLM
+                                                           ↓
+Evolution Daemon slow cycle → aggregate_lessons_by_category() → store_synthesized_insight()
+```
+
+**Code Cleanup Applied:**
+- Extracted `_RELEVANCE_STOPWORDS` as class constant (was duplicated 3x)
+- Added `seen_molecule_ids` deduplication in `find_similar_past_work()`
+- Implemented upsert logic in `store_synthesized_insight()` (was creating duplicates)
+- Removed redundant datetime import in `_record_molecule_outcome()`
+
+**Files Changed:**
+- `src/core/memory.py` - OrganizationalMemory with all 4 phases + ConversationSummarizer
+- `src/core/molecule.py` - on_molecule_complete callback
+- `src/core/learning.py` - _synthesize_lessons_from_memory in EvolutionDaemon
+- `src/api/main.py` - Integration with chat flow and delegation
+
+### 2026-01-14: COO-Driven Molecule Definition
+
+**Problem:** Previously, molecule creation used keyword detection on the CEO's raw message to infer departments and steps. This failed when the CEO's message was simple (e.g., "test handoffs between departments") but the COO had discussed a detailed plan. The COO's understanding of intent never made it into the molecule structure.
+
+**Solution:** The COO can now define the complete molecule structure using a `[MOLECULE]` block:
+
+```
+[MOLECULE]
+title: Test Department Handoffs
+description: Validate data flows correctly between departments
+
+phases:
+  - department: research
+    task: Analyze current handoff patterns
+    outputs: Handoff analysis report
+
+  - department: engineering
+    task: Review code based on research findings
+    outputs: Code review document
+
+  - department: quality
+    task: Validate handoffs work correctly
+    outputs: Test results
+[/MOLECULE]
+```
+
+**Key principle:** The COO is the intelligent translator. It understands CEO intent and explicitly defines what that means. The system just executes what the COO defines - no keyword inference, no guessing.
+
+**Implementation:**
+- `_parse_molecule_block()` - Parses `[MOLECULE]...[/MOLECULE]` from COO response
+- `create_molecule_from_phases()` - Creates molecule with exact phase structure
+- `delegate_molecule()` - Now includes phase context (inputs, outputs, handoffs)
+- COO system prompt updated with `[MOLECULE]` block format
+
+**Files Changed:**
+- `src/api/main.py` - Added `_parse_molecule_block()`, `_clean_molecule_block()`, updated `_execute_delegation()`
+- `src/agents/coo.py` - Added `create_molecule_from_phases()`, enhanced `delegate_molecule()` with phase context
+
+**What VPs/Directors now see:**
+- Phase number and total phases
+- Task description from COO
+- Expected outputs
+- Inputs from previous phase
+- What next phase expects
+
+### 2026-01-14: Auto-Advance System + Critical Bug Fixes
+
+**5 Major Fixes from COO Delegation Testing:**
+
+**1. Hook Cache Mismatch Fix (`src/agents/executor.py`)**
+
+When `_refresh_all_agent_hooks()` was called, it updated `agent.hook` but not the cached reference in `agent.hook_manager._hooks[hook_id]`. This caused work items to be "lost" because the hook manager was using stale cached hooks.
+
+**Fix:** Update both `agent.hook` AND `agent.hook_manager._hooks[hook_id]` when refreshing:
+```python
+if key in hook_lookup:
+    self.coo.hook = hook_lookup[key]
+    self.coo.hook_manager._hooks[hook_lookup[key].id] = hook_lookup[key]
+```
+
+**2. Uvicorn Reload Fix (`src/api/main.py`)**
+
+Uvicorn was restarting on every data file change (corp/, foundation/, tests/). First tried `--reload-exclude` but it didn't work reliably.
+
+**Fix:** Use allowlist approach with `--reload-dir` to ONLY watch source files:
+```python
+uvicorn.run(..., reload_dirs=["src/"])  # Ignore corp/, foundation/, tests/
+```
+
+**3. Auto-Advance After Gate Approval (`src/core/gate.py`, `src/api/main.py`)**
+
+When a gate was approved (manually or auto), the system didn't delegate the next steps. Work would stall waiting for manual intervention.
+
+**Fix:**
+- Added `on_molecule_advance` callback to `AsyncGateEvaluator`
+- Wired callback in API to call `coo.delegate_molecule()` after approval
+- Gate approval now triggers delegation of unlocked steps
+
+**4. Auto-Advance After Step Completion (`src/core/molecule.py`, `src/api/main.py`)**
+
+Regular step completion (not just gates) didn't trigger delegation of next steps. The molecule would complete a step but not automatically move forward.
+
+**Fix:**
+- Added `on_step_complete` callback to `MoleculeEngine`
+- Wired callback in API to call `coo.delegate_molecule()` after step completion
+- Any step completion now checks for and delegates newly-unlocked steps
+
+**5. Failed Status Handling (`src/core/molecule.py`)**
+
+`complete_step()` was marking steps as COMPLETED even when the result indicated failure (`result.get('status') == 'failed'`).
+
+**Fix:** Check result status before marking complete:
+```python
+if result.get('status') == 'failed':
+    step.status = StepStatus.FAILED
+    step.error = result.get('error', 'Step failed')
+    self._save_molecule(molecule)
+    return step
+```
+
+**Code Review Bug Fixes:**
+
+- **API Method Names:** `gates.approve_gate()` → `gates.approve()`, `gates.reject_gate()` → `gates.reject()`
+- **Logging Import:** Moved inline `import logging` to top of `molecule.py`
+
+**Callback Architecture:**
+```
+Step Completion → MoleculeEngine.on_step_complete → COO.delegate_molecule()
+Gate Approval   → AsyncGateEvaluator.on_molecule_advance → COO.delegate_molecule()
+```
+
+**Files Changed:**
+- `src/agents/executor.py` - Hook cache synchronization
+- `src/api/main.py` - Uvicorn config, gate method names, auto-advance callbacks
+- `src/core/molecule.py` - on_step_complete callback, failed status handling
+- `src/core/gate.py` - on_molecule_advance callback
+
+### 2026-01-12: COO Delegation Marker System + VP Processing Fix
+
+**Issue 1: Magic Confirmation Words**
+The old delegation system required users to say specific "magic words" like "go", "yes", "start it" to trigger delegation. This was brittle and unnatural.
+
+**Fix: [DELEGATE] Marker System (`src/api/main.py`)**
+- COO now decides when to delegate based on conversation context
+- When ready to start work, COO includes `[DELEGATE]` anywhere in its response
+- System automatically detects marker and triggers delegation
+- Marker is stripped from response shown to user
+- Much more natural - COO understands intent, not pattern-matching words
+
+**Issue 2: VP Not Processing Work**
+Work items were queued in VP hooks but VPs weren't processing them. Root cause: stale hook cache.
+
+**Root Cause Analysis:**
+1. COO adds work to VP hook via `hook_manager.add_work_to_hook()` → saves to disk
+2. Background task creates new `CorporationExecutor` with its own `HookManager`
+3. `_refresh_all_agent_hooks()` updates `vp.hook` to point to executor's hook object
+4. But `claim_work()` was calling `self.hook_manager.claim_work()` which used the VP's OWN `HookManager` with stale cache!
+5. Work existed in `self.hook` but `self.hook_manager.get_hook()` returned old cached hook without work items
+
+**Fix: Use self.hook Directly (`src/agents/base.py`)**
+- `claim_work()` now uses `self.hook.claim_next()` directly instead of going through `hook_manager`
+- `complete_work()` now uses `self.current_work.complete()` directly
+- `fail_work()` now uses `self.current_work.fail()` directly
+- Added warning log when work exists but can't be claimed (helps debug capability mismatches)
+
+**Issue 3: Images Silently Ignored**
+The `llm_images` list was built but never passed to `LLMRequest`.
+
+**Fix:** Added `images=llm_images` to LLMRequest call in COO message endpoint.
+
+### 2026-01-12: Molecule Step Integration & Orchestration Fixes
+
+**Issue:** Work was completing successfully but molecule steps remained "pending" - the tracking wasn't updating.
+
+**Root Cause Analysis:**
+1. VP's `_handle_directly()` never called `start_step()` or `complete_step()`
+2. Director's `_handle_directly()` same issue
+3. Worker needed defensive `start_step()` call (idempotent)
+4. VP Research had no directors assigned → fell back to handling directly
+5. Product Director had no workers → fell back to handling directly
+
+**Fixes Applied:**
+
+1. **VP `_delegate_to_directors()` (`src/agents/vp.py:245-258`):**
+   - Added `start_step()` call when VP begins delegating work
+   - Marks molecule step as IN_PROGRESS with assigned_to
+
+2. **VP `_handle_directly()` (`src/agents/vp.py:285-320`):**
+   - Added `start_step()` at beginning of direct handling
+   - Added `complete_step()` on successful LLM response
+   - Records action, reasoning, and completed_by in result
+
+3. **Director `_handle_directly()` (`src/agents/director.py:220-260`):**
+   - Added `start_step()` at beginning
+   - Added `complete_step()` on success with result details
+   - Added `fail_step()` on execution failure
+
+4. **Worker `_execute_work()` (`src/agents/worker.py:145-200`):**
+   - Added defensive `start_step()` (idempotent - may already be started by VP)
+   - Added `fail_step()` when execution fails
+   - Added `complete_step()` + gate submission on success
+   - Added GateKeeper initialization for gate submissions
+
+5. **Corporation Structure (`src/agents/executor.py:150-200`):**
+   - Added Research Director (`dir_research`) reporting to `vp_research`
+   - Added 8 workers across all departments:
+     - Engineering: `backend`, `frontend`, `devops`
+     - Quality: `qa`, `security`
+     - Research: `researcher`
+     - Product: `designer`, `writer`
+
+**API Layer Fixes (from PR #86 cherry-pick):**
+- Fixed `_execute_delegation_async` → `_execute_delegation` naming
+- Removed duplicate `_trigger_background_execution()` function
+- Kept `_run_corporation_cycle_async()` with lock for background execution
+
+**Result:** Molecule steps now properly transition from PENDING → IN_PROGRESS → COMPLETED as work flows through the hierarchy.
+
+### 2026-01-12: Documentation Sync - API Layer Complete
+
+**Issue:** Documentation stated API layer was "missing" and "critical path", but it was already fully implemented.
+
+**Updates:**
+- Updated CLAUDE.md to reflect API layer completion
+- Updated STATE.md with API Layer status
+- Updated ROADMAP.md to add API Layer to Completed section
+- Updated docs/COO_INTERFACE_DESIGN.md to mark all endpoints as implemented
+
+**Current State:**
+- `src/api/main.py` - 1300+ lines with full endpoint coverage
+- COO chat endpoint with image support
+- Delegation and discovery endpoints
+- Dashboard, gates, projects endpoints
+- WebSocket streaming for real-time updates
+- Chat session persistence
+
+**Next Priority:** Foundation Corp Dogfooding - use the system for real work.
+
+### 2026-01-11: COO Image/Screenshot Support + Chat Session Persistence
+
+**Goal:** Enable COO to process images/screenshots like Claude Code does.
+
+**Image Support Implementation:**
+
+1. **LLM Request (`src/core/llm.py`):**
+   ```python
+   @dataclass
+   class LLMRequest:
+       # ... existing fields ...
+       images: List[Dict[str, str]] = field(default_factory=list)
+       # Each image: {"data": "base64...", "media_type": "image/png"}
+   ```
+
+2. **ClaudeAPIBackend Updated:**
+   - Sends images as content blocks to Claude API
+   - Supports image/png, image/jpeg, image/gif, image/webp
+
+3. **API Endpoint (`src/api/main.py`):**
+   - `ImageAttachment` model with `data` (base64) and `media_type`
+   - COO message endpoint accepts `images` parameter
+   - Uses `ClaudeAPIBackend` when images present (CLI doesn't support images)
+
+4. **Frontend (`frontend/src/pages/COOChannel.tsx`):**
+   - Paste screenshots from clipboard (Ctrl+V)
+   - Upload images via file picker
+   - Preview attached images before sending
+   - Display images in message history
+   - Click images to view full size
+
+**Chat Session Persistence:**
+
+- Thread ID stored in localStorage
+- Session restored on component mount
+- "New Thread" button clears session
+
+**Bug Fixes:**
+- Fixed confirmation detection being too aggressive (now requires ≤5 words for simple confirmations)
+- Fixed stale delegation cleanup (removes entries >1 hour old)
+- Fixed message indexing when extracting delegation title
+
+**Files Changed:**
+- `src/core/llm.py` - Added `images` field to `LLMRequest`, updated `ClaudeAPIBackend`
+- `src/api/main.py` - Added `ImageAttachment`, COO endpoint handles images
+- `frontend/src/api/client.ts` - Added `ImageAttachment`, updated `sendCOOMessage`
+- `frontend/src/pages/COOChannel.tsx` - Full image paste/upload/display support
+
+### 2026-01-11: CLI Full Hierarchy Execution
+
+**Issue:** The `ai-corp ceo` command only delegated to VPs but didn't run the full hierarchy (VP → Director → Worker).
+
+**Solution:** Added `--execute` flag to run `CorporationExecutor` after delegation.
+
+**Usage:**
+```bash
+# Full workflow: discovery conversation + autonomous execution
+ai-corp ceo "Build a user dashboard" --discover --execute
+
+# Multiple cycles for complex tasks
+ai-corp ceo "Refactor auth module" --discover --execute --cycles 3
+```
+
+**Files Changed:**
+- `src/cli/main.py` - Added `--execute` flag, imported `CorporationExecutor`
+
+**How It Works:**
+1. CEO submits task via CLI
+2. COO runs discovery conversation (if --discover)
+3. COO creates Success Contract and Molecule
+4. COO delegates to VPs
+5. CorporationExecutor runs VPs → Directors → Workers
+6. Workers execute tasks using Claude CLI
+
+### 2026-01-11: Agent Tool Access Fixed
+
+**Critical Bug Fix:** Agents weren't receiving proper tool permissions.
+
+**Problem:** `ClaudeCodeBackend` was passing skill names (e.g., "frontend-design") to `--allowedTools` instead of actual tool names (e.g., "Read", "Write", "Edit").
+
+**Solution:** All agents now get full tools via `ALL_TOOLS`:
+
+```python
+ALL_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch", "WebSearch"]
+```
+
+**Files Changed:**
+- `src/core/llm.py` - Added `ALL_TOOLS`, fixed `--allowedTools` to use actual tool names
+- `src/agents/base.py` - Added `agent_level` to context
+- `src/core/__init__.py` - Exported `ALL_TOOLS`
+
+**Result:** All agents now have full Claude Code capabilities within their execution context.
+
+### 2026-01-11: Composite Molecules Complete (P2)
+
+**Goal:** Enable chaining different workflow types together with escalation support.
+
+**Pattern:** Swarm (research) → Ralph (execute) → escalate on failure
+
+**New Types (`src/core/molecule.py`):**
+
+```python
+class WorkflowType(Enum):
+    COMPOSITE = "composite"  # Chain molecule types together
+
+class PhaseType(Enum):
+    STANDARD = "standard"   # Regular linear steps
+    SWARM = "swarm"         # Parallel research
+    RALPH = "ralph"         # Persistent execution with retry
+
+class EscalationAction(Enum):
+    FAIL = "fail"                     # Mark composite as failed
+    RETRY = "retry"                   # Retry the same phase
+    ESCALATE_TO_PREVIOUS = "escalate_to_previous"
+    ESCALATE_TO_SWARM = "escalate_to_swarm"
+
+@dataclass
+class CompositePhase:
+    name: str
+    phase_type: PhaseType
+    description: str = ""
+    config: Optional[Dict] = None     # Phase-specific config
+    on_failure: EscalationAction = EscalationAction.FAIL
+    max_failures: int = 3
+    cost_cap: Optional[float] = None  # For Ralph phases
+
+@dataclass
+class CompositeConfig:
+    phases: List[CompositePhase]
+    escalation_enabled: bool = True
+    max_escalations: int = 2
+    current_phase: int = 0
+    escalation_count: int = 0
+```
+
+**MoleculeEngine Methods:**
+- `_start_composite_phase()`: Create child molecule for current phase
+- `advance_composite_phase()`: Move to next phase on success
+- `handle_composite_phase_failure()`: Handle failures with escalation
+
+**Metadata Tracking:**
+- `composite_current_phase`: Current phase index
+- `composite_current_child`: Active child molecule ID
+- `composite_phase_history`: Phase execution history
+- `composite_failures`: Failure records
+- `composite_escalations`: Escalation records
+
+**Exports Updated:**
+- `CompositeConfig`, `CompositePhase`, `PhaseType`, `EscalationAction` from `src/core`
+
+### 2026-01-11: Swarm Molecule Type Complete (P2)
+
+**Goal:** Add swarm workflow pattern for parallel research with cross-critique.
+
+**Pattern:** Scatter → Critique → Converge
+1. **Scatter**: N workers research the same question independently (parallel)
+2. **Critique**: Workers cross-review each other's findings (optional, multi-round)
+3. **Converge**: Synthesize results into unified answer
+
+**New Types (`src/core/molecule.py`):**
+
+```python
+class WorkflowType(Enum):
+    SWARM = "swarm"  # New type added
+
+class ConvergenceStrategy(Enum):
+    VOTE = "vote"           # Majority vote
+    SYNTHESIZE = "synthesize"  # LLM synthesis (default)
+    BEST = "best"           # Pick highest-scored
+    MERGE = "merge"         # Combine non-conflicting
+
+@dataclass
+class SwarmConfig:
+    scatter_count: int = 3        # Parallel workers
+    critique_enabled: bool = True # Enable cross-critique
+    critique_rounds: int = 1      # Critique iterations
+    convergence_strategy: ConvergenceStrategy = ConvergenceStrategy.SYNTHESIZE
+    min_agreement: float = 0.6    # For VOTE strategy
+    timeout_seconds: int = 300
+```
+
+**MoleculeEngine Enhancement:**
+
+```python
+def start_molecule():
+    # Expands swarm molecules into scatter/critique/converge steps
+    if molecule.workflow_type == WorkflowType.SWARM:
+        self._expand_swarm_steps(molecule)
+```
+
+**Step Dependencies:**
+- Scatter steps: No dependencies (parallel execution)
+- Critique steps: Depend on scatter (round 1) or previous critique round
+- Converge step: Depends only on final critique round (not all critique steps)
+
+**Code Review Fixes Applied:**
+- Validation: scatter_count must be >= 2
+- Extracted department lookup (avoid 4x repetition)
+- Fixed converge dependencies (was depending on ALL critique steps)
+- Improved critique descriptions with original question context
+- Removed dead code (other_scatter_ids computed but unused)
+
+**Exports Updated:**
+- `SwarmConfig`, `ConvergenceStrategy` exported from `src/core`
+
+**Tests:** Comprehensive swarm tests verify step creation, dependencies, and validation.
+
+### 2026-01-11: Orchestration Layer Complete (P2)
+
+**Goal:** Make `CorporationExecutor.run_cycle()` work autonomously without demo.py workarounds.
+
+**5 Fixes Implemented:**
+
+1. **Hook Cache Refresh** (`src/core/hook.py`)
+   - Added `refresh_hook()`, `refresh_hook_for_owner()`, `refresh_all_hooks()` methods
+   - Ensures agents see work delegated by previous tier
+
+2. **VP/Director Capabilities** (`src/agents/executor.py`)
+   - VPs and Directors now have broad capabilities for delegation
+   - Workers have execution capabilities
+
+3. **direct_reports Configuration**
+   - VP direct_reports set to actual Directors that exist
+   - Director direct_reports set to their Workers
+   - Enables LLM suggestion validation
+
+4. **Worker Pool Registration**
+   - Workers automatically registered in their Director's pool
+   - `_configure_director_pools()` method added
+
+5. **Workers Use Director's Hook**
+   - Workers configured to claim from Director's hook (shared pool queue)
+   - `_configure_worker_hooks()` method added
+
+**CorporationExecutor Changes:**
+
+```python
+# New helper methods
+_configure_director_pools()  # Fix #4
+_configure_worker_hooks()    # Fix #5
+_configure_director_reports() # Fix #3
+_refresh_all_agent_hooks()   # Fix #1
+
+# run_cycle() now refreshes hooks between tiers
+def run_cycle():
+    results['coo'] = executive_executor.run_once()
+    _refresh_all_agent_hooks()  # <-- NEW
+    results['vps'] = vp_executor.run_once()
+    _refresh_all_agent_hooks()  # <-- NEW
+    # ... etc
+```
+
+**Tests Added:**
+- `tests/agents/test_orchestration.py` - 15+ tests for orchestration fixes
+
+**What This Enables:**
+- `CorporationExecutor.run_cycle()` now does what demo.py did manually
+- No more manual hook cache clearing
+- No more manual capability configuration
+- No more manual pool registration
+- Work flows automatically: COO → VP → Director → Worker
+
+### 2026-01-11: Real Claude Testing **SUCCESSFUL** ✅
+
+**Goal:** Test full agent chain with actual Claude Code CLI (from separate terminal)
+
+**Result:** Full chain executed successfully:
+```
+CEO task → COO → VP → Director → Worker → Claude CLI → ✅ Success!
+```
+
+**Demo Script:** `scripts/demo.py` - Component integration test
+
+**Issues Discovered & Fixed:**
+
+| Issue | Root Cause | Fix |
+|-------|-----------|-----|
+| VP not seeing work | Hook cache staleness | Force reload hooks from disk before agent runs |
+| VP delegating to wrong target | LLM suggesting invalid `delegation_to` | Validate against `direct_reports`, fallback to first |
+| Director not delegating | No workers in pool | Register workers with `add_worker_to_pool()` |
+| Workers not finding work | Looking in own hook | Workers claim from Director's hook (shared pool queue) |
+| Claude CLI error | Prompt as positional arg | Pass prompt via stdin instead |
+
+**Key Fixes Applied:**
+
+1. **VP Delegation Validation** (`src/agents/vp.py`):
+   - VP now validates LLM's `delegation_to` against configured `direct_reports`
+   - Falls back to first direct report if LLM suggests invalid target
+
+2. **Claude CLI stdin** (`src/core/llm.py`):
+   - Changed from positional argument to stdin for prompt passing
+   - More reliable for multiline prompts
+
+3. **Worker Pool Model** (architecture understanding):
+   - Directors create worker pools
+   - Workers must be registered in pool
+   - Director's hook serves as shared pool queue
+   - Workers claim from Director's hook, not individual hooks
+
+**Verified Working:**
+- ✅ COO receives CEO task, creates molecule, delegates to VP
+- ✅ VP analyzes with Claude, delegates to Director
+- ✅ Director processes work, delegates to Worker pool
+- ✅ Worker claims from pool queue, executes with real Claude CLI
+- ✅ Bead audit trail records full execution history
+- ✅ Molecule progress tracking works
+
+### 2026-01-10: Real Claude Testing Attempted
+
+**Goal:** Test ClaudeCodeBackend with actual Claude Code CLI
+
+**Findings:**
+- ✅ Claude Code CLI available at `/opt/node22/bin/claude` (v2.0.59)
+- ✅ Availability tests pass (4/4) - Backend detection works correctly
+- ❌ Execution tests timeout - Claude CLI hangs when called via subprocess from within a Claude Code session
+
+**Root Cause:** Nested Claude calls - running `claude -p` from within a Claude Code session causes blocking/timeout. This is expected behavior.
+
+**Solution:** Run tests from a **separate terminal** (not inside Claude Code):
+```bash
+cd /home/user/ai-corp
+python -m pytest tests/integration/test_claude_code.py::TestClaudeCodeBackendExecution -v
+```
+
+**Also Found:**
+- Default model `claude-opus-4-5-20251101` in LLMRequest may need updating to use aliases like `opus` or `sonnet`
+- Test infrastructure is complete and ready - just needs external execution
+
+### 2026-01-09: SimpleMem-Inspired Adaptive Retrieval
+
+**Research Source:** [SimpleMem: Efficient Lifelong Memory for LLM Agents](https://github.com/aiming-lab/SimpleMem)
+
+**Key Concepts Applied:**
+- **Adaptive Retrieval Depth** - Dynamic k based on query complexity: `k_dyn = k_base × (1 + δ × C_q)`
+- **Token Budget Enforcement** - Cap retrieval by token count to optimize context usage
+- **Query Complexity Scoring** - Heuristic scoring (0.0-1.0) for retrieval depth decisions
+
+**Memory System Enhancements (`src/core/memory.py`):**
+- `score_query_complexity(query)` - Score queries based on length, question words, comparisons, temporal refs
+- `calculate_adaptive_depth(query, base_k, sensitivity, token_budget)` - SimpleMem formula implementation
+- `estimate_retrieval_tokens(depth)` - Estimate token usage for budgeting
+- `search_all()` - Now supports `adaptive=True` and `token_budget` parameters
+- `search_all_with_stats()` - Returns results + cost tracking metadata
+
+**Knowledge System Enhancements (`src/core/knowledge.py`):**
+- `search_relevant()` - Now supports adaptive retrieval and token budgets
+- `search_relevant_with_stats()` - Returns results + complexity_score, retrieval_depth, estimated_tokens
+
+**Constants Added:**
+- `DEFAULT_BASE_K = 5` - Default retrieval depth
+- `COMPLEXITY_SENSITIVITY = 0.5` - How much complexity affects depth
+- `MAX_RETRIEVAL_DEPTH = 50` - Upper bound safety limit
+- `TOKENS_PER_RESULT = 50` - Average tokens per search result
+
+**Relationship to RLM:**
+- RLM remains the structural foundation (context as external environment, peek/grep/transform)
+- SimpleMem adds retrieval intelligence on top (how much to retrieve for a given query)
+- Complementary approaches: RLM = structure, SimpleMem = efficiency
+
+### 2026-01-09: P1 System Refinements Complete
+
+**Implemented All 4 P1 Features:**
+1. **Economic Metadata** - Added cost/value/confidence to Molecules (~50 lines)
+2. **Continuous Workflows** - Added WorkflowType + LoopConfig (~100 lines)
+3. **Continuous Validation** - Added ValidationMode to Contracts (~60 lines)
+4. **Failure Taxonomy** - Added FailureType to Learning System (~80 lines)
+
+**Code Cleanup:**
+- Simplified `FailureType.classify()` with data-driven keyword mapping
+- Reduced method from 50+ lines to clean pattern matching
+
+### 2026-01-09: Architecture Review & External Feedback Integration
+
+**Architecture Audit Completed:**
+- Verified all 27 core modules against AI_CORP_ARCHITECTURE.md
+- All 9 integration points validated
+- Identified hub modules: memory (12 connections), molecule (10), graph (10)
+
+**E2E Integration Tests Added:**
+- `tests/integration/test_e2e_system.py` - 8 comprehensive integration tests
+- Tests verify cross-system integration:
+  - Gate → Bead → Molecule async approval flow
+  - Molecule ↔ Learning System connection
+  - Entity Graph depth configs by agent level
+  - EntityStore operations
+  - Hook work item management
+  - Channel creation and structure
+  - Bead audit trail recording
+  - Full system initialization
+
+**External Feedback Review:**
+- Reviewed feedback from Manus AI, Grok, and ChatGPT
+- Identified valuable refinements that follow our integration principles
+- Rejected over-engineering suggestions (new agent types, parallel systems)
+
+**New Approved Features (P1):**
+1. **Economic Metadata on Molecules** - Add cost/value tracking for ROI reasoning
+2. **Continuous Workflows** - Add workflow_type (PROJECT/CONTINUOUS) and loop config
+3. **Continuous Contract Validation** - Add validation_mode for ongoing validation
+4. **Failure Taxonomy** - Classify failures structurally in Learning System
+
+### 2026-01-07: Async Gate Approvals Complete
+
+**New Enums and Data Classes (`src/core/gate.py`):**
+- `EvaluationStatus` enum - NOT_STARTED, PENDING, EVALUATING, EVALUATED, FAILED
+- `AsyncEvaluationResult` - Results of async evaluation with confidence scores
+- `AutoApprovalPolicy` - Configure when gates can auto-approve
+  - Presets: `strict()`, `auto_checks_only()`, `lenient(min_confidence)`
+
+**GateSubmission Async Fields:**
+- `evaluation_status` - Track async evaluation state
+- `evaluation_result` - Store evaluation results
+- `auto_approved` - Flag for auto-approved submissions
+- Methods: `start_evaluation()`, `complete_evaluation()`, `fail_evaluation()`, `auto_approve()`
+- Helper methods: `is_evaluating()`, `is_evaluated()`
+
+**Gate Async Methods:**
+- `get_auto_check_criteria()` - Get criteria that can be auto-checked
+- `get_manual_check_criteria()` - Get criteria requiring manual verification
+- `get_evaluating_submissions()` - Get submissions being evaluated
+- `get_evaluated_submissions()` - Get completed evaluations
+- `set_auto_approval_policy()` - Configure auto-approval
+- `can_auto_approve()` - Check if gate supports auto-approval
+
+**AsyncGateEvaluator Class:**
+- Background evaluation using ThreadPoolExecutor
+- `evaluate_async()` - Start async evaluation with callback
+- `evaluate_sync()` - Synchronous evaluation for testing
+- Runs auto-check criteria commands
+- Calculates confidence scores
+- Auto-approves when policy conditions met
+- `cancel_evaluation()` - Cancel pending evaluations
+- `shutdown()` - Clean shutdown of executor
+
+**GateKeeper Async Methods:**
+- `submit_for_async_evaluation()` - Submit with automatic async evaluation
+- `get_evaluating_submissions()` - Get all evaluating submissions
+- `get_evaluated_submissions()` - Get all evaluated submissions
+- `set_gate_auto_approval_policy()` - Set policy for a gate
+
+**Tests (`tests/core/test_async_gate.py`):**
+- 44 new tests covering:
+  - EvaluationStatus enum
+  - AsyncEvaluationResult serialization
+  - AutoApprovalPolicy presets
+  - GateSubmission async methods
+  - Gate async methods
+  - AsyncGateEvaluator sync/async evaluation
+  - Auto-approval flow
+  - GateKeeper async methods
+  - Integration tests
+
+**Exports Updated:**
+- All async gate classes exported from `src/core`
+
+### 2026-01-07: Depth-Based Context Complete
+
+**DepthConfig Class (`src/core/graph.py`):**
+- `DepthConfig` dataclass with depth, limits, and network inclusion settings
+- `for_agent_level(level)` - Get appropriate config for agent level
+- Shorthand methods: `executive()`, `vp()`, `director()`, `worker()`
+- `custom()` - Create custom depth configurations
+
+**Agent-Level Defaults:**
+- Level 1 (Executive/COO): depth=3, max_entities=20, include_network=True
+- Level 2 (VP): depth=2, max_entities=15, include_network=True
+- Level 3 (Director): depth=1, max_entities=10, include_network=False
+- Level 4 (Worker): depth=0, max_entities=5, include_network=False
+
+**EntityGraph Enhancement (`src/core/graph.py`):**
+- `get_context_for_agent()` - Retrieve context with agent-level depth
+- Automatic limit enforcement (entities, relationships, interactions)
+- Network expansion for higher-level agents
+
+**BaseAgent Integration (`src/agents/base.py`):**
+- `entity_graph` - EntityGraph instance initialized on agent creation
+- `depth_config` - DepthConfig set based on agent level
+- `get_entity_context(entity_ids)` - Get context with appropriate depth
+- `get_entity_context_for_message(message)` - Extract entities and get context
+- `get_entity_profile(entity_id)` - Get comprehensive entity profile
+- `get_network_context(entity_id)` - Get network summary
+- `get_context_depth()` - Get agent's default depth value
+
+**Tests (`tests/core/test_depth_context.py`):**
+- 30 new tests covering:
+  - DepthConfig class methods and defaults
+  - Agent-level depth constants
+  - EntityGraph.get_context_for_agent()
+  - Agent integration with depth config
+
+**Exports:**
+- `DepthConfig`, `get_depth_for_level` exported from `src/core`
+- `AGENT_LEVEL_DEPTH_DEFAULTS`, `AGENT_LEVEL_CONTEXT_LIMITS` constants
+
+### 2026-01-07: Learning System Phase 2 Complete
+
+**Evolution Daemon Implementation:**
+- `src/core/learning.py` - Added ~400 lines for Phase 2 components
+  - `CycleType` enum - FAST (hourly), MEDIUM (daily), SLOW (weekly)
+  - `CycleResult` - Track outcomes of learning cycles
+  - `ImprovementSuggestion` - System-generated recommendations
+  - `EvolutionDaemon` - Background learning with three cycles:
+    - Fast cycle: Process recent outcomes, update meta-learner, promote patterns
+    - Medium cycle: Discover patterns, validate existing, generate suggestions
+    - Slow cycle: Deep analysis, identify systematic issues, generate reports
+  - Persistence: Cycle history and suggestions saved to disk
+
+**Context Synthesizer Implementation:**
+- `Theme` - Recurring patterns identified across contexts
+- `Prediction` - What might happen based on patterns
+- `SynthesizedContext` - Rich context combining patterns, insights, themes
+- `ContextSynthesizer` - Transform raw context into understanding:
+  - Gathers relevant patterns and insights for a query
+  - Identifies themes, predictions, gaps in knowledge
+  - Generates recommendations for actions
+  - Outputs both dict format and LLM-ready prompt format
+
+**Integration with LearningSystem:**
+- `LearningSystem.evolution` - Evolution Daemon instance
+- `LearningSystem.synthesizer` - Context Synthesizer instance
+- Full integration with existing Phase 1 components
+
+**Tests:**
+- `tests/core/test_learning.py` - 23 new tests for Phase 2:
+  - TestEvolutionDaemon: 9 tests (cycles, suggestions, persistence)
+  - TestContextSynthesizer: 6 tests (synthesize, themes, gaps)
+  - TestPhase2DataClasses: 4 tests (CycleType, CycleResult, etc.)
+  - TestLearningSystemPhase2: 4 tests (integration)
+- All 70 learning tests passing
+
+**Exports Updated:**
+- `src/core/__init__.py` - All Phase 2 classes exported
+
+### 2026-01-07: Learning System Phase 1 Complete
+
+**Learning System Implementation:**
+- `src/core/learning.py` - Complete Learning System (~1100 lines)
+  - `InsightStore` - Persist and retrieve insights with deduplication
+  - `OutcomeTracker` - Track success/failure outcomes with metrics
+  - `PatternLibrary` - Store, validate, and promote patterns
+  - `MetaLearner` - Learn what works, adjust routing strategies
+  - `KnowledgeDistiller` - Extract insights from completed molecules
+  - `RalphModeExecutor` - Retry-with-failure-injection logic
+  - `BudgetTracker` - Track spending per molecule for cost caps
+  - `LearningSystem` - Main interface coordinating all components
+
+**Ralph Mode Integration with Molecule Engine:**
+- `src/core/molecule.py` - Updated with Ralph Mode support
+  - `Molecule` class: Added `ralph_mode`, `ralph_config`, `retry_count`, `failure_history` fields
+  - `MoleculeEngine.create_molecule()` - Accept ralph_mode parameters
+  - `MoleculeEngine.fail_step()` - Records failure context, handles retry logic
+  - `MoleculeEngine.enable_ralph_mode()` - Enable on existing molecules
+  - `MoleculeEngine.get_ralph_context()` - Get failure context for retries
+  - `MoleculeEngine.prepare_ralph_retry()` - Reset failed steps for retry
+  - `MoleculeEngine.get_ralph_stats()` - Statistics for Ralph Mode molecules
+  - `MoleculeEngine.list_ralph_molecules()` - List Ralph-enabled molecules
+  - Learning System callbacks on molecule complete/fail
+
+**Tests:**
+- `tests/core/test_learning.py` - 47 tests for Learning System
+- `tests/core/test_molecule.py` - 10 new Ralph Mode tests (46 total)
+- All 93 new tests passing
+
+**Exports Updated:**
+- `src/core/__init__.py` - All Learning System classes exported
+
+**Key Concepts:**
+- Ralph Mode: Retry-with-failure-injection for persistent execution
+- Failure context injected into retry attempts to avoid repeating mistakes
+- Three restart strategies: "beginning", "checkpoint", "smart"
+- Cost caps and max retries for safety limits
+- Learning System notified on molecule complete/fail for knowledge extraction
+
+### 2026-01-07: Foundation Corp Bootstrap & Learning System Design
+
+**Foundation Corp Bootstrapped:**
+- `foundation/` directory structure created
+- `foundation/org/hierarchy.yaml` - CEO → COO → VPs → Directors → Workers
+- `foundation/org/departments/` - Engineering, Research, Quality
+- `foundation/org/roles/` - COO, VP Engineering, Worker template
+- `foundation/gates/gates.yaml` - Design Review, QA, Security, Release gates
+- `foundation/molecules/templates/` - core-feature, bug-fix, learning-system
+- Phase 2 (Assisted) - Human CEO approves all changes
+
+**Learning System Designed:**
+- `LEARNING_SYSTEM_DESIGN.md` - Full architecture document
+- Knowledge Distiller - Extract insights from completed molecules
+- Evolution Daemon - Background learning (hourly/daily/weekly cycles)
+- Meta-Learner - Track what works, adjust routing strategies
+- Pattern Library - Store and retrieve validated patterns
+- Context Synthesizer - Transform raw context into understanding
+- Integrates with existing Molecule Engine, Work Scheduler, Memory System
+
+**Business Model Created:**
+- `BUSINESS_MODEL.md` - Full pricing and economics
+- Personal: Free / $19 Pro / $39 Pro+
+- Corp: $99 Starter / $299 Business / $599 Professional / Custom Enterprise
+- Token optimization strategies (40-50% potential savings)
+- Unit economics with 50%+ gross margin target
+
+**Platform Architecture Finalized:**
+- `PLATFORM_ARCHITECTURE.md` - Three-service architecture
+- APEX - Multi-corp management (spawn, monitor, coordinate)
+- PERSONAL - Individual assistant (Entity Graph, data integrations)
+- FOUNDATION - Privileged self-development corp
+- Decisions documented: Core Services (TODO), monorepo, freemium, 5-phase autonomy
+
+### 2026-01-06: Entity Graph & Personal Edition Systems
+
+**Entity Graph System:**
+- `src/core/entities.py` - Entity, Relationship, EntityStore
+- `src/core/interactions.py` - Interaction, InteractionStore
+- `src/core/entity_resolver.py` - Cross-source identity resolution
+- `src/core/entity_summarizer.py` - Hierarchical summaries
+- `src/core/graph.py` - EntityGraph main entry point
+- Mem0/Graphiti-inspired architecture
+- Temporal tracking, relationship strength decay
+
+**File Storage System:**
+- `src/core/filestore.py` - Internal storage + Google Drive integration
+
+**The Forge:**
+- `src/core/forge.py` - Intention incubation system for idea development
+
+**Bug Fixes:**
+- Added missing EntityStore methods (create_entity, create_relationship, add_alias)
+- Added missing InteractionStore methods (create_interaction, get_interaction)
+- Fixed get_connected_entities return type
+- Fixed method name mismatches (get_entity_relationships, _save_relationships)
+
+### 2026-01-05: Skills System & Work Scheduler Integration Complete
+
+**Added - Skills System (Phase 1):**
+- `src/core/skills.py` - Role-based skill discovery
+  - `Skill` - Dataclass for skill metadata + lazy content loading
+  - `SkillLoader` - 5-layer skill discovery (User → Corp → Department → Role → Project)
+  - `SkillRegistry` - Central registry mapping roles to skills
+  - `CAPABILITY_SKILL_MAP` / `SKILL_CAPABILITY_MAP` - Bidirectional mappings
+- `templates/corp/skills/` - Example skill templates
+  - `code-review/SKILL.md`, `internal-comms/SKILL.md`
+  - `architecture-patterns/SKILL.md`, `security-review/SKILL.md`
+- `tests/core/test_skills.py` - 35 unit tests
+
+**Added - Work Scheduler (Phase 2):**
+- `src/core/scheduler.py` - Intelligent work scheduling
+  - `WorkScheduler` - Central scheduling combining capability matching + load balancing
+  - `CapabilityMatcher` - Match work requirements to agent capabilities/skills
+  - `LoadBalancer` - Track agent workloads, health-aware distribution
+  - `DependencyResolver` - Resolve molecule step dependencies, parallel execution waves
+  - `SchedulingDecision` - Result of scheduling with alternatives
+- `tests/core/test_scheduler.py` - 37 unit tests
+
+**Added - Integration:**
+- `CorporationExecutor` now creates and uses `SkillRegistry` and `WorkScheduler`
+- All agents registered with scheduler for capability-based work assignment
+- All agents have `skill_registry` attached for role-based skill discovery
+- `get_status()` includes scheduler metrics
+
+**Added - Anthropic Blog Insights:**
+- `BaseAgent.on_session_start()` - Session startup protocol
+  - Verifies environment
+  - Loads recent bead context
+  - Detects interrupted work from previous sessions
+  - Checks hook health
+- `Molecule.get_progress_summary()` - Rich progress snapshots for session bridging
+  - Completed steps, current step, next steps, blockers
+  - Supports dashboard displays and decision making
+
+**Code Cleanup:**
+- Removed unused `role_id` parameter from `ClaudeCodeBackend.execute()`
+- Removed unused `skill_registry` from `ClaudeCodeBackend`
+- Documented primary skill flow through `LLMRequest.skills`
+- Updated `COOAgent` to accept `skill_registry` parameter
+
+**Architecture After Integration:**
+```
+CorporationExecutor
+├── SkillRegistry ←────────────────────────────────┐
+│   └── Discovers skills per role                  │
+├── WorkScheduler ─────────────────────────────────┤
+│   ├── CapabilityMatcher (uses SkillRegistry)     │
+│   ├── LoadBalancer (uses HookManager)            │
+│   └── DependencyResolver (uses MoleculeEngine)   │
+└── Agents (COO, VPs, Directors, Workers)          │
+    ├── Each has skill_registry attached ──────────┘
+    ├── on_session_start() for startup protocol
+    └── get_available_skills() for LLM execution
+```
+
+**Tests:** 72 new tests (35 skills + 37 scheduler) all passing
+
+**Added:**
+- `src/cli/dashboard.py` - Terminal dashboard module
+  - `Dashboard` - Main dashboard class with rich terminal rendering
+  - `Colors` - ANSI color codes with disable support
+  - `run_dashboard()` - Run function with live mode support
+  - `get_status_line()` - Single-line status for scripts
+  - Box drawing characters for panels
+  - Progress bars with visual indicators
+  - Health and severity icons
+- `tests/cli/test_dashboard.py` - 34 unit tests for dashboard
+- `tests/integration/test_dashboard_integration.py` - 14 integration tests
+
+**Dashboard Panels:**
+- **Header**: Overall status, timestamp, quick stats
+- **Agent Status**: Health indicators, current work, queue depths
+- **Project Progress**: Molecules with progress bars, linked contract status
+- **Work Queues**: Visual queue depth representation
+- **Active Alerts**: Severity-coded alerts with suggested actions
+
+**CLI Commands Added:**
+- `ai-corp dashboard` - View dashboard once
+- `ai-corp dashboard --live` - Live-updating dashboard
+- `ai-corp dashboard --interval N` - Custom refresh interval
+- `ai-corp dashboard --compact` - Compact single-line output
+- `ai-corp dashboard --status-line` - Plain status for scripts
+
+**Integrations:**
+- **Dashboard ← Monitor**: Reads agent health, heartbeats, metrics
+- **Dashboard ← Contracts**: Shows contract progress with molecules
+- **Dashboard ← Molecules**: Displays active project progress
+- **Dashboard ← Hooks**: Shows queue depths per agent
+
+**Tests:** 48 new tests (34 unit + 14 integration) all passing
+
+---
+
+### 2026-01-05: Knowledge Base System Complete
+
+**Added:**
+- `src/core/knowledge.py` - Knowledge base with scoped storage
+  - `KnowledgeBase` - Central knowledge management across three scopes
+  - `KnowledgeEntry` - Individual knowledge entries with metadata
+  - `KnowledgeScope` - Foundation/Project/Task scope levels
+  - `ScopedKnowledgeStore` - Per-scope persistent storage
+- `src/core/ingest.py` - RLM-inspired document processing pipeline
+  - `DocumentProcessor` - Main processing pipeline
+  - `ContentExtractor` - Extracts content from various file types
+  - `DocumentChunker` - Chunks large documents with overlap
+  - `FactExtractor` - Extracts facts and entities
+- `tests/core/test_knowledge.py` - 25 unit tests for knowledge base
+- `tests/core/test_ingest.py` - 37 unit tests for ingestion pipeline
+
+**Three-Layer Architecture:**
+- **Foundation (Layer 1)**: Corp-wide knowledge available to all agents
+- **Project (Layer 2)**: Molecule-scoped knowledge for specific projects
+- **Task (Layer 3)**: Work item-scoped attachments
+
+**CLI Commands Added:**
+- `ai-corp knowledge list [--scope <scope>]` - List knowledge entries
+- `ai-corp knowledge show <id>` - Show entry details
+- `ai-corp knowledge add --file <path> [--foundation|--project <id>|--task <id>]` - Add file
+- `ai-corp knowledge add --url <url>` - Add URL reference
+- `ai-corp knowledge add --note <text>` - Add text note
+- `ai-corp knowledge search -q <query>` - Search knowledge base
+- `ai-corp knowledge stats` - Show statistics
+- `ai-corp knowledge remove <id>` - Remove entry
+
+**Tests:** 62 new tests (25 knowledge + 37 ingest) all passing
+
+---
+
+### 2026-01-05: Phase 3 - System Monitoring Complete
+
+**Added:**
+- `src/core/monitor.py` - System monitoring module
+  - `SystemMonitor` - Background service that collects metrics and checks health
+  - `SystemMetrics` - Snapshot of system state (queues, molecules, agents)
+  - `AgentStatus` - Individual agent health tracking with heartbeat monitoring
+  - `HealthAlert` - Alert system with severity levels (INFO, WARNING, CRITICAL)
+  - `AlertSeverity` and `HealthState` enums
+- `tests/core/test_monitor.py` - 28 unit tests for monitoring classes
+- `tests/integration/test_monitor_integration.py` - 9 integration tests
+
+**Integrations Completed:**
+- **Monitor ← Hooks**: Reads queue depths from agent hooks
+- **Monitor ← Molecules**: Tracks active molecule progress
+- **Monitor → Beads**: Critical alerts recorded in audit trail
+- **Monitor → Channels**: Alert broadcasting capability
+- **BaseAgent → Monitor**: Agents emit heartbeats during run cycles
+
+**CLI Commands Updated:**
+- `ai-corp status --health` - Show system health with agent status, project progress, and alerts
+
+**Modified:**
+- `src/agents/base.py` - Added `_emit_heartbeat()` method to agent run cycle
+- `src/core/__init__.py` - Exports for monitor module
+
+**Tests:** 37 new tests (28 unit + 9 integration) all passing
+
+---
+
+### 2026-01-05: Phase 2 - Discovery Conversation Complete
+
+**Added:**
+- `src/agents/coo.py` - Discovery conversation methods
+  - `run_discovery()` - Main discovery loop with conversation management
+  - `_discovery_turn()` - Single turn conversation handling (LLM + fallback)
+  - `_extract_contract()` - LLM-based contract extraction from conversation
+  - `_fallback_discovery_turn()` - Rule-based fallback when LLM unavailable
+  - `_fallback_extract_contract()` - Pattern-based contract extraction fallback
+  - `receive_ceo_task_with_discovery()` - Full flow: discovery → contract → molecule
+- `tests/agents/test_coo_discovery.py` - 27 unit tests for discovery methods
+- `tests/integration/test_discovery_integration.py` - 11 integration tests
+
+**Integrations Completed:**
+- **Discovery → Contracts**: COO creates contract via ContractManager after conversation
+- **Discovery → Molecules**: Contract automatically linked to molecule on creation
+- **Discovery → Beads**: Discovery completion recorded in audit trail
+- **Discovery ↔ Gates**: Discovered contracts work with gate validation
+
+**CLI Commands Updated:**
+- `ai-corp ceo "task" --discover` - Run discovery conversation before creating molecule
+- `ai-corp ceo "task" --start` - Legacy: skip discovery (unchanged)
+
+**Modified:**
+- `src/core/contract.py` - Fixed `_record_bead()` to handle both Bead and BeadLedger types
+- `src/cli/main.py` - Added `--discover` flag to ceo command
+
+**Tests:** 38 new tests (27 unit + 11 integration) all passing
+
+---
+
+### 2026-01-05: Phase 1 - Contract Foundation Complete
+
+**Added:**
+- `src/core/contract.py` - Success Contract system
+  - `SuccessCriterion` dataclass with met/unmet tracking
+  - `SuccessContract` dataclass with full lifecycle (DRAFT→ACTIVE→COMPLETED/FAILED)
+  - `ContractManager` with CRUD, bead integration, and amendment support
+- `tests/core/test_contract.py` - 37 unit tests for contract module
+- `tests/integration/test_contract_integration.py` - 9 integration tests
+
+**Integrations Completed:**
+- **Contracts → Beads**: All contract operations (create, activate, update, amend, fail) recorded in audit trail
+- **Contracts → Gates**: `GateKeeper.validate_against_contract()` and `evaluate_submission_with_contract()` methods
+- **Contracts ↔ Molecules**: `Molecule.contract_id` field links workflows to contracts
+
+**CLI Commands Added:**
+- `ai-corp contracts list` - List all contracts
+- `ai-corp contracts show <id>` - Show contract details
+- `ai-corp contracts create` - Create a contract (interactive)
+- `ai-corp contracts check <id> --index N` - Mark criterion as met
+- `ai-corp contracts link <id> --molecule <mol_id>` - Link to molecule
+- `ai-corp contracts activate <id>` - Activate a draft contract
+
+**Modified:**
+- `src/core/molecule.py` - Added `contract_id` field to Molecule dataclass
+- `src/core/gate.py` - Added contract validation methods to GateKeeper
+- `src/core/__init__.py` - Exports for contract module
+- `src/cli/main.py` - Contract CLI commands
+- `WORKFLOW.md` - Added "Architectural Beauty" integration principle
+
+**Tests:** 46 new tests (37 unit + 9 integration) all passing
+
+### 2026-01-05: Comprehensive Test Suite Complete
+
+**Added:**
+- `tests/agents/test_coo.py` - COO agent tests (30 tests, 87% coverage)
+- `tests/agents/test_director.py` - Director agent tests (20 tests, 79% coverage)
+- `tests/agents/test_worker.py` - Worker agent tests (34 tests, 83% coverage)
+- `tests/agents/test_executor.py` - Executor tests (33 tests, 83% coverage)
+
+**Fixed:**
+- All test APIs aligned with actual module implementations
+- Fixed molecule tests (86% coverage)
+- Fixed hook tests (83% coverage)
+- Fixed bead tests (76% coverage)
+
+**Status:** 220 tests passing, 58% overall coverage
+- Core modules at 76-87% coverage
+- Agent modules at 79-87% coverage
+
+### 2026-01-05: Pytest Test Suite Infrastructure
+
+**Added:**
+- `tests/conftest.py` - Shared fixtures for testing
+- `tests/core/test_molecule.py` - Molecule engine tests (36 tests)
+- `tests/core/test_hook.py` - Hook/work queue tests (22 tests)
+- `tests/core/test_bead.py` - Bead ledger tests (17 tests)
+- `tests/agents/test_vp.py` - VP agent tests (14 tests)
+- `tests/integration/test_full_flow.py` - Integration tests (14 tests)
+
+### 2026-01-05: VISION.md Created
+
+**Added:**
+- `VISION.md` - Core vision document for cross-session context
+  - Captures the "why" behind AI Corp
+  - Key design principles and their rationale
+  - Insights from development
+  - Long-term goals
+  - Session handoff notes
+
+### 2026-01-05: All 6 Test Stages Passed
+
+**Verified Working:**
+- Stage 1: VP Processing (after fixing capabilities)
+- Stage 2: VP → Director delegation
+- Stage 3: Director direct execution
+- Stage 4: Worker execution
+- Stage 5: CorporationExecutor cycle (after fixing empty executions)
+- Stage 6: Error handling and recovery
+
+### 2026-01-05: Bug Fixes for End-to-End Testing
+
+**Fixed:**
+- YAML serialization of RACIRole enums (was creating Python object tags)
+- Molecule status regression in CLI (delegate_molecule was overwriting ACTIVE→DRAFT)
+- start_molecule now accepts DRAFT status (was only PENDING)
+
+**Verified Working:**
+- `ai-corp ceo "task" --start` - Creates molecule, starts, delegates to VPs
+- Molecules track status correctly (active)
+- Hooks receive work items for VPs
+- Channels store delegation messages
+
+### 2026-01-05: P0 Agent Execution Infrastructure
+
+**Added:**
+- `src/core/llm.py` - Swappable LLM backends
+  - `ClaudeCodeBackend` - Spawns real Claude Code instances
+  - `ClaudeAPIBackend` - Uses Anthropic API
+  - `MockBackend` - Testing without LLM
+  - `LLMBackendFactory` - Auto-selects best backend
+  - `AgentLLMInterface` - Agent-friendly LLM methods
+
+- `src/core/processor.py` - Message processing
+  - `MessageProcessor` - Handler-pattern processing
+  - `DelegationHandler` - Work assignments
+  - `StatusUpdateHandler` - Progress reports
+  - `EscalationHandler` - Blocker escalation
+  - `PeerRequestHandler` - Lateral coordination
+  - `BroadcastHandler` - Announcements
+
+- `src/agents/vp.py` - VP agent class
+  - Department leadership
+  - Delegation to directors
+  - Gate management
+  - Escalation handling
+
+- `src/agents/director.py` - Director agent class
+  - Team management
+  - Worker pool integration
+  - Direct execution capability
+  - Work review
+
+- `src/agents/worker.py` - Worker agent class
+  - Task execution
+  - Full Claude Code capabilities
+  - Specialty-specific prompts
+  - Checkpoint creation
+
+- `src/agents/executor.py` - Execution framework
+  - `AgentExecutor` - Run agent groups
+  - `CorporationExecutor` - Full hierarchy orchestration
+  - Sequential/Parallel/Pool modes
+  - Continuous operation support
+
+**Modified:**
+- `src/agents/base.py` - Added LLM interface, message processor
+- `src/agents/__init__.py` - Export new agent classes
+- `src/core/__init__.py` - Export LLM and processor
+
+**Integration Tests:** All passed
+
+---
+
+## Component Status
+
+### Core (`src/core/`)
+
+| Module | Status | Description |
+|--------|--------|-------------|
+| `molecule.py` | ✅ Stable | Persistent workflows |
+| `hook.py` | ✅ Stable | Work queues |
+| `bead.py` | ✅ Stable | Git-backed ledger |
+| `channel.py` | ✅ Stable | Inter-agent messaging |
+| `gate.py` | ✅ Stable | Quality gates with async evaluation + auto-approval |
+| `pool.py` | ✅ Stable | Worker pools |
+| `raci.py` | ✅ Stable | Accountability model |
+| `hiring.py` | ✅ Stable | Dynamic hiring |
+| `templates.py` | ✅ Stable | Industry templates |
+| `memory.py` | ✅ Stable | RLM memory system |
+| `llm.py` | ✅ Stable | LLM backends |
+| `processor.py` | ✅ Stable | Message processing |
+| `contract.py` | ✅ Stable | Success contracts |
+| `monitor.py` | ✅ Stable | System monitoring |
+| `knowledge.py` | ✅ Stable | Scoped knowledge base |
+| `ingest.py` | ✅ Stable | Document ingestion pipeline |
+| `skills.py` | ✅ Stable | Role-based skill discovery |
+| `scheduler.py` | ✅ Stable | Work scheduling with capability matching |
+| `learning.py` | ✅ Stable | Learning System Phase 1 + Phase 2 (Evolution Daemon, Context Synthesizer) |
+
+### Agents (`src/agents/`)
+
+| Module | Status | Description |
+|--------|--------|-------------|
+| `base.py` | ✅ Stable | Base agent class |
+| `coo.py` | ✅ Stable | COO agent |
+| `vp.py` | ✅ New | VP agents |
+| `director.py` | ✅ New | Director agents |
+| `worker.py` | ✅ New | Worker agents |
+| `executor.py` | ✅ New | Parallel execution |
+| `runtime.py` | ✅ Stable | Agent runtime |
+
+### CLI (`src/cli/`)
+
+| Module | Status | Description |
+|--------|--------|-------------|
+| `main.py` | ✅ Stable | CLI entry point |
+
+### API (`src/api/`)
+
+| Module | Status | Description |
+|--------|--------|-------------|
+| `main.py` | ✅ Stable | FastAPI server - COO chat, delegation, dashboard, gates, WebSocket |
+
+---
+
+## Known Issues
+
+| Issue | Severity | Notes |
+|-------|----------|-------|
+| No async support | Low | Could improve performance |
+| ~~Hook cache staleness~~ | ~~Low~~ | ✅ Fixed: `refresh_hook()` methods added in orchestration layer |
+| ~~No orchestration layer~~ | ~~Medium~~ | ✅ Fixed: P2 complete - `run_cycle()` works autonomously |
+| ~~Single-shot agent execution~~ | ~~High~~ | ✅ Fixed: Agents now have full tool access (Read, Write, Edit, Bash, etc.) via level-based defaults |
+| ~~Molecule steps stay pending~~ | ~~High~~ | ✅ Fixed: VP/Director `_handle_directly()` and Worker now call `start_step()`/`complete_step()` |
+| ~~Missing workers in departments~~ | ~~Medium~~ | ✅ Fixed: Added 8 workers across all departments (eng, quality, research, product) |
+
+---
+
+## Next Actions
+
+### P1 Priority - System Refinements (Complete)
+1. ~~**Economic Metadata on Molecules**~~ ✅ - cost/value/confidence tracking
+2. ~~**Continuous Workflow Support**~~ ✅ - WorkflowType + LoopConfig
+3. ~~**Continuous Contract Validation**~~ ✅ - ValidationMode enum
+4. ~~**Failure Taxonomy**~~ ✅ - FailureType classification in Learning System
+5. ~~**SimpleMem Adaptive Retrieval**~~ ✅ - Query complexity scoring, adaptive depth, token budgeting
+
+### P1 Priority (Complete - Previous)
+1. ~~Create pytest test suite~~ ✅ Complete (778+ tests)
+2. ~~Add monitoring~~ ✅ Complete
+3. ~~Add terminal dashboard~~ ✅ Complete
+4. ~~Skills & Work Scheduler~~ ✅ Complete
+5. ~~Entity Graph~~ ✅ Complete
+6. ~~Platform Architecture~~ ✅ Complete
+7. ~~Foundation Corp Bootstrap~~ ✅ Complete
+8. ~~Learning System Design~~ ✅ Complete
+9. ~~Build Learning System~~ ✅ Complete (Phase 1 + Ralph Mode)
+10. ~~Depth-Based Context~~ ✅ Complete - Agent-level Entity Graph depth
+11. ~~Async Gate Approvals~~ ✅ Complete - Async evaluation + auto-approval
+12. ~~Architecture Review~~ ✅ Complete - E2E tests, all systems verified
+
+### P2 Future
+1. ~~Evolution Daemon~~ ✅ Complete (background learning cycles)
+2. ~~Context Synthesizer~~ ✅ Complete (part of Phase 2)
+3. ~~Orchestration Layer~~ ✅ Complete (autonomous CorporationExecutor)
+4. ~~Swarm Molecule Type~~ ✅ Complete (scatter→critique→converge)
+5. ~~Composite Molecules~~ ✅ Complete (Swarm→Ralph→escalate chain)
+6. Local model training (Phase 3 of Learning System)
+7. Data Source Connectors (Gmail, iMessage, Calendar for Personal)
+8. Apex Corp Registry
+9. Web UI
+
+---
+
+## Metrics
+
+| Metric | Value | Target |
+|--------|-------|--------|
+| Core modules | 19 | - |
+| Agent types | 5 | 5+ |
+| Lines of code | ~11000 | - |
+| Test count | 770+ | - |
+| Test coverage | ~40% | 80% |
+| Integration tests | Comprehensive | Comprehensive |
+
+---
+
+## Environment
+
+- **Python:** 3.x
+- **LLM:** Claude Opus 4.5 (claude-opus-4-5-20251101)
+- **Storage:** YAML + Git
+- **Branch:** `claude/ai-corporation-simulation-dgYIu`
+
+---
+
+## Files Changed This Session
+
+```
+src/core/llm.py          (new)
+src/core/processor.py    (new)
+src/agents/vp.py         (new)
+src/agents/director.py   (new)
+src/agents/worker.py     (new)
+src/agents/executor.py   (new)
+src/agents/base.py       (modified)
+src/agents/__init__.py   (modified)
+src/core/__init__.py     (modified)
+AI_CORP_ARCHITECTURE.md  (updated)
+WORKFLOW.md              (new)
+STATE.md                 (new - this file)
+```
+
+---
+
+## Key Documentation
+
+**Master Documents (always keep updated):**
+
+| Document | Purpose |
+|----------|---------|
+| `CLAUDE.md` | Auto-read session context (reading order, priorities) |
+| `STATE.md` | Current implementation status (this file) |
+| `ROADMAP.md` | Approved plans, priorities, and decisions |
+| `AI_CORP_ARCHITECTURE.md` | Core Engine technical details |
+
+**New Session Reading Order:** CLAUDE.md → STATE.md → ROADMAP.md → AI_CORP_ARCHITECTURE.md
+
+**Reference Documents:**
+
+| Document | Purpose |
+|----------|---------|
+| `PLATFORM_ARCHITECTURE.md` | Apex, Personal, Foundation services |
+| `BUSINESS_MODEL.md` | Pricing, unit economics, token optimization |
+| `LEARNING_SYSTEM_DESIGN.md` | Learning System architecture |
+| `INTEGRATIONS_DESIGN.md` | Connector system for external services |
+| `foundation/README.md` | Foundation Corp overview |
+| `WORKFLOW.md` | Development standards (TCMO) |
+| `VISION.md` | Long-term vision and principles |
+
+**Archived (implemented):**
+- `docs/archive/PLAN_SUCCESS_CONTRACT_AND_MONITORING.md`
+- `docs/archive/DESIGN_SKILLS_AND_ORCHESTRATION.md`
+
+---
+
+## Notes
+
+- All agents use Claude Opus 4.5 as specified
+- LLM backends are fully swappable via factory pattern
+- Message processor uses handler pattern for extensibility
+- Executor supports parallel execution via ThreadPoolExecutor
+- Workers have specialty-specific prompts (frontend, backend, devops, etc.)
+- Foundation Corp uses AI Corp to build AI Corp (dogfooding)
+- Learning System will capture insights from every completed molecule

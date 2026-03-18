@@ -1,0 +1,89 @@
+# Deployment Gate
+# Quality gate for production deployment approval
+
+version: "1.0"
+id: deployment_gate
+name: "Deployment Gate"
+description: "Final gate before production deployment"
+
+reviewers:
+  required_roles: [vp, director]
+  departments: [engineering, operations]
+  min_reviewers: 2
+
+criteria:
+  automated:
+    - id: all_gates_passed
+      name: Previous Gates Passed
+      type: dependency_check
+      required: true
+
+    - id: staging_healthy
+      name: Staging Environment Healthy
+      type: health_check
+      required: true
+
+    - id: monitoring_configured
+      name: Monitoring Configured
+      type: config_check
+      required: true
+
+  manual:
+    - id: staging_verified
+      name: Staging Verification
+      description: "Staging deployment manually verified"
+      required: true
+
+    - id: rollback_plan
+      name: Rollback Plan Ready
+      description: "Rollback procedure documented and tested"
+      required: true
+
+    - id: communication_plan
+      name: Communication Plan
+      description: "Stakeholders notified of deployment"
+      required: true
+
+    - id: on_call_ready
+      name: On-Call Ready
+      description: "On-call team aware and available"
+      required: true
+
+# Deployment windows
+deployment_windows:
+  allowed:
+    - days: [monday, tuesday, wednesday, thursday]
+      hours: [9, 10, 11, 14, 15, 16]
+      timezone: UTC
+
+  blocked:
+    - reason: "No Friday deployments"
+      days: [friday]
+    - reason: "No weekend deployments"
+      days: [saturday, sunday]
+    - reason: "Holiday freeze"
+      dates: ["2024-12-20", "2024-12-31"]
+
+behavior:
+  on_failure:
+    action: block_deployment
+    notify: [accountable, vp_engineering, vp_operations, coo]
+
+  on_success:
+    action: allow_deployment
+    notify: [accountable, vp_engineering, vp_operations, coo]
+    log_approval: true
+
+  max_attempts: 3
+  escalate_to: coo
+
+# Post-deployment requirements
+post_deployment:
+  - action: health_check
+    timeout_minutes: 15
+
+  - action: smoke_tests
+    timeout_minutes: 30
+
+  - action: notify_stakeholders
+    template: deployment_complete.md

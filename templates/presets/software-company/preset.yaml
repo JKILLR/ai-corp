@@ -1,0 +1,117 @@
+# Software Company Preset
+# The flagship preset for autonomous software development
+
+version: "1.0"
+id: software-company
+name: "Software Company"
+description: |
+  A fully autonomous AI corporation for software development.
+  Features Engineering, Research, Product, Quality, and Operations
+  departments with a complete hierarchy from COO to Workers.
+
+# Preset metadata
+metadata:
+  industry: software
+  author: AI Corp
+  created: "2025-01-06"
+  updated: "2025-01-06"
+
+  # Tags for discovery
+  tags:
+    - software
+    - development
+    - engineering
+    - startup
+    - tech
+
+  # Complexity rating (1-5)
+  complexity: 5
+
+  # Recommended team size
+  team_size:
+    min: 10
+    max: 50
+    default: 25
+
+# What this preset includes
+includes:
+  org:
+    hierarchy: org/hierarchy.yaml
+    roles:
+      - org/roles/executive.yaml
+      - org/roles/vp.yaml
+      - org/roles/director.yaml
+      - org/roles/worker.yaml
+    departments:
+      - org/departments/engineering.yaml
+      - org/departments/research.yaml
+      - org/departments/product.yaml
+      - org/departments/quality.yaml
+      - org/departments/operations.yaml
+
+  workflows:
+    - workflows/feature-development.yaml
+    - workflows/bug-fix.yaml
+    - workflows/research-spike.yaml
+    - workflows/security-audit.yaml
+
+  skills:
+    - skills/code-review/
+    - skills/internal-comms/
+
+  gates:
+    - gates/code-review.yaml
+    - gates/qa.yaml
+    - gates/security.yaml
+    - gates/deployment.yaml
+
+  config:
+    branding: config/branding.yaml
+    models: config/models.yaml
+    capabilities: config/capabilities.yaml
+
+# Customization points
+customization:
+  # Fields that SHOULD be customized per deployment
+  required:
+    - identity.name
+    - identity.legal_name
+
+  # Fields that CAN be customized
+  optional:
+    - theme.primary_color
+    - theme.secondary_color
+    - logos.*
+    - terminology.*
+    - role_models.*.model
+    - cost_optimization.daily_budget_usd
+
+# Dependencies
+dependencies:
+  # Minimum AI Corp version
+  min_version: "1.0.0"
+
+  # Required external tools
+  tools:
+    - name: git
+      required: true
+    - name: python
+      required: true
+      min_version: "3.10"
+
+# Initialization hooks
+hooks:
+  # Run after preset is copied to project
+  post_init:
+    - action: create_directories
+      paths:
+        - src/
+        - tests/
+        - docs/
+
+    - action: create_file
+      path: README.md
+      template: templates/readme.md.j2
+
+    - action: git_init
+      if_not_exists: true

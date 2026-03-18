@@ -1,0 +1,22 @@
+# Operations Department
+# Default department for blank template
+
+department:
+  id: operations
+  name: Operations
+  head: manager
+  description: "Handles all operational tasks"
+
+mission: |
+  Execute tasks efficiently and deliver results.
+
+directors: []
+
+worker_pools:
+  - id: pool_workers
+    name: Workers
+    director: manager
+    min_workers: 1
+    max_workers: 10
+    capabilities: []
+    skills: []

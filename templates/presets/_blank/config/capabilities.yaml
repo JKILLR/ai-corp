@@ -1,0 +1,38 @@
+# Capabilities Configuration
+# Define capabilities for your industry
+
+version: "1.0"
+
+# Define your capability categories
+categories:
+  - id: general
+    name: General
+    description: "General capabilities"
+
+# Define available capabilities
+capabilities:
+  - id: task_execution
+    name: Task Execution
+    category: general
+    description: "Ability to execute assigned tasks"
+
+  - id: communication
+    name: Communication
+    category: general
+    description: "Clear written communication"
+
+  - id: analysis
+    name: Analysis
+    category: general
+    description: "Analytical thinking and problem solving"
+
+# Role requirements
+role_requirements:
+  executive:
+    required: [communication, analysis]
+
+  manager:
+    required: [task_execution, communication]
+
+  worker:
+    required: [task_execution]

@@ -1,0 +1,71 @@
+# Content Factory Preset
+# Automated content generation and multi-platform publishing
+#
+# Use this preset for:
+# - YouTube channel automation
+# - Social media content pipelines
+# - Blog/newsletter content generation
+# - Podcast production
+# - Video/audio content at scale
+
+preset:
+  id: content-factory
+  name: "AI Content Factory"
+  version: "1.0.0"
+  description: |
+    Automated content creation and multi-platform publishing factory.
+    Generates scripts, videos, images, and posts at scale with quality gates.
+
+  # Complexity rating (1-5)
+  complexity: 4
+
+  # Team size recommendations
+  team_size:
+    min: 5
+    max: 30
+    default: 12
+
+  # Required integrations (must be connected)
+  required_integrations:
+    - openai        # Content generation (scripts, captions, descriptions)
+    - cloudinary    # Media storage and transformation
+
+  # Optional integrations (enhance capabilities)
+  optional_integrations:
+    # Publishing platforms
+    - youtube       # Video publishing
+    - instagram     # Image/Reel publishing
+    - tiktok        # Short video publishing
+    - twitter       # Text/thread publishing
+    - linkedin      # Professional content
+
+    # Content creation
+    - anthropic     # Alternative AI for content
+    - heygen        # Avatar video generation
+    - elevenlabs    # Voice generation
+    - runway        # AI video generation
+
+    # Notifications
+    - telegram      # Status notifications
+    - discord       # Team notifications
+
+  # Departments in this preset
+  departments:
+    - content_creation    # Ideation, scripting, writing
+    - production          # Video, audio, image creation
+    - publishing          # Platform management, scheduling
+    - analytics           # Performance tracking, optimization
+
+  # Customization points
+  customization:
+    required:
+      - identity.name           # "Acme Content Studio"
+      - identity.brand_voice    # "Professional and engaging"
+
+    optional:
+      - theme.primary_color
+      - theme.logo_url
+      - publishing.default_platforms
+      - publishing.schedule_timezone
+      - content.default_language
+      - content.topics           # Default content topics

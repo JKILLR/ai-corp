@@ -1,0 +1,73 @@
+# Research Department Configuration
+# VP Research leads Market Research and Technical Research teams
+
+department:
+  id: research
+  name: Research Department
+  head: vp_research
+  description: "Responsible for market analysis, competitive intelligence, and technical exploration"
+
+mission: |
+  Provide actionable insights through thorough research and analysis.
+  Evaluate technologies, understand market trends, and inform strategic decisions.
+
+directors:
+  - id: dir_market_research
+    name: Market Research Director
+    focus: "Competitive analysis, market trends, user research"
+    skills: []
+    responsibilities:
+      - Conduct competitive analysis
+      - Identify market opportunities
+      - Analyze user feedback and behavior
+      - Provide market sizing and trends
+
+  - id: dir_technical_research
+    name: Technical Research Director
+    focus: "Technology evaluation, POCs, feasibility studies"
+    skills: []
+    responsibilities:
+      - Evaluate new technologies
+      - Build proof-of-concept implementations
+      - Assess technical feasibility
+      - Research best practices and patterns
+
+worker_pools:
+  - id: pool_researchers
+    name: Research Workers
+    director: dir_market_research  # Shared pool
+    min_workers: 1
+    max_workers: 4
+    capabilities: [analysis, web_research, data_synthesis, report_writing]
+    skills: []
+
+  - id: pool_technical_researchers
+    name: Technical Research Workers
+    director: dir_technical_research
+    min_workers: 1
+    max_workers: 3
+    capabilities: [poc_development, tech_evaluation, benchmarking, documentation]
+    skills: []
+
+deliverables:
+  - type: market_analysis
+    format: markdown
+    sections: [executive_summary, methodology, findings, recommendations]
+
+  - type: competitive_analysis
+    format: markdown
+    sections: [competitors, comparison_matrix, strengths_weaknesses, strategic_implications]
+
+  - type: technology_evaluation
+    format: markdown
+    sections: [overview, pros_cons, poc_results, recommendation]
+
+  - type: feasibility_study
+    format: markdown
+    sections: [requirements, technical_approach, risks, timeline_estimate, recommendation]
+
+collaboration:
+  primary_partners: [product, engineering]
+  outputs_to:
+    - product: market insights, user research
+    - engineering: technical evaluations, feasibility studies

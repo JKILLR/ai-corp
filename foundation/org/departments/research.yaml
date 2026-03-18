@@ -1,0 +1,48 @@
+# Foundation Corp - Research Department
+# Responsible for architecture decisions, analysis, and documentation
+
+department:
+  id: research
+  name: "Research"
+  purpose: "Architecture decisions, performance analysis, and strategic research"
+
+  vp: vp_research
+
+  teams:
+    - id: architecture_team
+      name: "Architecture Team"
+      director: dir_architecture
+      focus: "System design, API design, architectural decisions"
+      responsibilities:
+        - Design new features before implementation
+        - Review architectural changes
+        - Maintain architecture documentation
+        - Evaluate new technologies/approaches
+
+    - id: analysis_team
+      name: "Analysis Team"
+      director: dir_analysis
+      focus: "Performance analysis, optimization research, metrics"
+      responsibilities:
+        - Profile system performance
+        - Identify optimization opportunities
+        - Analyze token usage patterns
+        - Research cost reduction strategies
+
+  artifacts:
+    - design_documents
+    - architecture_decision_records
+    - performance_reports
+    - research_findings
+
+  gates:
+    - id: architecture_review
+      name: "Architecture Review"
+      required_for: ["new_feature", "major_change"]
+      approvers: [dir_architecture, vp_research]
+
+  workflows:
+    - research_task
+    - design_document
+    - architecture_decision
+    - performance_analysis

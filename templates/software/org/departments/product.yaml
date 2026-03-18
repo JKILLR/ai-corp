@@ -1,0 +1,81 @@
+# Product Department Configuration
+# VP Product leads Product and Design teams
+
+department:
+  id: product
+  name: Product Department
+  head: vp_product
+  description: "Responsible for product strategy, roadmap, design, and user experience"
+
+mission: |
+  Define and deliver products that solve real user problems.
+  Ensure exceptional user experience through thoughtful design and clear product vision.
+
+directors:
+  - id: dir_product
+    name: Product Director
+    focus: "Roadmap, prioritization, requirements, stakeholder management"
+    skills: []
+    responsibilities:
+      - Define product roadmap and priorities
+      - Write product requirements
+      - Manage stakeholder expectations
+      - Make trade-off decisions
+      - Track product metrics
+
+  - id: dir_design
+    name: Design Director
+    focus: "Visual design, UX, interaction patterns, design systems"
+    skills: [frontend-design]
+    responsibilities:
+      - Lead visual and UX design
+      - Maintain design system and patterns
+      - Create wireframes and mockups
+      - Ensure accessibility compliance
+      - Conduct design reviews
+
+worker_pools:
+  - id: pool_product_managers
+    name: Product Managers
+    director: dir_product
+    min_workers: 1
+    max_workers: 3
+    capabilities: [requirements, prioritization, stakeholder_management, metrics]
+    skills: []
+
+  - id: pool_designers
+    name: UX Designers
+    director: dir_design
+    min_workers: 1
+    max_workers: 3
+    capabilities: [wireframes, mockups, prototypes, user_flows, design_systems]
+    skills: [frontend-design]
+
+deliverables:
+  - type: product_requirements
+    format: markdown
+    sections: [problem_statement, user_stories, acceptance_criteria, success_metrics]
+
+  - type: design_spec
+    format: markdown
+    sections: [user_flows, wireframes, visual_design, interaction_patterns, accessibility]
+
+  - type: roadmap
+    format: markdown
+    sections: [vision, objectives, milestones, dependencies, risks]
+
+artifacts:
+  - wireframes
+  - mockups
+  - prototypes
+  - user_flow_diagrams
+  - design_tokens
+
+collaboration:
+  primary_partners: [engineering, research]
+  consultation_required:
+    - technical_feasibility: dir_architecture
+    - market_validation: dir_market_research
+  outputs_to:
+    - engineering: requirements, designs, priorities
+    - quality: acceptance criteria, test scenarios

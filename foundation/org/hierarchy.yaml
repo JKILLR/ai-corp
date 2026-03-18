@@ -1,0 +1,203 @@
+# Foundation Corp - Organizational Hierarchy
+# The corp that builds and maintains the AI Corp platform
+#
+# Phase: Bootstrap (Phase 2 - Assisted)
+# Human CEO approves all changes, Foundation proposes
+
+corporation:
+  name: "Foundation Corp"
+  id: foundation
+  purpose: "Build and maintain the AI Corp platform"
+  phase: 2  # Assisted - human approves all
+
+  # Special privileges (only Foundation has these)
+  privileges:
+    - modify_core_engine
+    - modify_platform_services
+    - create_presets
+    - access_all_corps  # For debugging/support
+
+hierarchy:
+  levels:
+    - level: 0
+      title: "CEO"
+      type: human
+
+    - level: 1
+      title: "COO"
+      type: agent
+
+    - level: 2
+      title: "VP"
+      type: agent
+
+    - level: 3
+      title: "Director"
+      type: agent
+
+    - level: 4
+      title: "Worker"
+      type: agent
+
+# Reporting Structure
+reporting:
+  ceo:
+    id: ceo_human
+    name: "Human CEO"
+    type: human
+    reports_to: null
+    direct_reports:
+      - coo
+
+  coo:
+    id: coo
+    name: "Chief Operating Officer"
+    type: agent
+    reports_to: ceo_human
+    direct_reports:
+      - vp_engineering
+      - vp_research
+      - vp_quality
+
+  vps:
+    - id: vp_engineering
+      name: "VP Engineering"
+      department: engineering
+      reports_to: coo
+      direct_reports:
+        - dir_core
+        - dir_platform
+        - dir_integrations
+
+    - id: vp_research
+      name: "VP Research"
+      department: research
+      reports_to: coo
+      direct_reports:
+        - dir_architecture
+        - dir_analysis
+
+    - id: vp_quality
+      name: "VP Quality"
+      department: quality
+      reports_to: coo
+      direct_reports:
+        - dir_testing
+        - dir_security
+
+  directors:
+    # Engineering
+    - id: dir_core
+      name: "Core Engine Director"
+      department: engineering
+      reports_to: vp_engineering
+      manages_pool: core_workers
+
+    - id: dir_platform
+      name: "Platform Director"
+      department: engineering
+      reports_to: vp_engineering
+      manages_pool: platform_workers
+
+    - id: dir_integrations
+      name: "Integrations Director"
+      department: engineering
+      reports_to: vp_engineering
+      manages_pool: integration_workers
+
+    # Research
+    - id: dir_architecture
+      name: "Architecture Director"
+      department: research
+      reports_to: vp_research
+      manages_pool: research_workers
+
+    - id: dir_analysis
+      name: "Analysis Director"
+      department: research
+      reports_to: vp_research
+      manages_pool: analysis_workers
+
+    # Quality
+    - id: dir_testing
+      name: "Testing Director"
+      department: quality
+      reports_to: vp_quality
+      manages_pool: qa_workers
+
+    - id: dir_security
+      name: "Security Director"
+      department: quality
+      reports_to: vp_quality
+      manages_pool: security_workers
+
+  worker_pools:
+    - id: core_workers
+      name: "Core Engine Workers"
+      department: engineering
+      min_workers: 1
+      max_workers: 5
+      capabilities:
+        - python
+        - core_engine
+        - testing
+
+    - id: platform_workers
+      name: "Platform Workers"
+      department: engineering
+      min_workers: 1
+      max_workers: 5
+      capabilities:
+        - python
+        - platform_services
+        - api_design
+
+    - id: integration_workers
+      name: "Integration Workers"
+      department: engineering
+      min_workers: 1
+      max_workers: 3
+      capabilities:
+        - python
+        - external_apis
+        - data_connectors
+
+    - id: research_workers
+      name: "Research Workers"
+      department: research
+      min_workers: 1
+      max_workers: 3
+      capabilities:
+        - research
+        - documentation
+        - architecture
+
+    - id: analysis_workers
+      name: "Analysis Workers"
+      department: research
+      min_workers: 1
+      max_workers: 2
+      capabilities:
+        - analysis
+        - performance
+        - optimization
+
+    - id: qa_workers
+      name: "QA Workers"
+      department: quality
+      min_workers: 1
+      max_workers: 3
+      capabilities:
+        - testing
+        - code_review
+        - documentation
+
+    - id: security_workers
+      name: "Security Workers"
+      department: quality
+      min_workers: 1
+      max_workers: 2
+      capabilities:
+        - security_review
+        - access_control
+        - audit

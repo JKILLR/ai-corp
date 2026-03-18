@@ -1,0 +1,83 @@
+# Content Factory Organizational Hierarchy
+#
+# Optimized for content production at scale with quality gates
+
+hierarchy:
+  name: "Content Factory Hierarchy"
+  description: "Streamlined hierarchy for automated content production"
+
+  levels:
+    - name: executive
+      rank: 1
+      description: "Strategic leadership"
+
+    - name: director
+      rank: 2
+      description: "Department heads and content leads"
+
+    - name: specialist
+      rank: 3
+      description: "Specialized content creators and editors"
+
+    - name: worker
+      rank: 4
+      description: "Content producers and executors"
+
+  reporting_structure:
+    coo:
+      reports_to: ceo
+      direct_reports:
+        - content_director
+        - production_director
+        - publishing_director
+        - analytics_director
+
+    content_director:
+      reports_to: coo
+      department: content_creation
+      direct_reports:
+        - script_writer
+        - copy_writer
+        - research_specialist
+
+    production_director:
+      reports_to: coo
+      department: production
+      direct_reports:
+        - video_producer
+        - audio_producer
+        - image_creator
+
+    publishing_director:
+      reports_to: coo
+      department: publishing
+      direct_reports:
+        - platform_manager
+        - scheduler
+
+    analytics_director:
+      reports_to: coo
+      department: analytics
+      direct_reports:
+        - data_analyst
+
+  communication:
+    # Fast feedback loops for content
+    patterns:
+      - name: content_review
+        from: worker
+        to: director
+        type: upchain
+        purpose: "Content ready for review"
+
+      - name: publish_approval
+        from: director
+        to: coo
+        type: upchain
+        purpose: "Content ready for publishing"
+
+      - name: performance_alert
+        from: analytics_director
+        to: coo
+        type: peer
+        purpose: "Content performance updates"

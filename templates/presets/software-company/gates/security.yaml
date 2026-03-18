@@ -1,0 +1,83 @@
+# Security Gate
+# Quality gate for security approval
+
+version: "1.0"
+id: security_gate
+name: "Security Gate"
+description: "Ensures code meets security standards before deployment"
+
+reviewers:
+  required_roles: [director]
+  departments: [quality]
+  specific_roles: [dir_security]
+  min_reviewers: 1
+
+criteria:
+  automated:
+    - id: sast
+      name: Static Analysis (SAST)
+      type: security_scan
+      required: true
+      tool: semgrep
+
+    - id: dependency_scan
+      name: Dependency Vulnerabilities
+      type: security_scan
+      required: true
+      tool: snyk
+
+    - id: secrets_scan
+      name: Secrets Detection
+      type: security_scan
+      required: true
+      tool: gitleaks
+
+  manual:
+    - id: owasp_top_10
+      name: OWASP Top 10 Review
+      description: "No OWASP Top 10 vulnerabilities"
+      required: true
+      checklist:
+        - Injection flaws
+        - Broken authentication
+        - Sensitive data exposure
+        - XML external entities
+        - Broken access control
+        - Security misconfiguration
+        - Cross-site scripting
+        - Insecure deserialization
+        - Vulnerable components
+        - Insufficient logging
+
+    - id: auth_review
+      name: Authentication Review
+      description: "Auth implementation is secure"
+      required: true
+
+    - id: data_handling
+      name: Data Handling Review
+      description: "Sensitive data handled properly"
+      required: true
+
+# Severity levels that block deployment
+blocking_severities:
+  - critical
+  - high
+
+# Non-blocking but must be tracked
+tracking_severities:
+  - medium
+  - low
+
+behavior:
+  on_failure:
+    action: block_deployment
+    notify: [accountable, dir_security, vp_quality, coo]
+    create_incident: true
+
+  on_success:
+    action: proceed_to_next_phase
+    notify: [accountable, dir_security]
+
+  max_attempts: 5  # Security is critical
+  escalate_to: coo  # Escalate to COO for security

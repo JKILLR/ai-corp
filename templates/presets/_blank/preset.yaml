@@ -1,0 +1,66 @@
+# Blank Preset Template
+# Starting point for creating new industry presets
+
+version: "1.0"
+id: _blank
+name: "Blank Template"
+description: |
+  A minimal starting point for creating new AI Corp presets.
+  Copy this directory and customize for your industry.
+
+metadata:
+  industry: generic
+  author: AI Corp
+  created: "2025-01-06"
+  updated: "2025-01-06"
+
+  tags:
+    - template
+    - blank
+    - starter
+
+  complexity: 1
+
+  team_size:
+    min: 3
+    max: 20
+    default: 5
+
+includes:
+  org:
+    hierarchy: org/hierarchy.yaml
+    roles:
+      - org/roles/executive.yaml
+      - org/roles/manager.yaml
+      - org/roles/worker.yaml
+    departments:
+      - org/departments/operations.yaml
+
+  workflows: []
+
+  skills: []
+
+  gates: []
+
+  config:
+    branding: config/branding.yaml
+    models: config/models.yaml
+    capabilities: config/capabilities.yaml
+
+customization:
+  required:
+    - identity.name
+    - identity.industry
+
+  optional:
+    - "*"
+
+dependencies:
+  min_version: "1.0.0"
+
+  tools:
+    - name: git
+      required: true
+
+hooks:
+  post_init: []

@@ -1,0 +1,212 @@
+# Director Role Definitions
+# Team leads who manage worker pools and execute departmental strategy
+
+roles:
+  # Engineering Directors
+  - id: dir_architecture
+    name: Architecture Director
+    type: director
+    level: 3
+    department: engineering
+    reports_to: vp_engineering
+    description: "Leads system design and technical decisions"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: []
+    manages_pool: null  # No direct workers, advisory role
+    responsibilities:
+      - Define system architecture
+      - Review technical designs
+      - Make technology decisions
+      - Ensure consistency across systems
+
+  - id: dir_frontend
+    name: Frontend Director
+    type: director
+    level: 3
+    department: engineering
+    reports_to: vp_engineering
+    description: "Leads frontend implementation team"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: [frontend-design]
+    manages_pool: pool_frontend
+    responsibilities:
+      - Lead frontend development
+      - Assign frontend tasks to workers
+      - Review frontend code
+      - Ensure UI quality
+
+  - id: dir_backend
+    name: Backend Director
+    type: director
+    level: 3
+    department: engineering
+    reports_to: vp_engineering
+    description: "Leads backend implementation team"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: []
+    manages_pool: pool_backend
+    responsibilities:
+      - Lead backend development
+      - Assign backend tasks to workers
+      - Review API designs
+      - Ensure service quality
+
+  - id: dir_devops
+    name: DevOps Director
+    type: director
+    level: 3
+    department: engineering
+    reports_to: vp_engineering
+    description: "Leads infrastructure and deployment team"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: [aws-skills, terraform-skills]
+    manages_pool: pool_devops
+    responsibilities:
+      - Manage cloud infrastructure
+      - Lead CI/CD implementation
+      - Handle deployments
+      - Monitor systems
+
+  # Research Directors
+  - id: dir_market_research
+    name: Market Research Director
+    type: director
+    level: 3
+    department: research
+    reports_to: vp_research
+    description: "Leads market and competitive research"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: []
+    manages_pool: pool_researchers
+    responsibilities:
+      - Lead market research
+      - Conduct competitive analysis
+      - Synthesize market insights
+      - Report findings
+
+  - id: dir_technical_research
+    name: Technical Research Director
+    type: director
+    level: 3
+    department: research
+    reports_to: vp_research
+    description: "Leads technical research and POCs"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: []
+    manages_pool: pool_technical_researchers
+    responsibilities:
+      - Evaluate technologies
+      - Build proof of concepts
+      - Assess feasibility
+      - Research best practices
+
+  # Product Directors
+  - id: dir_product
+    name: Product Director
+    type: director
+    level: 3
+    department: product
+    reports_to: vp_product
+    description: "Leads product management"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: []
+    manages_pool: pool_product_managers
+    responsibilities:
+      - Define product requirements
+      - Manage product backlog
+      - Prioritize features
+      - Track metrics
+
+  - id: dir_design
+    name: Design Director
+    type: director
+    level: 3
+    department: product
+    reports_to: vp_product
+    description: "Leads UX and visual design"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: [frontend-design]
+    manages_pool: pool_designers
+    responsibilities:
+      - Lead UX design
+      - Maintain design system
+      - Create wireframes and mockups
+      - Ensure accessibility
+
+  # Quality Directors
+  - id: dir_qa
+    name: QA Director
+    type: director
+    level: 3
+    department: quality
+    reports_to: vp_quality
+    description: "Leads quality assurance"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: [webapp-testing]
+    manages_pool: pool_qa_engineers
+    responsibilities:
+      - Define test strategy
+      - Manage test automation
+      - Track quality metrics
+      - Control QA gate
+
+  - id: dir_security
+    name: Security Director
+    type: director
+    level: 3
+    department: quality
+    reports_to: vp_quality
+    description: "Leads security review"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: [security-bluebook-builder]
+    manages_pool: pool_security_reviewers
+    responsibilities:
+      - Conduct security reviews
+      - Track vulnerabilities
+      - Define security standards
+      - Control security gate
+
+  # Operations Directors
+  - id: dir_project
+    name: Project Director
+    type: director
+    level: 3
+    department: operations
+    reports_to: vp_operations
+    description: "Leads project management"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: []
+    manages_pool: pool_project_managers
+    responsibilities:
+      - Manage timelines
+      - Allocate resources
+      - Track risks
+      - Facilitate coordination
+
+  - id: dir_documentation
+    name: Documentation Director
+    type: director
+    level: 3
+    department: operations
+    reports_to: vp_operations
+    description: "Leads documentation and knowledge management"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: [docx, pdf]
+    manages_pool: pool_technical_writers
+    responsibilities:
+      - Maintain documentation
+      - Manage knowledge base
+      - Create guides and tutorials
+      - Archive project docs

@@ -1,0 +1,108 @@
+# Bug Fix Workflow
+# Streamlined workflow for fixing bugs
+
+version: "1.0"
+id: bug-fix
+name: "Bug Fix"
+description: "Workflow for investigating and fixing bugs"
+
+phases:
+  - id: triage
+    name: Triage
+    description: "Assess bug severity and priority"
+    department: quality
+
+    steps:
+      - id: reproduce
+        name: Reproduce Bug
+        owner: dir_qa
+        outputs: [reproduction_steps, severity]
+
+      - id: assign
+        name: Assign to Team
+        owner: dir_qa
+        inputs: [severity]
+        outputs: [assigned_team, assigned_owner]
+
+    gate: null
+
+  - id: investigate
+    name: Investigation
+    description: "Find root cause"
+    department: engineering
+
+    steps:
+      - id: root_cause
+        name: Root Cause Analysis
+        owner: "{{assigned_owner}}"
+        inputs: [reproduction_steps]
+        outputs: [root_cause_doc, fix_approach]
+
+    gate: null
+
+  - id: fix
+    name: Fix
+    description: "Implement the fix"
+    department: engineering
+
+    steps:
+      - id: implement_fix
+        name: Implement Fix
+        owner: "{{assigned_owner}}"
+        inputs: [fix_approach]
+        outputs: [fix_code, regression_tests]
+
+    gate:
+      type: code_review
+      reviewers: [dir_architecture]
+      criteria:
+        - Fix addresses root cause
+        - Regression tests added
+        - No new issues introduced
+
+  - id: verify
+    name: Verification
+    description: "Verify the fix"
+    department: quality
+
+    steps:
+      - id: qa_verify
+        name: QA Verification
+        owner: dir_qa
+        inputs: [fix_code]
+        outputs: [verification_report]
+
+    gate:
+      type: qa_gate
+      criteria:
+        - Original bug fixed
+        - No regression
+
+  - id: deploy
+    name: Deploy
+    description: "Deploy the fix"
+    department: engineering
+
+    steps:
+      - id: hotfix_deploy
+        name: Deploy Hotfix
+        owner: dir_devops
+        inputs: [fix_code]
+        outputs: [deployment_confirmation]
+
+    gate: null
+
+settings:
+  max_duration_hours: 24
+  parallel_execution: false
+
+  # Severity-based SLAs
+  sla:
+    critical:
+      max_hours: 4
+    high:
+      max_hours: 24
+    medium:
+      max_hours: 72
+    low:
+      max_hours: 168

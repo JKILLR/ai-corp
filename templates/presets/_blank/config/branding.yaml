@@ -1,0 +1,48 @@
+# Branding Configuration
+# Customize this for your AI Corp instance
+
+version: "1.0"
+
+identity:
+  name: "My AI Corp"           # CUSTOMIZE THIS
+  tagline: "Autonomous Operations"
+  industry: "generic"          # CUSTOMIZE THIS
+
+  legal_name: "My AI Corp"     # CUSTOMIZE THIS
+  short_name: "AIC"
+
+description: |
+  Describe what this AI Corp does.
+  CUSTOMIZE THIS DESCRIPTION.
+
+theme:
+  primary_color: "#2563eb"
+  secondary_color: "#7c3aed"
+  accent_color: "#10b981"
+
+  success_color: "#22c55e"
+  warning_color: "#f59e0b"
+  error_color: "#ef4444"
+
+  dark_mode_default: true
+  font_family: "Inter, system-ui, sans-serif"
+  monospace_font: "JetBrains Mono, monospace"
+
+logos:
+  full: null
+  icon: null
+  favicon: null
+
+terminology:
+  project: "Project"
+  task: "Task"
+  molecule: "Workflow"
+  hook: "Work Queue"
+  bead: "Action Log"
+  channel: "Message"
+  gate: "Quality Gate"
+
+communication:
+  self_reference: "the team"
+  greeting: "Hello!"
+  tone: "professional"

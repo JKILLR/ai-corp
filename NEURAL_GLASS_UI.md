@@ -1,0 +1,1482 @@
+# NEURAL GLASS - Visual Design System
+
+## AI Corp Design Concept - Round 2
+
+> **This is the VISUAL DESIGN SYSTEM** - defining *how* it looks and moves (colors, glass effects, animations, motion physics).
+>
+> **For FUNCTIONAL SPEC** - features, wireframes, APIs, data models - see **[FRONTEND_DESIGN_SPEC.md](./FRONTEND_DESIGN_SPEC.md)**
+>
+> Together: The functional spec defines what features exist. This doc defines how they appear and animate.
+
+---
+
+## ROUND 2 ENHANCEMENT SUMMARY
+
+Building on the Round 1 Neural Glass foundation, this enhanced version addresses:
+
+| Enhancement | Source | Status |
+|-------------|--------|--------|
+| Mobile Layout | Gap Analysis | NEW |
+| Light Mode Variant | Accessibility Need | NEW |
+| Keyboard Shortcuts Panel | Concept B Inspiration | NEW |
+| Empty States | Gap Analysis | NEW |
+| Refined Org Chart Interactions | Cross-Reference | ENHANCED |
+| Bracketed Status Badges | Concept B | INCORPORATED |
+| Spring-Physics Animations | Concept C | INCORPORATED |
+
+---
+
+## 1. MOBILE LAYOUT DESIGN
+
+### Philosophy
+Mobile Neural Glass preserves the "living intelligence" feel while adapting to touch-first interaction. The neural pathways become simplified connection lines, glass cards stack vertically, and the org chart transforms into an expandable list hierarchy.
+
+### Mobile Dashboard Wireframe (Portrait)
+
+```
+┌──────────────────────────────────────┐
+│ ◇ AI CORP                  👤  ⚙  ≡ │  ← Hamburger for nav
+├──────────────────────────────────────┤
+│                                      │
+│  ┌────────────────────────────────┐  │
+│  │    NEURAL STATUS SUMMARY       │  │
+│  │                                │  │
+│  │  ◉ 12 Active    ⚠ 2 Blocked   │  │
+│  │   ═══════════════════════════  │  │  ← Mini neural flow
+│  └────────────────────────────────┘  │
+│                                      │
+│  ┌─────────┐ ┌─────────┐            │
+│  │ ◉ ACTIVE│ │ 🔄 PROC │            │
+│  │         │ │         │            │
+│  │   12    │ │    4    │            │  ← 2x2 metric grid
+│  │  agents │ │  tasks  │            │
+│  └─────────┘ └─────────┘            │
+│  ┌─────────┐ ┌─────────┐            │
+│  │ ⏸ QUEUE │ │ ⚠ GATES │            │
+│  │         │ │         │            │
+│  │    7    │ │    2    │            │
+│  │  tasks  │ │ pending │            │
+│  └─────────┘ └─────────┘            │
+│                                      │
+│  ┌────────────────────────────────┐  │
+│  │    ACTIVE WORKFLOWS            │  │
+│  ├────────────────────────────────┤  │
+│  │ ◉ Website Redesign   [OK]      │  │
+│  │   ████████░░░░  67%            │  │
+│  │   3 agents • ETA 2.3h          │  │
+│  ├────────────────────────────────┤  │
+│  │ ◉ API Integration    [OK]      │  │
+│  │   ██████████░░  89%            │  │
+│  │   1 agent • ETA 0.5h           │  │
+│  ├────────────────────────────────┤  │
+│  │ ⚠ Data Pipeline     [WARN]     │  │
+│  │   ██████░░░░░░  45%            │  │
+│  │   BLOCKED • Needs approval     │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  ┌────────────────────────────────┐  │
+│  │ RECENT ACTIVITY          ▾    │  │
+│  ├────────────────────────────────┤  │
+│  │ ◉ 2:34 design-agent done       │  │
+│  │ ◉ 2:31 research-agent spawned  │  │
+│  │ ⚠ 2:28 qa-agent flagged issue  │  │
+│  └────────────────────────────────┘  │
+│                                      │
+├──────────────────────────────────────┤
+│  ◉       ○       ○       ○       ○  │  ← Bottom tab bar
+│ Home  Projects Agents  Gates  More  │
+└──────────────────────────────────────┘
+```
+
+### Mobile Navigation Pattern
+
+```
+┌──────────────────────────────────────┐
+│                                      │
+│  BOTTOM TAB BAR (Always Visible)     │
+│                                      │
+│  ┌──────────────────────────────────┐│
+│  │  ◉        ○        ○       ●     ││
+│  │ Home   Projects  Agents   (2)    ││
+│  │                           Gates  ││
+│  └──────────────────────────────────┘│
+│                                      │
+│  Active tab: Filled orb + label      │
+│  Inactive: Outline orb only          │
+│  Badge: Red dot with count           │
+│  Glow effect under active tab        │
+│                                      │
+│  HAMBURGER MENU (≡) CONTENTS:        │
+│  ┌──────────────────────────────────┐│
+│  │  ╭────────────────────────────╮  ││
+│  │  │ ◇ AI CORP                  │  ││
+│  │  │ CEO Dashboard              │  ││
+│  │  ├────────────────────────────┤  ││
+│  │  │ ○ Discovery                │  ││
+│  │  │ ○ Integrations             │  ││
+│  │  │ ○ Settings                 │  ││
+│  │  │ ○ Help & Docs              │  ││
+│  │  ├────────────────────────────┤  ││
+│  │  │ ○ Sign Out                 │  ││
+│  │  ╰────────────────────────────╯  ││
+│  └──────────────────────────────────┘│
+│                                      │
+│  Glass slide-in from right           │
+│  Background dims to 40% opacity      │
+│  Tap outside to dismiss              │
+│                                      │
+└──────────────────────────────────────┘
+```
+
+### Mobile Org Chart (List Mode)
+
+```
+┌──────────────────────────────────────┐
+│ ← Agents              🔍  Filter ▾  │
+├──────────────────────────────────────┤
+│                                      │
+│  ┌────────────────────────────────┐  │
+│  │ 👤 YOU (CEO)                   │  │
+│  │    Oversight & Approvals       │  │
+│  └────────────────────────────────┘  │
+│         │                            │
+│  ┌────────────────────────────────┐  │
+│  │ ◉◉◉ COO                  [OK]  │  │
+│  │     Primary Orchestrator       │  │
+│  │     Active • 47 tasks today    │  │
+│  │                           ▾    │  │  ← Tap to expand
+│  └────────────────────────────────┘  │
+│         │                            │
+│  ┌────────────────────────────────┐  │
+│  │ ◉ Head of Engineering   [OK]   │  │
+│  │   5 direct reports             │  │
+│  │                           ▾    │  │
+│  │  ┌──────────────────────────┐  │  │
+│  │  │ ◉ dev-001    Processing  │  │  │  ← Expanded children
+│  │  │ ◉ dev-002    Active      │  │  │
+│  │  │ ◎ dev-003    Idle        │  │  │
+│  │  │ ◉ dev-004    Active      │  │  │
+│  │  │ ◉ qa-001     Active      │  │  │
+│  │  └──────────────────────────┘  │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  ┌────────────────────────────────┐  │
+│  │ ◉ Head of Design       [OK]    │  │
+│  │   3 direct reports             │  │
+│  │                           ▸    │  │  ← Collapsed
+│  └────────────────────────────────┘  │
+│                                      │
+│  ┌────────────────────────────────┐  │
+│  │ ◉ Head of Research    [WARN]   │  │
+│  │   2 direct reports             │  │
+│  │   ⚠ 1 agent blocked            │  │
+│  │                           ▸    │  │
+│  └────────────────────────────────┘  │
+│                                      │
+└──────────────────────────────────────┘
+```
+
+### Mobile Touch Targets
+
+| Element | Minimum Size | Spacing |
+|---------|--------------|---------|
+| Buttons | 44x44px | 8px gap |
+| List items | 48px height | 1px divider |
+| Tab bar icons | 44x44px tap area | 0 (full width) |
+| Cards | Full width - 32px | 12px vertical |
+| Status orbs | 32x32px tap area | 8px from text |
+
+### Mobile-Specific Interactions
+
+| Gesture | Action |
+|---------|--------|
+| Pull down | Refresh dashboard data |
+| Swipe left on workflow | Quick actions (view, pause) |
+| Swipe right on activity | Mark as read |
+| Long press on agent | Quick view popup |
+| Pinch on org chart | Switch to network view |
+| Two-finger swipe | Navigate between tabs |
+
+---
+
+## 2. LIGHT MODE VARIANT
+
+### Philosophy
+Light mode Neural Glass transforms from "deep space" to "crystalline daylight" - maintaining the premium glass aesthetic but inverting the luminosity model. The neural pathways become subtle watercolor-like traces rather than glowing lines.
+
+### Light Mode Color Palette
+
+| Name | Hex | Usage |
+|------|-----|-------|
+| **Cloud White** | `#FAFBFC` | Base background |
+| **Mist Gray** | `#F1F3F5` | Secondary background |
+| **Frost Glass** | `#FFFFFF` | Card backgrounds (with shadow) |
+| **Neural Blue** | `#2563EB` | Primary accent (deeper for contrast) |
+| **Synapse Teal** | `#0D9488` | Secondary accent |
+| **Ink Dark** | `#1E293B` | Primary text |
+| **Slate Medium** | `#64748B` | Secondary text |
+
+### Light Mode Status Colors
+
+| Status | Background | Border | Text |
+|--------|------------|--------|------|
+| Active [OK] | `#DCFCE7` | `#22C55E` | `#166534` |
+| Processing | `#FEF3C7` | `#F59E0B` | `#92400E` |
+| Warning [WARN] | `#FEE2E2` | `#EF4444` | `#991B1B` |
+| Pending | `#EDE9FE` | `#8B5CF6` | `#5B21B6` |
+| Idle | `#F1F5F9` | `#94A3B8` | `#475569` |
+
+### Light Mode Glass System
+
+```css
+/* Light Glass Cards */
+.glass-card-light {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* Elevated Light Glass */
+.glass-card-light-elevated {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.08);
+}
+```
+
+### Light Mode Dashboard Wireframe
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ ◇ AI CORP                                         🔍 Search    👤 CEO    ☀/🌙 Toggle │
+├───────────┬────────────────────────────────────────────────────────────────────────────┤
+│░░░░░░░░░░░│                                                                            │
+│░░░░░░░░░░░│   ┌─────────────────────────────────────────────────────────────────────┐ │
+│░ ◉ Dash  ░│   │ ☁ NEURAL COMMAND CENTER                    ───── activity trace ─── │ │
+│░░░░░░░░░░░│   │                                                                      │ │
+│  ○ Proj   │   │   ╭─────────────╮  ╭─────────────╮  ╭─────────────╮  ╭─────────────╮│ │
+│           │   │   │ ● ACTIVE    │  │ ○ PROCESS   │  │ ◐ QUEUED    │  │ ▲ ATTENTION ││ │
+│  ○ Agents │   │   │   [OK]      │  │   [OK]      │  │   [OK]      │  │   [WARN]    ││ │
+│           │   │   │    12       │  │     4       │  │     7       │  │     2       ││ │
+│  ○ Disc   │   │   │   agents    │  │   tasks     │  │   tasks     │  │   gates     ││ │
+│           │   │   ╰─────────────╯  ╰─────────────╯  ╰─────────────╯  ╰─────────────╯│ │
+│  ○ Gates  │   └─────────────────────────────────────────────────────────────────────┘ │
+│   (2)     │                                                                            │
+│           │   ┌─────────────────────────────────────┐  ┌────────────────────────────┐ │
+│  ○ Integ  │   │  ☁ SYSTEM HEALTH                    │  │  ☁ AGENT OVERVIEW          │ │
+│           │   │                                     │  │                            │ │
+│  ─────    │   │   CPU ▓▓▓▓▓▓▓▓▓▓▓░░░  78% [OK]     │  │     👤 CEO (You)           │ │
+│           │   │   MEM ▓▓▓▓▓▓▓▓▓░░░░░  65% [OK]     │  │        │                   │ │
+│  ○ Set    │   │   API ▓▓▓▓░░░░░░░░░░  34% [OK]     │  │      ◉◉◉ COO              │ │
+│           │   │                                     │  │      / | \               │ │
+│           │   │   ┌─────────────────────────────┐   │  │     ◉  ◉  ◉ Heads        │ │
+│           │   │   │    Activity Timeline        │   │  │    /|  |  |\             │ │
+│           │   │   │ ▁▂▃▄▅▆▇█▇▆▅▄▅▆▇█▇▆▅▄▃▂▁   │   │  │   ◦ ◦ ◦◦ ◦ ◦ Workers     │ │
+│           │   │   └─────────────────────────────┘   │  │                            │ │
+│           │   └─────────────────────────────────────┘  └────────────────────────────┘ │
+│           │                                                                            │
+│           │   ┌─────────────────────────────────────────────────────────────────────┐ │
+│           │   │ ☁ ACTIVE WORKFLOWS                                                   │ │
+│           │   │                                                                      │ │
+│           │   │   ╭─────────────────────────────────────────────────────────────╮   │ │
+│           │   │   │ ● Website Redesign                      [OK]    ▓▓▓▓▓░░ 67% │   │ │
+│           │   │   │   Design ●──●──●──○──○ Development                          │   │ │
+│           │   │   │   3 agents active  •  ETA 2.3h                              │   │ │
+│           │   │   ╰─────────────────────────────────────────────────────────────╯   │ │
+│           │   │                                                                      │ │
+│           │   │   ╭─────────────────────────────────────────────────────────────╮   │ │
+│           │   │   │ ▲ Data Pipeline Refactor               [WARN]   ▓▓▓░░░ 45% │   │ │
+│           │   │   │   Analysis ●──●──◉──○──○ Implementation                     │   │ │
+│           │   │   │   2 agents active  •  BLOCKED: Needs approval               │   │ │
+│           │   │   ╰─────────────────────────────────────────────────────────────╯   │ │
+│           │   └─────────────────────────────────────────────────────────────────────┘ │
+│           │                                                                            │
+└───────────┴────────────────────────────────────────────────────────────────────────────┘
+
+LIGHT MODE KEY DIFFERENCES:
+├── Background: Cloud White (#FAFBFC) instead of Void Black
+├── Cards: White glass with subtle shadows instead of dark glass with glow
+├── Neural lines: Soft blue traces instead of glowing cyan
+├── Status badges: Colored pill backgrounds instead of glow effects
+├── Text: Dark ink (#1E293B) instead of Plasma White
+└── Accents: Deeper blue (#2563EB) for better contrast on light
+```
+
+### Theme Toggle Component
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  THEME TOGGLE (Header)                                          │
+│                                                                 │
+│  Dark Mode:     ┌─────────────────────┐                         │
+│                 │  ☀      ═══●        │   ● = toggle position   │
+│                 └─────────────────────┘                         │
+│                                                                 │
+│  Light Mode:    ┌─────────────────────┐                         │
+│                 │       ●═══      🌙  │                         │
+│                 └─────────────────────┘                         │
+│                                                                 │
+│  Transition: 300ms ease-in-out                                  │
+│  - All colors cross-fade simultaneously                         │
+│  - Glass blur maintains during transition                       │
+│  - No jarring flash - smooth morph                              │
+│                                                                 │
+│  AUTO MODE (Optional):                                          │
+│                 ┌─────────────────────┐                         │
+│                 │  ☀    ●    🌙   A  │   A = Auto (system)      │
+│                 └─────────────────────┘                         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. KEYBOARD SHORTCUTS PANEL (⌘K)
+
+### Command Palette Design
+
+Inspired by Concept B's power-user focus, the Neural Glass command palette maintains the ethereal aesthetic while providing rapid keyboard navigation.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                        │
+│                          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                               │
+│                          ░   BACKDROP: 60% Void Black   ░                               │
+│                          ░   backdrop-filter: blur(8px) ░                               │
+│                          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                               │
+│                                                                                        │
+│                    ╭────────────────────────────────────────────╮                      │
+│                    │ 🔍  Type a command...                   ⌘K │                      │
+│                    ├────────────────────────────────────────────┤                      │
+│                    │                                            │                      │
+│                    │  QUICK ACTIONS                             │                      │
+│                    │  ┌────────────────────────────────────┐    │                      │
+│                    │  │ ▸ ○ Go to Dashboard            ⌘⇧D │    │                      │
+│                    │  │   ○ Go to Projects             ⌘⇧P │    │                      │
+│                    │  │   ○ Go to Agents               ⌘⇧A │    │                      │
+│                    │  │   ○ Go to Gates                ⌘⇧G │    │                      │
+│                    │  └────────────────────────────────────┘    │                      │
+│                    │                                            │                      │
+│                    │  PROJECTS                                  │                      │
+│                    │  ┌────────────────────────────────────┐    │                      │
+│                    │  │   ◉ Website Redesign      [OK] 67% │    │                      │
+│                    │  │   ◉ API Integration       [OK] 89% │    │                      │
+│                    │  │   ⚠ Data Pipeline        [WARN]45% │    │                      │
+│                    │  └────────────────────────────────────┘    │                      │
+│                    │                                            │                      │
+│                    │  AGENTS                                    │                      │
+│                    │  ┌────────────────────────────────────┐    │                      │
+│                    │  │   ◉ COO                   [OK] act │    │                      │
+│                    │  │   ◉ dev-001              [OK] proc │    │                      │
+│                    │  │   ◉ design-003           [OK] idle │    │                      │
+│                    │  └────────────────────────────────────┘    │                      │
+│                    │                                            │                      │
+│                    │  ───────────────────────────────────────   │                      │
+│                    │  ↑↓ Navigate   ↵ Select   esc Close        │                      │
+│                    ╰────────────────────────────────────────────╯                      │
+│                                                                                        │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Filtered Search State
+
+```
+╭────────────────────────────────────────────╮
+│ 🔍  >agent dev                          ⌘K │  ← Typed filter
+├────────────────────────────────────────────┤
+│                                            │
+│  MATCHING AGENTS (3)                       │
+│  ┌────────────────────────────────────┐    │
+│  │ ▸ ◉ dev-001      [OK] Processing   │    │  ← Highlighted row
+│  │   ◉ dev-002      [OK] Active       │    │
+│  │   ◎ dev-003      [OK] Idle         │    │
+│  └────────────────────────────────────┘    │
+│                                            │
+│  ACTIONS                                   │
+│  ┌────────────────────────────────────┐    │
+│  │   ○ View Agent Details         ↵   │    │
+│  │   ○ Send Message to Agent      ⌘M  │    │
+│  │   ○ View Agent Tasks           ⌘T  │    │
+│  │   ○ Pause Agent                ⌘P  │    │
+│  └────────────────────────────────────┘    │
+│                                            │
+╰────────────────────────────────────────────╯
+```
+
+### Command Prefix System
+
+| Prefix | Filter Type | Example |
+|--------|-------------|---------|
+| (none) | All | `website` - matches projects, agents, actions |
+| `>` | Actions only | `>go dash` - navigation commands |
+| `@` | Agents only | `@dev-001` - find specific agent |
+| `#` | Projects only | `#website` - find specific project |
+| `/` | System commands | `/theme dark` - settings |
+| `?` | Help | `?shortcuts` - show help |
+
+### Full Keyboard Shortcuts Reference
+
+```
+╭─────────────────────────────────────────────────────────────────────╮
+│                                                                     │
+│                    KEYBOARD SHORTCUTS                               │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  GLOBAL                                                             │
+│  ──────────────────────────────────────────────────────────────     │
+│  ⌘K              Open command palette                               │
+│  ⌘/              Open keyboard shortcuts                            │
+│  Esc             Close modal / Clear selection                      │
+│  ⌘⇧D             Go to Dashboard                                    │
+│  ⌘⇧P             Go to Projects                                     │
+│  ⌘⇧A             Go to Agents (Org Chart)                           │
+│  ⌘⇧G             Go to Gates (Approvals)                            │
+│                                                                     │
+│  NAVIGATION                                                         │
+│  ──────────────────────────────────────────────────────────────     │
+│  ↑ ↓              Navigate lists                                    │
+│  ← →              Navigate tabs / Collapse-Expand                   │
+│  ↵ Enter          Select / Open                                     │
+│  ⌘↵               Open in new tab                                   │
+│  Tab              Next focus                                        │
+│  ⇧Tab             Previous focus                                    │
+│                                                                     │
+│  ORG CHART                                                          │
+│  ──────────────────────────────────────────────────────────────     │
+│  + / -            Zoom in / out                                     │
+│  0                Reset zoom                                        │
+│  F                Fit to screen                                     │
+│  Space + Drag     Pan view                                          │
+│  Click            Select agent                                      │
+│  Double-click     Open agent detail                                 │
+│                                                                     │
+│  PROJECTS                                                           │
+│  ──────────────────────────────────────────────────────────────     │
+│  ⌘N               New project                                       │
+│  ⌘E               Edit selected                                     │
+│  ⌘⌫               Archive project                                   │
+│                                                                     │
+│  GATES                                                              │
+│  ──────────────────────────────────────────────────────────────     │
+│  A                Approve selected gate                             │
+│  R                Reject selected gate                              │
+│  V                View gate details                                 │
+│                                                                     │
+╰─────────────────────────────────────────────────────────────────────╯
+```
+
+### Command Palette Animations
+
+```
+OPEN SEQUENCE (⌘K pressed):
+  1. Background dims (0ms → 150ms, opacity 0 → 0.6)
+  2. Palette scales up (0ms → 200ms, scale 0.95 → 1.0)
+  3. Palette fades in (0ms → 150ms, opacity 0 → 1)
+  4. Input auto-focuses
+  5. Results fade in staggered (100ms delay per section)
+
+CLOSE SEQUENCE (Esc or click outside):
+  1. Palette scales down (0ms → 150ms, scale 1.0 → 0.95)
+  2. Palette fades out (0ms → 100ms, opacity 1 → 0)
+  3. Background fades (0ms → 200ms, opacity 0.6 → 0)
+
+SELECTION (↵ on item):
+  1. Selected item flashes Neural Blue border
+  2. Palette closes with fast exit (100ms)
+  3. Navigation/action executes
+```
+
+---
+
+## 4. EMPTY STATES
+
+### Philosophy
+Empty states in Neural Glass should feel like a calm void waiting to be filled - not broken or missing. The neural network is dormant, ready to awaken with activity.
+
+### Empty Dashboard (First-Time User)
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ ◇ AI CORP                                           🔍 Search    👤 CEO    ⚙ Settings │
+├───────────┬────────────────────────────────────────────────────────────────────────────┤
+│           │                                                                            │
+│  ◉ Dash   │                                                                            │
+│           │                                                                            │
+│  ○ Proj   │                     ╭──────────────────────────────────╮                   │
+│           │                     │                                  │                   │
+│  ○ Agents │                     │           ◇◇◇                    │                   │
+│           │                     │         ◇     ◇                  │                   │
+│  ○ Disc   │                     │        ◇   ○   ◇                 │   ← Dormant       │
+│           │                     │         ◇     ◇                  │     neural        │
+│  ○ Gates  │                     │           ◇◇◇                    │     network       │
+│           │                     │                                  │                   │
+│  ○ Integ  │                     │     Your Neural Network          │                   │
+│           │                     │        is Ready                  │                   │
+│  ─────    │                     │                                  │                   │
+│           │                     │  ─────────────────────────────   │                   │
+│  ○ Set    │                     │                                  │                   │
+│           │                     │  Start your first project to     │                   │
+│           │                     │  activate your AI workforce.     │                   │
+│           │                     │                                  │                   │
+│           │                     │      ╭──────────────────╮        │                   │
+│           │                     │      │  + New Project   │        │   ← Primary CTA   │
+│           │                     │      ╰──────────────────╯        │                   │
+│           │                     │                                  │                   │
+│           │                     │  or press ⌘K → "new project"     │                   │
+│           │                     │                                  │                   │
+│           │                     ╰──────────────────────────────────╯                   │
+│           │                                                                            │
+│           │     ┌────────────────┐  ┌────────────────┐  ┌────────────────┐            │
+│           │     │ 📖 Quick Start │  │ 🎓 Tutorial    │  │ 📚 Docs        │            │
+│           │     │    Guide       │  │    (5 min)     │  │    Reference   │            │
+│           │     └────────────────┘  └────────────────┘  └────────────────┘            │
+│           │                                                                            │
+└───────────┴────────────────────────────────────────────────────────────────────────────┘
+
+VISUAL NOTES:
+├── Dormant network: Faint dotted circles, very subtle pulse animation
+├── Text: Soft gray (#64748B), not harsh white
+├── CTA button: Full Neural Blue gradient, prominent
+├── Helper cards: Glass cards with icons, subtle hover glow
+└── Overall mood: Calm potential, not error or missing data
+```
+
+### Empty Projects List
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ ← Projects                                            + New Project    🔍 Filter ▾     │
+├─────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                         │
+│                                                                                         │
+│                                                                                         │
+│                              ╭──────────────────────────────╮                           │
+│                              │                              │                           │
+│                              │       ┌─────────────┐        │                           │
+│                              │       │    📁      │        │   ← Subtle folder icon    │
+│                              │       │    · · ·   │        │     with fading dots      │
+│                              │       └─────────────┘        │                           │
+│                              │                              │                           │
+│                              │     No Projects Yet          │                           │
+│                              │                              │                           │
+│                              │   Your AI workforce is       │                           │
+│                              │   standing by.               │                           │
+│                              │                              │                           │
+│                              │   ╭────────────────────╮     │                           │
+│                              │   │ + Create Project   │     │                           │
+│                              │   ╰────────────────────╯     │                           │
+│                              │                              │                           │
+│                              │   ⌘K → "#new" to quick-create│                           │
+│                              │                              │                           │
+│                              ╰──────────────────────────────╯                           │
+│                                                                                         │
+│                                                                                         │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Empty Agents / Org Chart
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ ← Agents                                                   🔍 Search    ⚙ View Options │
+├─────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                         │
+│                                                                                         │
+│                                      👤                                                 │
+│                                     YOU                                                 │
+│                                    (CEO)                                                │
+│                                      │                                                  │
+│                                · · · │ · · ·                                            │
+│                                      │                                                  │
+│                              ╭───────┴───────╮                                          │
+│                              │   ◎ ◎ ◎       │                                          │
+│                              │   Awaiting    │                                          │
+│                              │   Agents      │                                          │
+│                              ╰───────────────╯                                          │
+│                                                                                         │
+│                         Your workforce will appear here                                 │
+│                         when projects are started.                                      │
+│                                                                                         │
+│                         Agents are spawned automatically                                │
+│                         based on project requirements.                                  │
+│                                                                                         │
+│             ┌────────────────────────────────────────────────────────┐                  │
+│             │                                                        │                  │
+│             │   HOW IT WORKS:                                        │                  │
+│             │                                                        │                  │
+│             │   1. Create a project with requirements                │                  │
+│             │   2. COO analyzes and plans the work                   │                  │
+│             │   3. Specialized agents are spawned                    │                  │
+│             │   4. They appear here in real-time                     │                  │
+│             │                                                        │                  │
+│             │                ╭──────────────────╮                    │                  │
+│             │                │ + New Project    │                    │                  │
+│             │                ╰──────────────────╯                    │                  │
+│             │                                                        │                  │
+│             └────────────────────────────────────────────────────────┘                  │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Empty Gates / Approvals
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ ← Gates                                                               🔍 Filter ▾      │
+├─────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                         │
+│                                                                                         │
+│                                                                                         │
+│                              ╭──────────────────────────────╮                           │
+│                              │                              │                           │
+│                              │           ✓                  │                           │
+│                              │         ┌───┐                │   ← Checkmark in         │
+│                              │         │ ◉ │                │     approval gate        │
+│                              │         └───┘                │                           │
+│                              │                              │                           │
+│                              │     All Clear                │                           │
+│                              │                              │                           │
+│                              │   No pending approvals.      │                           │
+│                              │   Your agents are working    │                           │
+│                              │   autonomously.              │                           │
+│                              │                              │                           │
+│                              │   [OK] System operating      │                           │
+│                              │        normally              │                           │
+│                              │                              │                           │
+│                              ╰──────────────────────────────╯                           │
+│                                                                                         │
+│                                                                                         │
+│         Gate types that may require your approval:                                      │
+│         ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│         │ 🚀 Deploy    │  │ 💰 Budget    │  │ 🔒 Security  │  │ 🗑 Delete    │         │
+│         │   to Prod    │  │   Threshold  │  │   Review     │  │   Resources  │         │
+│         └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘         │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Empty Activity Log
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ NEURAL ACTIVITY LOG                                                      View All →    │
+├─────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                         │
+│                           · · · · · · · · · · · · · · ·                                 │
+│                                                                                         │
+│                              ◎ Listening...                                             │
+│                                                                                         │
+│                     Activity will appear here in real-time                              │
+│                     when agents begin working.                                          │
+│                                                                                         │
+│                           · · · · · · · · · · · · · · ·                                 │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Empty State Animations
+
+| State | Animation |
+|-------|-----------|
+| Dormant network | Slow pulse (4s cycle), faint glow |
+| Awaiting agents | Three orbs fade in sequence (1s offset) |
+| Listening | Gentle wave pattern in dots (2s) |
+| All clear | Checkmark draws in, then subtle pulse |
+
+---
+
+## 5. REFINED ORG CHART INTERACTIONS
+
+### Interaction Layer Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                         │
+│  ORG CHART INTERACTION ZONES                                                            │
+│                                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐   │
+│  │                                                                                 │   │
+│  │   TOOLBAR ZONE (Fixed Top)                                                      │   │
+│  │   ┌──────────────────────────────────────────────────────────────────────────┐  │   │
+│  │   │  ← Back   │  Zoom: [-] 100% [+]  │  Fit (F)  │  Layout: ▾  │  🔍 Search  │  │   │
+│  │   └──────────────────────────────────────────────────────────────────────────┘  │   │
+│  │                                                                                 │   │
+│  │   CANVAS ZONE (Pannable, Zoomable)                                              │   │
+│  │   ╔═════════════════════════════════════════════════════════════════════════╗   │   │
+│  │   ║                                                                         ║   │   │
+│  │   ║                              👤 CEO                                      ║   │   │
+│  │   ║                                │                                        ║   │   │
+│  │   ║                            ◉◉◉ COO                                       ║   │   │
+│  │   ║                           /   |   \                                     ║   │   │
+│  │   ║                         ◉     ◉     ◉                                   ║   │   │
+│  │   ║                        /|\   /|\   /|\                                  ║   │   │
+│  │   ║                       ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦                                 ║   │   │
+│  │   ║                                                                         ║   │   │
+│  │   ╚═════════════════════════════════════════════════════════════════════════╝   │   │
+│  │                                                                                 │   │
+│  │   MINIMAP ZONE (Fixed Bottom-Right)                                             │   │
+│  │   ┌─────────┐                                                                   │   │
+│  │   │  ┌──┐   │   Shows viewport position                                         │   │
+│  │   │  │▓▓│   │   Draggable viewport indicator                                    │   │
+│  │   │  └──┘   │                                                                   │   │
+│  │   └─────────┘                                                                   │   │
+│  │                                                                                 │   │
+│  └─────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Node Interaction States
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                         │
+│  AGENT NODE STATES                                                                      │
+│                                                                                         │
+│  ╭───────────────╮  DEFAULT                                                             │
+│  │               │  - Glass background at base opacity                                  │
+│  │   ◉ dev-001   │  - Status orb with standard pulse                                    │
+│  │     [OK]      │  - Name + bracketed status                                           │
+│  ╰───────────────╯                                                                      │
+│                                                                                         │
+│  ╭───────────────╮  HOVER                                                               │
+│  │▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│  - Glass brightens (5% → 10%)                                        │
+│  │▓▓ ◉ dev-001 ▓▓│  - Subtle lift (translateY: -2px)                                    │
+│  │▓▓   [OK]    ▓▓│  - Border glow appears                                               │
+│  ╰───────────────╯  - Connection lines from node highlight                              │
+│                     - Spring physics: stiffness 300, damping 25                         │
+│                                                                                         │
+│  ╭───────────────╮  CLICKED / SELECTED                                                  │
+│  │███████████████│  - Glass at maximum opacity (15%)                                    │
+│  │██ ◉ dev-001 ██│  - Neural Blue border (2px)                                          │
+│  │██   [OK]    ██│  - Shadow deepens                                                    │
+│  ╰───────────────╯  - All connections fully illuminated                                 │
+│         │           - Detail panel opens (see below)                                    │
+│         ▼                                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐   │
+│  │                                                                                 │   │
+│  │  AGENT DETAIL PANEL (Slides in from right or expands below on mobile)           │   │
+│  │                                                                                 │   │
+│  │  ╭─────────────────────────────────────────────────────────────────────────╮   │   │
+│  │  │  ◉ dev-001                                              [OK] Active     │   │   │
+│  │  │  Senior Developer                                                       │   │   │
+│  │  ├─────────────────────────────────────────────────────────────────────────┤   │   │
+│  │  │                                                                         │   │   │
+│  │  │  STATUS          Active - Processing task                               │   │   │
+│  │  │  REPORTS TO      Head of Engineering                                    │   │   │
+│  │  │  CURRENT TASK    Implementing auth flow for Website Redesign            │   │   │
+│  │  │  LOAD            ████████░░ 78%                                         │   │   │
+│  │  │  UPTIME          4h 23m                                                 │   │   │
+│  │  │                                                                         │   │   │
+│  │  │  ─────────────────────────────────────────────────────────────────────  │   │   │
+│  │  │                                                                         │   │   │
+│  │  │  RECENT ACTIVITY                                                        │   │   │
+│  │  │  • 2:34 PM  Completed component review                                  │   │   │
+│  │  │  • 2:12 PM  Started auth implementation                                 │   │   │
+│  │  │  • 1:58 PM  Received task assignment                                    │   │   │
+│  │  │                                                                         │   │   │
+│  │  │  ─────────────────────────────────────────────────────────────────────  │   │   │
+│  │  │                                                                         │   │   │
+│  │  │  ACTIONS                                                                │   │   │
+│  │  │  ╭───────────────╮  ╭───────────────╮  ╭───────────────╮               │   │   │
+│  │  │  │ 💬 Message    │  │ 📋 View Tasks │  │ ⏸ Pause       │               │   │   │
+│  │  │  ╰───────────────╯  ╰───────────────╯  ╰───────────────╯               │   │   │
+│  │  │                                                                         │   │   │
+│  │  ╰─────────────────────────────────────────────────────────────────────────╯   │   │
+│  │                                                                                 │   │
+│  └─────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                         │
+│  DOUBLE-CLICK                                                                           │
+│  - Opens full agent view (new page or modal)                                            │
+│  - Shows complete history, all tasks, conversation log                                  │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Connection Interactions
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                         │
+│  CONNECTION LINE STATES                                                                 │
+│                                                                                         │
+│  DEFAULT (Active Flow)                                                                  │
+│  ◉ ═══════════●═══════════●═══════════ ◉                                               │
+│     └── Animated particle traveling along line (2s cycle)                               │
+│     └── Line color: Synapse Cyan (#22D3EE)                                              │
+│     └── 40% opacity for line, 100% for particle                                         │
+│                                                                                         │
+│  DEFAULT (Dormant)                                                                      │
+│  ◉ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ◎                                               │
+│     └── Dashed line, no animation                                                       │
+│     └── Color: Glass Border (#FFFFFF1A)                                                 │
+│     └── 20% opacity                                                                     │
+│                                                                                         │
+│  HOVER (on connection line)                                                             │
+│  ◉ ═══════════════════════════════════ ◉                                               │
+│              │                                                                          │
+│              ▼                                                                          │
+│     ╭────────────────────────╮                                                          │
+│     │ dev-001 → dev-002      │   Connection tooltip                                     │
+│     │ 47 messages today      │                                                          │
+│     │ Last: 2m ago           │                                                          │
+│     ╰────────────────────────╯                                                          │
+│     └── Line brightens to 80%                                                           │
+│     └── Particle speed increases                                                        │
+│                                                                                         │
+│  ERROR STATE                                                                            │
+│  ◉ ≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋≋ ◉                                                        │
+│     └── Red wavy line (#EF4444)                                                         │
+│     └── Flickering animation                                                            │
+│     └── Click shows error details                                                       │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Zoom Behavior
+
+```
+ZOOM LEVELS:
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                          │
+│  25% - GALAXY VIEW                                                                       │
+│  ┌──────────────────────────────────────────────────────────────────────┐               │
+│  │     ·                                                                │               │
+│  │    ·  ·                      Nodes: Glowing dots only                │               │
+│  │   ·    ·                     Connections: Thin luminous lines        │               │
+│  │  ·  ·  ·  ·                  Labels: Hidden                          │               │
+│  │ · · · · · · ·                Good for: Overall system health view    │               │
+│  └──────────────────────────────────────────────────────────────────────┘               │
+│                                                                                          │
+│  50% - CONSTELLATION VIEW                                                                │
+│  ┌──────────────────────────────────────────────────────────────────────┐               │
+│  │         ◉                                                            │               │
+│  │        ╱│╲                   Nodes: Status orbs visible              │               │
+│  │      ◉  ◉  ◉                 Connections: Animated particles         │               │
+│  │     ╱│╲╱│╲╱│╲                Labels: Department names only           │               │
+│  │    ◦◦◦◦◦◦◦◦◦◦                Good for: Department-level view         │               │
+│  └──────────────────────────────────────────────────────────────────────┘               │
+│                                                                                          │
+│  100% - DEFAULT VIEW                                                                     │
+│  ┌──────────────────────────────────────────────────────────────────────┐               │
+│  │         ╭───────╮                                                    │               │
+│  │         │◉◉◉ COO│            Nodes: Full cards with name + status    │               │
+│  │         ╰───┬───╯            Connections: Full animation + tooltips  │               │
+│  │         ╭───┴───╮            Labels: All visible                     │               │
+│  │      ╭──┴───╮   ╭───┴──╮     Good for: Standard interaction          │               │
+│  │      │◉ Head│   │◉ Head│                                             │               │
+│  └──────────────────────────────────────────────────────────────────────┘               │
+│                                                                                          │
+│  200% - DETAIL VIEW                                                                      │
+│  ┌──────────────────────────────────────────────────────────────────────┐               │
+│  │  ╭─────────────────────────────────╮                                 │               │
+│  │  │  ◉ dev-001          [OK]        │   Nodes: Expanded with stats    │               │
+│  │  │  Senior Developer               │   Connections: Thick, detailed  │               │
+│  │  │  Load: ████████░░ 78%           │   Labels: Full detail           │               │
+│  │  │  Task: Implementing auth...     │   Good for: Individual focus    │               │
+│  │  ╰─────────────────────────────────╯                                 │               │
+│  └──────────────────────────────────────────────────────────────────────┘               │
+│                                                                                          │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Pan and Drag Interactions
+
+```
+PAN (Navigate Canvas):
+─────────────────────────────────────────────────────────────────────────
+Trigger:  Click + drag on empty canvas area
+          OR Space + click + drag anywhere
+          OR Two-finger drag on trackpad
+          OR Middle mouse button drag
+
+Animation: Immediate response (no delay)
+           Momentum scrolling with 0.95 friction
+           Boundary elasticity (rubber band at edges)
+           Spring physics: stiffness 150, damping 20
+
+DRAG (Reorganize - Admin Mode Only):
+─────────────────────────────────────────────────────────────────────────
+Trigger:  Click + hold (200ms) on agent node, then drag
+
+Visual Feedback:
+  1. Node lifts (scale 1.05, shadow deepens)
+  2. Drop zones highlight on valid parents
+  3. Ghost preview shows where node will land
+  4. Invalid zones show red outline
+
+  ┌───────────────────────────────────────────────────┐
+  │                                                   │
+  │         ◉ Current Parent                          │
+  │        ╱│╲                                        │
+  │      ◉  │  ◉                                      │
+  │         │                                         │
+  │    ┌────┴────┐  ← Dragging node                   │
+  │    │ ◉ dev-01│                                    │
+  │    │ [drag]  │                                    │
+  │    └─────────┘                                    │
+  │         │                                         │
+  │         ▼                                         │
+  │    ╭─────────╮  ← Drop zone (valid)               │
+  │    │▓▓▓▓▓▓▓▓▓│  - Green border pulse              │
+  │    │▓ DROP ▓▓│  - "Move under [agent]" tooltip    │
+  │    ╰─────────╯                                    │
+  │                                                   │
+  └───────────────────────────────────────────────────┘
+
+On Drop:
+  - Spring animation to new position (500ms)
+  - Connection lines redraw with staggered animation
+  - Success toast: "dev-001 now reports to [new parent]"
+  - Undo available for 10 seconds
+
+Invalid Drop:
+  - Red flash on target
+  - Node springs back to original position
+  - Toast: "Cannot reorganize: [reason]"
+```
+
+### Layout Options
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                         │
+│  LAYOUT DROPDOWN                                                                        │
+│                                                                                         │
+│  ╭─────────────────────────╮                                                            │
+│  │  Layout: Hierarchy   ▾  │                                                            │
+│  ├─────────────────────────┤                                                            │
+│  │  ● Hierarchy (Tree)     │   CEO at top, cascading down                               │
+│  │  ○ Radial               │   CEO at center, rings outward                             │
+│  │  ○ Force-Directed       │   Physics simulation, clusters emerge                      │
+│  │  ○ Department Columns   │   Vertical lanes per department                            │
+│  ╰─────────────────────────╯                                                            │
+│                                                                                         │
+│  HIERARCHY (Default)              RADIAL                                                │
+│                                                                                         │
+│        👤                              ◦ ◦ ◦                                             │
+│        │                            ◦   ◉   ◦                                           │
+│       ◉◉◉                          ◦  ╱ │ ╲  ◦                                          │
+│      / │ \                        ◉──◉◉◉──◉                                             │
+│     ◉  ◉  ◉                        ◦  ╲ │ ╱  ◦                                          │
+│    /|\ |\ /|\                       ◦   ◉   ◦                                           │
+│   ◦ ◦◦◦◦◦◦ ◦ ◦                        ◦ ◦ ◦                                             │
+│                                                                                         │
+│  FORCE-DIRECTED                  DEPARTMENT COLUMNS                                     │
+│                                                                                         │
+│     ◦ ◦     ◦                    DEV    DES    RES                                      │
+│      ◉───◉◉◉───◉                  │      │      │                                       │
+│     ╱ ╲   │   ╱ ╲                 ◉      ◉      ◉                                       │
+│    ◦   ◉──┼──◉   ◦               ╱│╲    ╱│╲    ╱│╲                                      │
+│         ╲ │ ╱                   ◦◦◦ ◦  ◦◦ ◦   ◦ ◦◦                                      │
+│          ◦◦◦                                                                            │
+│                                                                                         │
+│  Transition: 800ms spring animation between layouts                                     │
+│  Nodes find new positions via interpolation                                             │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Keyboard Shortcuts in Org Chart
+
+```
+NAVIGATION:
+  Arrow keys      Move selection to adjacent node
+  Tab             Next node (depth-first)
+  Shift+Tab       Previous node
+  Home            Select CEO/root node
+  End             Select last worker
+
+VIEW:
+  +/=             Zoom in
+  -               Zoom out
+  0               Reset to 100%
+  F               Fit all nodes in view
+  1-4             Switch layout (1=Hierarchy, 2=Radial, etc.)
+
+SELECTION:
+  Enter           Open detail panel for selected
+  Space           Toggle expand/collapse children
+  Escape          Deselect / Close panel
+  Cmd+A           Select all (for bulk operations)
+
+SEARCH:
+  /               Focus search field
+  Cmd+F           Find agent by name
+```
+
+---
+
+## 6. INCORPORATED: BRACKETED STATUS BADGES
+
+From Concept B's Command Terminal aesthetic, incorporating text-based status indicators alongside the visual orbs.
+
+### Badge Design
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                         │
+│  STATUS BADGE SYSTEM                                                                    │
+│                                                                                         │
+│  Combines A's animated orbs with B's scannable text badges                              │
+│                                                                                         │
+│  BADGE VARIANTS:                                                                        │
+│                                                                                         │
+│  ╭─────────────────────────╮                                                            │
+│  │  ◉ dev-001      [OK]    │   OK = Active, no issues                                   │
+│  ╰─────────────────────────╯   Color: Green text on transparent                         │
+│                                                                                         │
+│  ╭─────────────────────────╮                                                            │
+│  │  ◉ dev-002      [PROC]  │   PROC = Processing task                                   │
+│  ╰─────────────────────────╯   Color: Amber text on transparent                         │
+│                                                                                         │
+│  ╭─────────────────────────╮                                                            │
+│  │  ⚠ dev-003      [WARN]  │   WARN = Needs attention                                   │
+│  ╰─────────────────────────╯   Color: Red text on transparent                           │
+│                                                                                         │
+│  ╭─────────────────────────╮                                                            │
+│  │  ◎ dev-004      [IDLE]  │   IDLE = Available, not working                            │
+│  ╰─────────────────────────╯   Color: Gray text on transparent                          │
+│                                                                                         │
+│  ╭─────────────────────────╮                                                            │
+│  │  ◉ dev-005      [WAIT]  │   WAIT = Waiting on dependency                             │
+│  ╰─────────────────────────╯   Color: Purple text on transparent                        │
+│                                                                                         │
+│  ╭─────────────────────────╮                                                            │
+│  │  ○ dev-006      [OFF]   │   OFF = Offline/terminated                                 │
+│  ╰─────────────────────────╯   Color: Dark gray, no orb glow                            │
+│                                                                                         │
+│  USAGE IN CONTEXT:                                                                      │
+│                                                                                         │
+│  Dashboard metric cards:     "12 agents [OK]"                                           │
+│  Workflow list items:        "Website Redesign [OK] 67%"                                │
+│  Agent nodes:                "◉ dev-001 [PROC]"                                         │
+│  Activity log:               "[OK] 2:34 PM design-agent completed task"                 │
+│  Command palette results:    "◉ dev-001 [OK] Processing"                                │
+│                                                                                         │
+│  CSS:                                                                                   │
+│  .badge {                                                                               │
+│    font-family: 'JetBrains Mono', monospace;                                            │
+│    font-size: 11px;                                                                     │
+│    font-weight: 500;                                                                    │
+│    letter-spacing: 0.05em;                                                              │
+│    text-transform: uppercase;                                                           │
+│  }                                                                                      │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Badge + Orb Combination Rule
+
+```
+VISUAL HIERARCHY:
+
+At a glance (scanning):
+  [OK]  [WARN]  [PROC]    ← Text badges are scannable
+
+On focus (detail):
+  ◉ Active orb           ← Animated orb provides richness
+
+Together:
+  ◉ agent-name [OK]      ← Orb for visual status, badge for confirmation
+                          Orb animates, badge is static text
+                          Badge appears on hover or always (user preference)
+
+SETTING: "Show status badges"
+  - Always: Badges visible on all elements
+  - On Hover: Badges appear when hovering
+  - Never: Only orbs (cleaner, but less accessible)
+```
+
+---
+
+## 7. INCORPORATED: SPRING-PHYSICS ANIMATIONS
+
+From Concept C's Spatial Layers, incorporating natural spring physics for a more organic feel.
+
+### Spring Configuration Tokens
+
+```css
+:root {
+  /* Spring Physics Presets */
+
+  /* Snappy - For quick interactions (buttons, toggles) */
+  --spring-snappy-stiffness: 400;
+  --spring-snappy-damping: 30;
+  --spring-snappy-mass: 1;
+
+  /* Smooth - For standard transitions (cards, panels) */
+  --spring-smooth-stiffness: 300;
+  --spring-smooth-damping: 25;
+  --spring-smooth-mass: 1;
+
+  /* Gentle - For large movements (page transitions, org chart) */
+  --spring-gentle-stiffness: 150;
+  --spring-gentle-damping: 20;
+  --spring-gentle-mass: 1;
+
+  /* Bouncy - For playful feedback (success states, notifications) */
+  --spring-bouncy-stiffness: 200;
+  --spring-bouncy-damping: 10;
+  --spring-bouncy-mass: 0.8;
+
+  /* Heavy - For substantial elements (modals, drawers) */
+  --spring-heavy-stiffness: 250;
+  --spring-heavy-damping: 35;
+  --spring-heavy-mass: 1.2;
+}
+```
+
+### Animation Application Matrix
+
+| Element | Spring Type | Stiffness | Damping | Notes |
+|---------|-------------|-----------|---------|-------|
+| Button hover | Snappy | 400 | 30 | Immediate response |
+| Button press | Snappy | 500 | 35 | Quick down-up |
+| Card hover lift | Smooth | 300 | 25 | Gentle rise |
+| Card selection | Smooth | 300 | 25 | Border + glow |
+| Modal open | Heavy | 250 | 35 | Substantial feel |
+| Modal close | Gentle | 200 | 25 | Soft exit |
+| Toast enter | Bouncy | 200 | 10 | Attention-getting |
+| Org chart pan | Gentle | 150 | 20 | Momentum |
+| Node drag | Smooth | 300 | 25 | Responsive |
+| Node drop | Bouncy | 200 | 12 | Satisfying settle |
+| Layout switch | Gentle | 150 | 20 | Smooth reflow |
+| Sidebar toggle | Smooth | 300 | 28 | Crisp but natural |
+| Command palette | Bouncy | 180 | 15 | Snappy popup |
+
+### Spring vs CSS Timing Comparison
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                         │
+│  CSS ease-out (200ms)          vs        Spring (stiffness: 300, damping: 25)           │
+│                                                                                         │
+│  Progress over time:                                                                    │
+│                                                                                         │
+│  100% ─┬─────────────────────          100% ─┬─────────────────────                     │
+│        │    ████████                         │       ██████                             │
+│   75% ─┤  ██       ████                  75% ─┤     ██     ███                           │
+│        │ █              ██                   │    █           █████                     │
+│   50% ─┤█                 ███            50% ─┤  █                  █ (overshoot)        │
+│        │                     ██              │ █                                        │
+│   25% ─┤                       █         25% ─┤█                                         │
+│        │                        █            │                                          │
+│    0% ─┴─────────────────────────        0% ─┴─────────────────────────                 │
+│        0ms                  200ms            0ms    100ms   200ms   300ms               │
+│                                                                                         │
+│  CSS: Fixed duration, predictable         Spring: Natural overshoot, organic feel       │
+│       Good for: Simple state changes              Good for: Physical interactions       │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Implementation Example (Framer Motion)
+
+```jsx
+// Button with spring hover
+const Button = ({ children }) => (
+  <motion.button
+    whileHover={{
+      scale: 1.02,
+      boxShadow: "0 0 20px rgba(59, 130, 246, 0.3)"
+    }}
+    whileTap={{ scale: 0.98 }}
+    transition={{
+      type: "spring",
+      stiffness: 400,
+      damping: 30
+    }}
+  >
+    {children}
+  </motion.button>
+);
+
+// Card with smooth hover lift
+const Card = ({ children }) => (
+  <motion.div
+    whileHover={{
+      y: -4,
+      backgroundColor: "rgba(255, 255, 255, 0.08)"
+    }}
+    transition={{
+      type: "spring",
+      stiffness: 300,
+      damping: 25
+    }}
+  >
+    {children}
+  </motion.div>
+);
+
+// Org chart node drag
+const AgentNode = ({ agent }) => (
+  <motion.div
+    drag
+    dragElastic={0.1}
+    dragTransition={{
+      bounceStiffness: 200,
+      bounceDamping: 12
+    }}
+    whileDrag={{
+      scale: 1.05,
+      boxShadow: "0 20px 40px rgba(0, 0, 0, 0.3)"
+    }}
+  >
+    <AgentContent agent={agent} />
+  </motion.div>
+);
+```
+
+### Neural Pathway Spring Animation
+
+```
+CONNECTION LINE PARTICLE ANIMATION:
+
+Instead of linear movement, particles now use spring easing:
+
+  ◉ ─────────●──────────────────────────────── ◉
+             │
+             └── Particle position uses spring interpolation
+                 - Accelerates from node
+                 - Slight overshoot at midpoint
+                 - Decelerates into destination
+
+Configuration:
+  const particleSpring = useSpring({
+    from: { progress: 0 },
+    to: { progress: 1 },
+    config: {
+      tension: 120,    // Lower = slower, floatier
+      friction: 14,    // Lower = more oscillation
+    },
+    loop: true,
+  });
+
+Visual Effect:
+  - Particles feel like they have mass
+  - Slight "pulse" as they travel
+  - More organic than linear CSS animation
+```
+
+---
+
+## 8. CSS CUSTOM PROPERTIES (Complete)
+
+Consolidating all enhanced specifications into a unified token system:
+
+```css
+:root {
+  /* ═══════════════════════════════════════════════════════════════
+     NEURAL GLASS DESIGN TOKENS - ROUND 2 ENHANCED
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* ─────────────────────────────────────────────────────────────────
+     DARK MODE COLORS (Default)
+     ───────────────────────────────────────────────────────────────── */
+  --color-void: #0A0A0F;
+  --color-cosmos: #12121A;
+  --color-neural: #3B82F6;
+  --color-synapse: #22D3EE;
+  --color-plasma: #F8FAFC;
+  --color-muted: #64748B;
+
+  /* Status */
+  --color-ok: #10B981;
+  --color-ok-glow: rgba(16, 185, 129, 0.25);
+  --color-proc: #F59E0B;
+  --color-proc-glow: rgba(245, 158, 11, 0.25);
+  --color-warn: #EF4444;
+  --color-warn-glow: rgba(239, 68, 68, 0.25);
+  --color-wait: #8B5CF6;
+  --color-wait-glow: rgba(139, 92, 246, 0.25);
+  --color-idle: #94A3B8;
+  --color-off: #475569;
+
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-bg-hover: rgba(255, 255, 255, 0.08);
+  --glass-bg-active: rgba(255, 255, 255, 0.12);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: 24px;
+
+  /* ─────────────────────────────────────────────────────────────────
+     LIGHT MODE COLORS
+     ───────────────────────────────────────────────────────────────── */
+  --light-color-base: #FAFBFC;
+  --light-color-surface: #F1F3F5;
+  --light-color-card: #FFFFFF;
+  --light-color-neural: #2563EB;
+  --light-color-synapse: #0D9488;
+  --light-color-text: #1E293B;
+  --light-color-muted: #64748B;
+
+  /* Light Status */
+  --light-ok-bg: #DCFCE7;
+  --light-ok-border: #22C55E;
+  --light-ok-text: #166534;
+  --light-proc-bg: #FEF3C7;
+  --light-proc-border: #F59E0B;
+  --light-proc-text: #92400E;
+  --light-warn-bg: #FEE2E2;
+  --light-warn-border: #EF4444;
+  --light-warn-text: #991B1B;
+
+  /* Light Glass */
+  --light-glass-bg: rgba(255, 255, 255, 0.8);
+  --light-glass-border: rgba(0, 0, 0, 0.06);
+  --light-glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+
+  /* ─────────────────────────────────────────────────────────────────
+     TYPOGRAPHY
+     ───────────────────────────────────────────────────────────────── */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-display: 'Outfit', var(--font-sans);
+
+  /* ─────────────────────────────────────────────────────────────────
+     SPACING
+     ───────────────────────────────────────────────────────────────── */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* ─────────────────────────────────────────────────────────────────
+     RADII
+     ───────────────────────────────────────────────────────────────── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* ─────────────────────────────────────────────────────────────────
+     SHADOWS
+     ───────────────────────────────────────────────────────────────── */
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --shadow-glow-neural: 0 0 20px rgba(59, 130, 246, 0.3);
+  --shadow-glow-success: 0 0 20px rgba(16, 185, 129, 0.3);
+  --shadow-glow-warn: 0 0 20px rgba(239, 68, 68, 0.3);
+
+  /* ─────────────────────────────────────────────────────────────────
+     SPRING PHYSICS
+     ───────────────────────────────────────────────────────────────── */
+  --spring-snappy: 400 30 1;    /* stiffness damping mass */
+  --spring-smooth: 300 25 1;
+  --spring-gentle: 150 20 1;
+  --spring-bouncy: 200 10 0.8;
+  --spring-heavy: 250 35 1.2;
+
+  /* ─────────────────────────────────────────────────────────────────
+     Z-INDEX LAYERS
+     ───────────────────────────────────────────────────────────────── */
+  --z-base: 0;
+  --z-card: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 500;
+  --z-modal: 510;
+  --z-command-palette: 600;
+  --z-toast: 700;
+
+  /* ─────────────────────────────────────────────────────────────────
+     BREAKPOINTS (for reference)
+     ───────────────────────────────────────────────────────────────── */
+  /* --bp-mobile: 0px - 767px */
+  /* --bp-tablet: 768px - 1199px */
+  /* --bp-desktop: 1200px+ */
+
+  /* ─────────────────────────────────────────────────────────────────
+     MOBILE TOUCH TARGETS
+     ───────────────────────────────────────────────────────────────── */
+  --touch-target-min: 44px;
+  --touch-target-comfortable: 48px;
+}
+
+/* Theme toggle classes */
+[data-theme="light"] {
+  --color-void: var(--light-color-base);
+  --color-cosmos: var(--light-color-surface);
+  --color-neural: var(--light-color-neural);
+  --color-synapse: var(--light-color-synapse);
+  --color-plasma: var(--light-color-text);
+  --glass-bg: var(--light-glass-bg);
+  --glass-border: var(--light-glass-border);
+  --shadow-card: var(--light-glass-shadow);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+---
+
+## 9. SUMMARY OF ROUND 2 ENHANCEMENTS
+
+### What's New
+
+| Enhancement | Description |
+|-------------|-------------|
+| **Mobile Layout** | Complete responsive wireframes for portrait view, bottom tab navigation, list-based org chart, touch-optimized interactions |
+| **Light Mode** | Full light theme with inverted glass treatment, accessible status colors, watercolor neural traces |
+| **Command Palette** | ⌘K overlay with search, prefix filtering, keyboard navigation, action shortcuts |
+| **Empty States** | Designs for first-time user, no projects, no agents, no gates, empty activity log |
+| **Org Chart Interactions** | Detailed hover/click/drag/zoom behaviors, connection interactions, layout options, minimap |
+| **Status Badges** | [OK] [WARN] [PROC] text badges from Concept B for scannability |
+| **Spring Physics** | Natural spring animations from Concept C replacing linear CSS easing |
+
+### Design System Completeness
+
+```
+ROUND 1 COVERAGE:
+  ✓ Visual direction
+  ✓ Color palette (dark)
+  ✓ Typography
+  ✓ Component styles
+  ✓ Dashboard wireframe
+  ✓ Org chart concept
+  ✓ Interaction patterns
+  ✓ Animation specs
+
+ROUND 2 ADDITIONS:
+  ✓ Mobile responsive layouts
+  ✓ Light mode variant
+  ✓ Keyboard shortcuts system
+  ✓ Empty states
+  ✓ Detailed org chart interactions
+  ✓ Cross-concept incorporations
+  ✓ Unified CSS token system
+```
+
+### Remaining for Production
+
+- [ ] Component library implementation
+- [ ] Accessibility audit (WCAG 2.1 AA)
+- [ ] Performance budget documentation
+- [ ] Animation frame budget testing
+- [ ] Real device mobile testing
+- [ ] User testing with CEO persona
+
+---
+
+*Concept A: Neural Glass Enhanced - Round 2*
+*"Intelligence Made Visible"*
+*AI Corp Design System*

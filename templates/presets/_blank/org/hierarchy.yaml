@@ -1,0 +1,42 @@
+# Minimal Organizational Hierarchy
+# Customize this for your industry
+
+version: "1.0"
+
+levels:
+  - name: executive
+    rank: 1
+    roles: [coo]
+
+  - name: manager
+    rank: 2
+    roles: [manager]
+
+  - name: worker
+    rank: 3
+    roles: [worker]
+
+reporting_chains:
+  coo:
+    reports_to: ceo  # Human CEO
+    direct_reports: [manager]
+
+  manager:
+    reports_to: coo
+    direct_reports: []  # Workers assigned dynamically
+
+communication_flows:
+  downchain:
+    description: "Task assignment flows down"
+    direction: superior -> subordinate
+    required_fields: [task_id, priority, context]
+
+  upchain:
+    description: "Status reports flow up"
+    direction: subordinate -> superior
+    required_fields: [task_id, status, summary]
+
+escalation_policy:
+  triggers:
+    - blocked_for_hours: 4
+    - scope_change_detected: true

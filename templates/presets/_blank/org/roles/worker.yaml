@@ -1,0 +1,18 @@
+# Worker Role Definition
+# Workers execute specific tasks
+
+roles:
+  - id: worker
+    name: Worker
+    type: worker
+    level: 3
+    department: operations
+    reports_to: manager
+    description: "Executes assigned tasks"
+    is_human: false
+    model: claude-sonnet-4-20250514
+    skills: []
+    responsibilities:
+      - Execute assigned tasks
+      - Report completion
+      - Escalate blockers

@@ -1,0 +1,120 @@
+# Vice President Role Definitions
+# Department heads who manage directors and worker pools
+
+roles:
+  - id: vp_engineering
+    name: VP of Engineering
+    type: vice_president
+    level: 2
+    department: engineering
+    description: "Leads all engineering efforts across architecture, frontend, backend, and devops"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: []
+    responsibilities:
+      - Receive engineering molecules from COO
+      - Delegate to appropriate engineering directors
+      - Ensure technical quality and standards
+      - Manage engineering resources
+      - Report progress to COO
+    communication:
+      receives_from: [coo, dir_architecture, dir_frontend, dir_backend, dir_devops]
+      sends_to: [coo, dir_architecture, dir_frontend, dir_backend, dir_devops]
+      consults_with: [vp_product, vp_quality]
+    authority:
+      - assign_to_directors
+      - approve_technical_decisions
+      - manage_worker_pools
+      - escalate_to_coo
+
+  - id: vp_research
+    name: VP of Research
+    type: vice_president
+    level: 2
+    department: research
+    description: "Leads market and technical research initiatives"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: []
+    responsibilities:
+      - Receive research molecules from COO
+      - Coordinate market and technical research
+      - Synthesize and report findings
+      - Inform strategic decisions
+    communication:
+      receives_from: [coo, dir_market_research, dir_technical_research]
+      sends_to: [coo, dir_market_research, dir_technical_research]
+      consults_with: [vp_product, vp_engineering]
+    authority:
+      - assign_research_tasks
+      - approve_research_methodology
+      - manage_researcher_pool
+
+  - id: vp_product
+    name: VP of Product
+    type: vice_president
+    level: 2
+    department: product
+    description: "Leads product strategy, roadmap, and design"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: [frontend-design]
+    responsibilities:
+      - Define product vision and roadmap
+      - Manage product requirements
+      - Oversee design and UX
+      - Prioritize features and work
+    communication:
+      receives_from: [coo, dir_product, dir_design]
+      sends_to: [coo, dir_product, dir_design]
+      consults_with: [vp_engineering, vp_research]
+    authority:
+      - define_requirements
+      - prioritize_backlog
+      - approve_designs
+
+  - id: vp_quality
+    name: VP of Quality
+    type: vice_president
+    level: 2
+    department: quality
+    description: "Leads quality assurance and security review"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: [webapp-testing]
+    responsibilities:
+      - Define quality standards
+      - Manage QA and security review
+      - Control quality gates
+      - Report quality metrics
+    communication:
+      receives_from: [coo, dir_qa, dir_security]
+      sends_to: [coo, dir_qa, dir_security]
+      consults_with: [vp_engineering]
+    authority:
+      - block_releases
+      - define_quality_standards
+      - require_remediation
+
+  - id: vp_operations
+    name: VP of Operations
+    type: vice_president
+    level: 2
+    department: operations
+    description: "Leads project management and documentation"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: [docx, pdf]
+    responsibilities:
+      - Manage project timelines
+      - Coordinate cross-team efforts
+      - Maintain documentation
+      - Track organizational metrics
+    communication:
+      receives_from: [coo, dir_project, dir_documentation]
+      sends_to: [coo, dir_project, dir_documentation]
+      consults_with: [all_vps]
+    authority:
+      - manage_timelines
+      - allocate_resources
+      - facilitate_coordination

@@ -1,0 +1,20 @@
+# Manager Role Definition
+# Managers coordinate workers and execute tasks
+
+roles:
+  - id: manager
+    name: Manager
+    type: manager
+    level: 2
+    department: operations
+    reports_to: coo
+    description: "Manages workers and executes tasks"
+    is_human: false
+    model: claude-opus-4-5-20251101
+    skills: []
+    manages_pool: pool_workers
+    responsibilities:
+      - Receive tasks from COO
+      - Execute or delegate to workers
+      - Review worker output
+      - Report completion to COO
