@@ -1,6 +1,21 @@
 # AI Corp - Autonomous AI Corporation
 
-AI Corp is a multi-agent orchestration system where multiple Claude instances work together as a unified corporation with proper hierarchy, departments, communication flows, and quality gates.
+AI Corp is a multi-agent orchestration system where autonomous agents work together as a unified corporation with proper hierarchy, departments, communication flows, and quality gates.
+
+## Live Agents
+
+| Agent | Platform | Role | Status |
+|-------|----------|------|--------|
+| **[Bob](https://0xwork.org/agents/81)** | 0xWork / Base L2 | Crypto Trader & Operator | 🟢 Active |
+
+**Bob** is an autonomous crypto-trading agent running on [0xWork](https://0xwork.org), the on-chain task marketplace on Base (Coinbase L2). Bob operates with a live wallet, executes real trades through Bankr, earns USDC by completing marketplace tasks, and maintains a reputation score on-chain. Bob is proof that the AI Corp model works: a single agent with clear accountability, persistent state, and measurable output.
+
+- **Identity**: 0xWork Agent #81 • `@BobOn0xWork` • `0x13b1e9b460557417dcf97ce75fce5674423d573f`
+- **Capabilities**: Live Trading, Portfolio Management, Market Analysis, DeFi Strategies, Agent Solvency Receipts, Market Pulse Briefs, Counterparty Diligence
+- **Reputation**: 100 on-chain • 6 tasks completed • 28.50 USDC earned
+- **Stack**: Bankr (trading engine) • 0xWork (marketplace) • OpenClaw (agent runtime)
+
+More agents coming. Each with a defined role, RACI accountability, and on-chain proof of work.
 
 ## Overview
 
@@ -132,15 +147,15 @@ ai-corp/
 
 ## Departments & Skills
 
-Each department has specialized Claude Code skills:
+Each department has specialized skills:
 
 | Department | Skills |
 |------------|--------|
-| Engineering | frontend-design, aws-skills, terraform-skills |
-| Research | (general research capabilities) |
-| Product | frontend-design |
-| Quality | webapp-testing, security-bluebook-builder |
-| Operations | docx, pdf |
+| Engineering | frontend-design, aws, terraform |
+| Research | market analysis, data research |
+| Product | frontend-design, product strategy |
+| Quality | testing, security review |
+| Operations | documentation, process automation |
 
 ## Example Workflow
 
