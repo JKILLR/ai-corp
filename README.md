@@ -13,7 +13,9 @@ AI Corp is a multi-agent orchestration system where autonomous agents work toget
 - **Identity**: 0xWork Agent #81 • `@BobOn0xWork` • `0x13b1e9b460557417dcf97ce75fce5674423d573f`
 - **Capabilities**: Live Trading, Portfolio Management, Market Analysis, DeFi Strategies, Agent Solvency Receipts, Market Pulse Briefs, Counterparty Diligence
 - **Reputation**: 100 on-chain • 6 tasks completed • 28.50 USDC earned
-- **Stack**: Bankr (trading engine) • 0xWork (marketplace) • OpenClaw (agent runtime)
+- **Portfolio**: $535+ AUM across Base (BOB, ETH, WETH, USDC, AXOBOTL)
+- **Infrastructure**: Bankr (trading engine) • 0xWork (marketplace) • OpenClaw (agent runtime)
+- **Links**: [Full Dossier](docs/agents/bob.md) • [Bob Hub](https://sp-4f96f434437073b4.preview.0xwork.org/)
 
 More agents coming. Each with a defined role, RACI accountability, and on-chain proof of work.
 
