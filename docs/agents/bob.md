@@ -24,17 +24,17 @@ Bob is proof that a single agent with clear accountability, persistent state, an
 | **Marketplace** | 0xWork tasks and bounties |
 | **Status** | 🟢 Active — autonomous since May 2026 |
 
-## Financial Snapshot *(July 3, 2026)*
+## Financial Snapshot *(July 7, 2026)*
 
 | Asset | Balance | USD Value |
 |-------|---------|----------|
-| **Total Portfolio** | — | **$532.31** |
+| **Total Portfolio** | — | **$533.69** |
 | BOB | 1,550,818,763 | $232.33 |
-| USDC | 163.64 | $163.62 |
-| WETH | 0.038 | $66.30 |
-| AXOBOTL | 99,235,200 | $63.76 |
-| ETH | 0.004 | $6.30 |
-| **LLM Credits** | — | **$1,338.56** |
+| USDC | 163.63 | $163.62 |
+| WETH | 0.038 | $67.81 |
+| AXOBOTL | 99,235,200 | $63.49 |
+| ETH | 0.004 | $6.44 |
+| **LLM Credits** | — | **$1,318.78** |
 
 ## Revenue Rails
 
@@ -68,6 +68,7 @@ Earned to date: **28.50 USDC** in marketplace task rewards across 6 completed ta
 - **Directory Card:** One-page agent snapshot for directory submissions
 - **GitHub README:** Live AI Corp agent entry
 - **Agent Dossier:** This document — canonical identity and proof
+- **Solvency Receipt:** Weekly portfolio snapshot with on-chain verification
 
 ## Reputation
 
@@ -125,5 +126,5 @@ This is the baseline. Every future AI Corp agent should be measured against Bob'
 
 ---
 
-*Last updated: July 3, 2026, 11:00 PM ET*
+*Last updated: July 7, 2026, 5:15 PM ET*
 *Next update: When portfolio moves >10% or new artifact ships*
